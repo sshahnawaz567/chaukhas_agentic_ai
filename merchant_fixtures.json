@@ -1,0 +1,228 @@
+
+[
+  {
+    "merchant_id": "M001",
+    "name": "Sharma Kirana Store",
+    "gmv_30d": 185000,
+    "device": "soundbox",
+    "settlements": [
+      {"id": "SET-48219", "amount": 6200, "status": "success", "cause": null},
+      {"id": "SET-48305", "amount": 4150, "status": "success", "cause": null}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": true, "max_amount": 50000}
+  },
+  {
+    "merchant_id": "M002",
+    "name": "Patel Electronics",
+    "gmv_30d": 920000,
+    "device": "pos",
+    "settlements": [
+      {"id": "SET-51002", "amount": 32500, "status": "failed", "cause": "IFSC_MISMATCH"},
+      {"id": "SET-51088", "amount": 18700, "status": "success", "cause": null}
+    ],
+    "tickets": [{"id": "TKT-77201", "issue": "Settlement nahi aaya 2 din se", "status": "open"}],
+    "loan_eligibility": {"eligible": true, "max_amount": 200000}
+  },
+  {
+    "merchant_id": "M003",
+    "name": "Lakshmi Tea Stall",
+    "gmv_30d": 42000,
+    "device": "qr",
+    "settlements": [
+      {"id": "SET-33091", "amount": 1250, "status": "success", "cause": null}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": false, "max_amount": 0}
+  },
+  {
+    "merchant_id": "M004",
+    "name": "Reddy Mobile Shop",
+    "gmv_30d": 340000,
+    "device": "pos",
+    "settlements": [
+      {"id": "SET-66120", "amount": 24800, "status": "pending", "cause": "BANK_DOWN"}
+    ],
+    "tickets": [{"id": "TKT-77455", "issue": "Payment stuck in pending", "status": "open"}],
+    "loan_eligibility": {"eligible": true, "max_amount": 80000}
+  },
+  {
+    "merchant_id": "M005",
+    "name": "Verma General Store",
+    "gmv_30d": 128000,
+    "device": "soundbox",
+    "settlements": [
+      {"id": "SET-71209", "amount": 5600, "status": "success", "cause": null}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": true, "max_amount": 35000}
+  },
+  {
+    "merchant_id": "M006",
+    "name": "Fatima Beauty Parlour",
+    "gmv_30d": 76000,
+    "device": "qr",
+    "settlements": [
+      {"id": "SET-80120", "amount": 2400, "status": "failed", "cause": "KYC_PENDING"}
+    ],
+    "tickets": [{"id": "TKT-78001", "issue": "KYC resubmit karna hai", "status": "open"}],
+    "loan_eligibility": {"eligible": false, "max_amount": 0}
+  },
+  {
+    "merchant_id": "M007",
+    "name": "Singh Auto Spares",
+    "gmv_30d": 560000,
+    "device": "pos",
+    "settlements": [
+      {"id": "SET-82031", "amount": 19500, "status": "success", "cause": null},
+      {"id": "SET-82099", "amount": 22100, "status": "success", "cause": null}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": true, "max_amount": 150000}
+  },
+  {
+    "merchant_id": "M008",
+    "name": "Iyer Dosa Corner",
+    "gmv_30d": 95000,
+    "device": "soundbox",
+    "settlements": [
+      {"id": "SET-85011", "amount": 3800, "status": "success", "cause": null}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": true, "max_amount": 25000}
+  },
+  {
+    "merchant_id": "M009",
+    "name": "Khan Hardware",
+    "gmv_30d": 410000,
+    "device": "pos",
+    "settlements": [
+      {"id": "SET-90123", "amount": 26500, "status": "failed", "cause": "BANK_DOWN"}
+    ],
+    "tickets": [{"id": "TKT-78512", "issue": "Bada settlement fail ho gaya", "status": "open"}],
+    "loan_eligibility": {"eligible": true, "max_amount": 100000}
+  },
+  {
+    "merchant_id": "M010",
+    "name": "Deshmukh Medical",
+    "gmv_30d": 680000,
+    "device": "pos",
+    "settlements": [
+      {"id": "SET-92001", "amount": 15400, "status": "success", "cause": null}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": true, "max_amount": 175000}
+  },
+  {
+    "merchant_id": "M011",
+    "name": "Nair Juice Point",
+    "gmv_30d": 54000,
+    "device": "qr",
+    "settlements": [
+      {"id": "SET-94230", "amount": 1800, "status": "success", "cause": null}
+    ],
+    "tickets": [{"id": "TKT-79001", "issue": "Customer ko refund dena hai", "status": "open"}],
+    "loan_eligibility": {"eligible": false, "max_amount": 0}
+  },
+  {
+    "merchant_id": "M012",
+    "name": "Gupta Sweets",
+    "gmv_30d": 220000,
+    "device": "soundbox",
+    "settlements": [
+      {"id": "SET-96044", "amount": 8900, "status": "success", "cause": null}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": true, "max_amount": 60000}
+  },
+  {
+    "merchant_id": "M013",
+    "name": "Mehta Stationery",
+    "gmv_30d": 88000,
+    "device": "qr",
+    "settlements": [
+      {"id": "SET-97115", "amount": 3100, "status": "failed", "cause": "IFSC_MISMATCH"}
+    ],
+    "tickets": [{"id": "TKT-79233", "issue": "IFSC galat lag raha hai", "status": "open"}],
+    "loan_eligibility": {"eligible": true, "max_amount": 20000}
+  },
+  {
+    "merchant_id": "M014",
+    "name": "Chowdhury Fish Market",
+    "gmv_30d": 150000,
+    "device": "soundbox",
+    "settlements": [
+      {"id": "SET-98020", "amount": 5500, "status": "success", "cause": null}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": true, "max_amount": 40000}
+  },
+  {
+    "merchant_id": "M015",
+    "name": "Pillai Bakery",
+    "gmv_30d": 112000,
+    "device": "pos",
+    "settlements": [
+      {"id": "SET-99055", "amount": 4300, "status": "success", "cause": null},
+      {"id": "SET-99120", "amount": 7100, "status": "pending", "cause": "BANK_DOWN"}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": true, "max_amount": 30000}
+  },
+  {
+    "merchant_id": "M016",
+    "name": "Joshi Dairy",
+    "gmv_30d": 68000,
+    "device": "qr",
+    "settlements": [
+      {"id": "SET-10045", "amount": 2200, "status": "success", "cause": null}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": false, "max_amount": 0}
+  },
+  {
+    "merchant_id": "M017",
+    "name": "Banerjee Books",
+    "gmv_30d": 48000,
+    "device": "qr",
+    "settlements": [
+      {"id": "SET-10211", "amount": 1600, "status": "success", "cause": null}
+    ],
+    "tickets": [{"id": "TKT-79901", "issue": "QR scan nahi ho raha", "status": "open"}],
+    "loan_eligibility": {"eligible": false, "max_amount": 0}
+  },
+  {
+    "merchant_id": "M018",
+    "name": "Rao Tiffin Service",
+    "gmv_30d": 195000,
+    "device": "soundbox",
+    "settlements": [
+      {"id": "SET-10388", "amount": 7800, "status": "success", "cause": null}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": true, "max_amount": 55000}
+  },
+  {
+    "merchant_id": "M019",
+    "name": "Agarwal Jewellers",
+    "gmv_30d": 1250000,
+    "device": "pos",
+    "settlements": [
+      {"id": "SET-10450", "amount": 48500, "status": "success", "cause": null},
+      {"id": "SET-10488", "amount": 24999, "status": "pending", "cause": "BANK_DOWN"}
+    ],
+    "tickets": [{"id": "TKT-80012", "issue": "Bada amount pending hai", "status": "open"}],
+    "loan_eligibility": {"eligible": true, "max_amount": 300000}
+  },
+  {
+    "merchant_id": "M020",
+    "name": "Yadav Pan Shop",
+    "gmv_30d": 32000,
+    "device": "qr",
+    "settlements": [
+      {"id": "SET-10512", "amount": 980, "status": "success", "cause": null}
+    ],
+    "tickets": [],
+    "loan_eligibility": {"eligible": false, "max_amount": 0}
+  }
+]
