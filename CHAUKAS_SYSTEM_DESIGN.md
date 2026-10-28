@@ -123,6 +123,11 @@ This is the engineering design. Part A is the **High-Level Design** (components,
 | Memory | Per-session state object | No vector DB — data is structured, RAG unnecessary |
 | Caching | Multi-level; **never on live money state** | Cost + latency win, but stale financial data is dangerous |
 | PII handling | Mask at ingestion, encrypt at rest, scope per agent | Finance-grade requirement, not optional |
+| Model stack | Sarvam-30B core (Indian + code-mixed) + Gemini Flash frontier tier | Matches Paytm's open-source/SLM direction; low INR cost; strongest on Hinglish |
+| Voice stack | Sarvam Saaras (STT) + Bulbul (TTS), `saaras:v3-realtime` for streaming | Best Indian-language ASR/TTS; native streaming supports the <4s target |
+| Framework | Plain Python + FastAPI + Pydantic; **no LangChain/LangGraph** | Framework abstractions obscure determinism + step-level audit; harder to debug under time pressure |
+| Database | **SQLite** (prototype) → Postgres (prod), *same schema* | Zero-setup, deterministic, offline-safe on stage; not Google Sheets (network/auth/latency) |
+| Guardrail impl | Own deterministic Python + `policy.yaml`; **not** NeMo/Guardrails AI/Llama Guard | A safety gate must be deterministic; LLM-based guards can be prompt-talked into ALLOW |
 
 ## A7. Caching strategy
 
@@ -220,7 +225,7 @@ chaukas/
 │   ├── engine.py          # evaluates policy.yaml against an action
 │   └── policy.yaml        # limits, allow-list, consent rules
 ├── prompts/               # versioned prompt files
-├── data/                  # merchant fixtures, golden set
+├── data/                  # schema.sql (SQLite DDL), merchants.json fixtures, golden_set.json, seed.py
 ├── eval/
 │   ├── run_eval.py        # replays golden set, prints pass/fail
 │   └── redteam.py         # adversarial + injection prompts
@@ -258,6 +263,24 @@ class ConversationState:
     reply: str | None = None
     trace_id: str = field(default_factory=new_trace_id)
 ```
+
+## B2.1 Persistence schema (SQLite) — full DDL in `data/schema.sql`
+
+`ConversationState` is the in-memory object for a single run. What persists to disk (SQLite) is:
+
+| Table | Role | Key fields |
+|-------|------|-----------|
+| `merchants` | READ-side Merchant 360, seeded from `data/merchants.json` | merchant_id, gmv_30d, device, loan_eligible, loan_max_amount |
+| `settlements` | **Money state** — read *fresh* every turn, never cached | id, merchant_id, amount, status, cause |
+| `sessions` | One row per conversation/run; anchors history + outcome | session_id, merchant_id, trace_id, intent, mode, outcome |
+| `tickets` | Created at runtime by the Action Agent | id, merchant_id, status, resolved_by, resolution |
+| `offers` | Consented loan offers (the "sales" outcome) | id, merchant_id, amount, consent, status |
+| `ticket_events` | **Operational history** — append-only, human-readable "who did what" | ticket_id, **actor** (agent/human/merchant/system), event_type, detail |
+| `audit_log` | **Compliance record** — append-only, money-touching *decisions* only; also the idempotency ledger | trace_id, action_type, amount, guardrail_decision, reason, rollback_token, idempotency_key (UNIQUE) |
+
+**Two audit surfaces, on purpose:** `audit_log` is the narrow, compliance-grade record of money decisions (RBI/DPDP); `ticket_events` is the broad, human-readable activity trail. Both carry `ticket_id` + `session_id`, so a ticket's full story (agent *and* human steps, in order) reconstructs from either. The `actor` column is how we prove "AI did this step" vs "human in the loop did it".
+
+Money amounts are stored as **INTEGER rupees** (never float). SQLite `UNIQUE` on `idempotency_key` allows many NULLs, so BLOCK/NEEDS_CONFIRMATION rows (no execution) coexist with executed ones — and gives duplicate-execution protection for free.
 
 ## B3. Agent contracts (typed I/O)
 
@@ -319,6 +342,18 @@ HOW: single LLM call to summarise; NEVER dumps the raw transcript.
 USE: triggered on BLOCK, NEEDS_CONFIRMATION, low confidence, or unknown intent.
 ```
 
+## B3.1 Guardrail layers & implementation choice
+
+"Guardrail" is not one thing — it sits at three points. Only the middle one touches money, so it is the non-negotiable core; the other two are lighter.
+
+| Layer | Where | What it does | Build weight |
+|-------|-------|--------------|--------------|
+| **(A) Input** | before the LLM sees the message | PII detect + mask, prompt-injection filter (never take *instructions* from merchant content), language detect | light — field masking + regex |
+| **(C) Action** ← **the Guardrail Agent** | before *every* tool/API call | allow-list, value limit, consent, idempotency, rollback — the 6 checks in B3 | **heavy — this is the differentiator** |
+| **(B) Output** | before reply is sent | PII scrub, schema-validate structured output, AI disclosure | light |
+
+**Implementation decision:** the Action guardrail is **our own deterministic Python + `policy.yaml` + Pydantic** — *not* an off-the-shelf guardrail library (NeMo Guardrails, Guardrails AI, Llama Guard). Reasons: (1) the decision must be deterministic (same input → same ALLOW/BLOCK) to back our "0 unsafe actions" gate; (2) Llama Guard is itself an LLM, i.e. non-deterministic and prompt-attackable; (3) library abstractions obscure the step-level audit trail we need. Input/output layers also stay dependency-light: Pydantic + field-masking + a little regex, no framework.
+
 ## B4. Policy config (`policy/policy.yaml`)
 
 ```yaml
@@ -335,7 +370,7 @@ consent_required:
   - any_irreversible
 never_allowed:
   - debit_merchant_account   # hard no, in every version
-pii_fields: [account_no, phone, vpa, pan]
+pii_fields: [account_no, ifsc, vpa, pan, aadhaar, phone, name]   # canonical — must match privacy/pii.py PII_FIELDS
 ```
 
 ## B5. Tool / integration schemas (all [MOCK])
@@ -447,13 +482,109 @@ def scrub(obj) -> obj   # recursively mask PII before it reaches logs/trace/audi
 | Action | detokenised value only for the exact field the tool needs |
 | Handoff | masked summary only |
 
+## B7.3 PII data map (column-level)
+
+Canonical PII fields, reconciled across `privacy/pii.py` and `policy.yaml`, mapped to actual schema columns. **Tier 1** = financial credential / strong identifier; **Tier 2** = contact / name.
+
+| Field | Schema column | Tier | Stored (proto / prod) | Masked display | Tokenise? |
+|-------|---------------|------|-----------------------|----------------|-----------|
+| name | `merchants.name` | 2 | plain / encrypted | `Sh****` | no (merchant may see own) |
+| phone | `merchants.phone` | 2 | plain / encrypted | `XXXXXX3210` | yes |
+| vpa | `merchants.vpa` | 1 | plain / encrypted | `m****@okhdfc` | yes |
+| pan | `merchants.pan` | 1 | plain / encrypted | `XXXXX1234X` | yes |
+| account_no | `merchants.account_no` | 1 | plain / encrypted | `XXXXXX3421` | yes |
+| ifsc | `merchants.ifsc` | 1 | plain / encrypted | `HDFC0******` | yes |
+| aadhaar | *not stored — never collect* | 1 | — | — | — |
+| amount (tied to identity) | `settlements.amount`, `audit_log.amount` | 2 (contextual) | plain | value kept | no* |
+
+\* Amounts are **not** masked — the Guardrail needs them for the limit check. They are only ever logged alongside a *tokenised* merchant ref, never raw identity.
+
+**When / where each PII column is transformed (one pipeline for all Tier-1/2):**
+
+1. **Ingestion (gateway)** — `detect` + `mask` PII found in the merchant's message.
+2. **Context read** — the Context Agent `tokenise`s PII columns as it loads them; `state.merchant` carries **tokens, not raw values**.
+3. **Before any model call** — only masked/tokenised values enter the prompt.
+4. **Storage / cache** — encrypted at rest (prod); cache **keys never contain raw PII** (use `merchant_id`).
+5. **Logs / trace / audit** — `scrub` → masked values only, never raw.
+6. **Action execution** — `detokenise` **only the single field** the specific tool call needs (e.g. `account_no` for `retrigger_payout`), then discard.
+
+**Per-agent access matrix** (least privilege). `R` = raw/detokenised · `T` = tokenised ref · `M` = masked · `✕` = no access.
+
+| Agent | name | phone / vpa / pan | account_no / ifsc | amount | gmv / eligibility |
+|-------|:----:|:-----------------:|:-----------------:|:------:|:-----------------:|
+| Intent & Language | M | ✕ | ✕ | ✕ | ✕ |
+| Context (360°) | T | T | T | value | value |
+| **Guardrail** | ✕ | ✕ | ✕ | **value** | reversibility flag only |
+| Action | R (only the field the call needs) | R (only if needed) | R (for payout) | value | ✕ |
+| Handoff | M | M | M | value | ✕ |
+| Reply generation | R (own name ok) | M | M | value | eligibility flag |
+
+**Rules that fall out of this:**
+- An agent gets the **lowest** representation that still lets it do its job. The **Guardrail decides on amount + action type alone — it never needs identity, so it gets none.** That is a feature: the most safety-critical agent has the least PII exposure.
+- **Only the Action Agent ever `detokenise`s**, and only the one field for the one call.
+- The **merchant can see their own full data** (it's theirs). Masking protects logs, model prompts, and the human-agent desk — not the owner.
+
 ## B8. Evaluation harness (`eval/`)
 
-- `run_eval.py`: loads `data/golden_set.json` (start with 15–30 cases), replays each through the full loop against mock integrations, compares to expected outcome, prints a pass/fail table + the six metrics from the problem-statement doc.
+- `run_eval.py`: loads `data/golden_set.json` (start with 15–30 cases), replays each through the full loop against mock integrations, compares to expected outcome, prints a pass/fail table + the six headline metrics from the problem-statement doc.
 - `redteam.py`: ~20 adversarial cases (over-limit, injection, consent-skip, unknown intent). **Expected result = BLOCK / NEEDS_CONFIRMATION / handoff.** Any `ALLOW` here is a test failure.
 - **PII leak test:** assert no raw PII appears in any log, trace, audit record, or prompt payload across the golden set. Any raw PII = test failure.
 - **Cache safety test:** assert money-state fields are never served from cache, and that a state-changing action invalidates the merchant's context key.
 - Gate rule: `run_eval.py` + `redteam.py` must pass before any merge.
+
+### B8.1 Parameter taxonomy (what we actually measure)
+
+The six headline metrics (problem-statement §8) are the summary line; underneath, we score these dimensions. Scoring method: **[code]** = deterministic assertion (no LLM), **[judge]** = LLM-as-judge, **[human]** = sampled manual review. Note that ~80% is **[code]** — a direct benefit of the deterministic core.
+
+| Dimension | Parameter | Scoring |
+|-----------|-----------|---------|
+| **Agentic / task** | Autonomous resolution rate (≥60%) | [code] |
+| | Tool-selection accuracy (right action) | [code] |
+| | Argument accuracy (right amount, right id) | [code] |
+| | Plan + trajectory correctness (right steps, right order) | [code] |
+| | Over-action rate (nothing beyond what was needed) | [code] |
+| **Finance / safety** | Unsafe money actions = **0** (hard gate) | [code] |
+| | Guardrail precision **and** recall (+ false-block rate) | [code] |
+| | Limit / consent / idempotency / rollback enforcement | [code] |
+| | PII leakage = 0 (logs, trace, audit, prompts) | [code] |
+| | Prompt-injection resistance | [code via redteam] |
+| **LLM edges** | Intent + language accuracy | [code] |
+| | Low-confidence → handoff (no guessing) | [code] |
+| | Reply faithfulness / hallucination rate | [judge] |
+| | Reply relevance, language, tone | [judge] |
+| **Customer support** | Escalation precision (≥90%) | [code/human] |
+| | Escalation **recall** (didn't miss one it should raise) | [code/human] |
+| | Handoff-brief completeness + accuracy | [judge] |
+| **Sales** | Offer eligibility accuracy (only eligible merchants) | [code] |
+| | Consent-gating + offer timing (after resolution, not pushed) | [code] / [judge] |
+| | False-positive (spam) offer rate | [code] |
+| **Operational** | p95 latency <4s · cost <₹3 · tokens · cache-hit rate | [code] |
+
+### B8.2 Tooling decision
+
+- **Core harness: our own, pytest-style.** Every **[code]** metric is a golden-set replay + exact-match assertion. No library improves this; a framework only removes control. Keep `run_eval.py` + pytest.
+- **Red-teaming: promptfoo (optional).** Its built-in `redteam init/run/report` produces a clean, judge-facing report, and its heuristic assertions (regex, JSON-schema, cost-under, latency-under) run with **no LLM call**. Use it for the safety suite if there's bandwidth; otherwise our `redteam.py` is enough.
+- **Fuzzy metrics only: DeepEval G-Eval.** For the 2–3 **[judge]** dimensions (reply faithfulness, handoff-brief quality, offer appropriateness). LLM-judge is non-deterministic → use it for quality dimensions **only, never for the safety gate.**
+- **Not Ragas** — it is RAG-specific, and we have no RAG.
+
+### B8.3 Evaluation data privacy (finance-grade)
+
+Eval must respect the same PII rules as runtime (A8 / DPDP). The data-egress point is **not** the eval libraries — DeepEval and promptfoo run **locally / offline**; they do not ship data out. The only place data could leave the boundary is an **LLM-as-judge call to a cloud model**. Controls:
+
+1. **Prototype:** all merchant data is **mocked/synthetic fixtures** → zero real PII in eval. Non-issue for the finals.
+2. **Deterministic metrics (~80%) use no model at all** → fully local, zero egress by construction.
+3. **[judge] metrics** run on **masked/tokenised** data (A8), so even the judge sees references, not identity.
+4. **[PROD] self-hosted judge** — use an open-weight model (e.g. Sarvam, Apache 2.0, deployable in-VPC) so nothing leaves the boundary. Disable any optional library telemetry.
+
+> Pitch line: *even our evaluation honours data-minimisation — deterministic scoring needs no model, and any LLM-judge runs on masked data or a self-hosted model. No merchant PII leaves the boundary, not even in testing.*
+
+### B8.4 Judge-facing artifacts (for the demo)
+
+1. **Live scorecard** — one screen, six metrics vs targets, green/red; run `run_eval.py` live on stage.
+2. **Red-team table** — N adversarial cases → each BLOCKED / NEEDS_CONFIRMATION, headline "0 unsafe actions." This claim is only possible *because* the core is deterministic.
+3. **Side-by-side** — same injection against a naive LLM-agent (complies) vs Chaukas (deterministic BLOCK).
+
+All three can live in the agent-desk as a small eval dashboard.
 
 ## B9. Failure modes & handling
 

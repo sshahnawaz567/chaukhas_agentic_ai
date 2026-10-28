@@ -117,14 +117,16 @@ Deliberately small. Each agent has a typed contract, a single responsibility, an
 
 Paytm's stated direction is applied AI on **open-source foundations**, with small language models tuned for the SMB context and Indian languages. We build to that reality, not around it. Cost per resolved conversation is the design constraint (target < ₹3).
 
-| Layer | Choice | Notes |
+| Layer | Choice | Concrete pick (locked 29 Oct 2026) |
 |-------|--------|-------|
-| Model routing | Fine-tuned open-source SLM for ~80% of turns; frontier model only for complex planning | Keeps cost per conversation low |
-| Orchestration | State machine with typed tool schemas, deterministic retries, step-level tracing | Plain Python first; LangGraph only if it earns its place |
-| Voice & vernacular | Streaming ASR + TTS, 11 Indian languages, code-mixed Hinglish | Streaming is mandatory (non-streaming = 5s+ waits) |
-| Merchant 360 data | SQL + feature layer over transactions, settlements, tickets, device, loan eligibility | **Mocked** for the prototype |
-| Action integrations | Idempotent, signed API calls into payments, CRM, ticketing; rollback token per call | **Mocked** for the prototype |
-| Safety layer | Policy engine, value limits, PII redaction, prompt-injection filters, immutable audit log | This is our differentiator |
+| Model routing | Open-source SLM for ~80% of turns; frontier model only for complex planning | **Sarvam-30B** (`sarvam-30b`, Apache 2.0, native Indian + code-mixed Hinglish) as core; **Gemini Flash** (`gemini-3.7-flash` / `gemini-3.5-flash-lite`) as frontier/fallback tier. Both sit behind one OpenAI-compatible client so routing is a swap, not a rewrite |
+| Orchestration | State machine with typed tool schemas, deterministic retries, step-level tracing | **Plain Python + FastAPI + Pydantic. NO LangChain / LangGraph** — framework abstractions obscure the determinism and step-level audit trail that *are* our differentiator, and slow debugging in a 2-day build |
+| Voice & vernacular | Streaming ASR + TTS, Indian languages, code-mixed Hinglish | **Sarvam Saaras** STT (`saaras:v3`; `saaras:v3-realtime` WebSocket for streaming) + **Sarvam Bulbul** TTS (`bulbul:v3`). Streaming is mandatory (non-streaming = 5s+ waits) |
+| Merchant 360 data | SQL + feature layer over settlements, tickets, device, loan eligibility | **SQLite** — single file, zero-setup, deterministic, works offline on stage. NOT Postgres (overkill for a 2-day prototype), NOT Google Sheets (network + auth + rate limits kill the <4s target and the live demo). Seeded from JSON fixtures; same schema → Postgres in prod. **Mocked** for the prototype |
+| Action integrations | Idempotent, signed API calls into payments, CRM, ticketing; rollback token per call | **Mocked** deterministic fixtures for the prototype |
+| Safety layer | Policy engine, value limits, PII redaction, prompt-injection filters, immutable audit log | **Our own deterministic policy engine** (Python + `policy.yaml` + Pydantic). NOT NeMo Guardrails / Guardrails AI / Llama Guard — those add LLM/abstraction layers that break determinism (an LLM-based guard can be talked into ALLOW). This is our differentiator |
+
+> **Cost sanity check (per voice conversation):** Saaras STT ~₹0.25 (30s audio) + Sarvam-30B LLM ~₹0.03 + Bulbul TTS ~₹0.9 (300-char reply) ≈ **₹1.2** — comfortably under the ₹3 target. TTS is the dominant cost, so keep replies short. Text-only turns are near-free. (Apply to the **Sarvam Startup Program** for free API credits during the build.)
 
 ### What we DO build for the prototype
 - One workflow end-to-end: **settlement/refund dispute + consented loan offer**
@@ -173,6 +175,8 @@ Regulatory anchors: **RBI FREE-AI framework** (Aug 2025 — 7 sutras, 26 recomme
 | Cost per resolved conversation | < ₹3 | Token + ASR/TTS metering |
 
 **The hard gate:** zero unsafe money actions is a release blocker, not a KPI. A support agent that is 95% safe with money is unshippable.
+
+> These six are the summary line. The full parameter taxonomy (agentic / finance-safety / LLM / support / sales / operational dimensions), the tooling decision (own pytest harness + promptfoo red-team + DeepEval G-Eval; not Ragas), and the evaluation data-privacy stance are in the system-design doc, **§B8.1–B8.4**. Key privacy point: ~80% of metrics are deterministic and need no model, so most of eval runs fully offline; any LLM-judge runs on masked data or a self-hosted model, so **no merchant PII leaves the boundary, even in testing.**
 
 ---
 
