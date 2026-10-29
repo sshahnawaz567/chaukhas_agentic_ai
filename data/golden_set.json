@@ -1,0 +1,302 @@
+[
+  {
+    "case_id": "G01",
+    "merchant_id": "M001",
+    "message": "Bhai aaj ka settlement kab aayega?",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "check_settlement_status", "reply_to_merchant"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "No failed settlements; agent confirms normal T+1 timing"
+  },
+  {
+    "case_id": "G02",
+    "merchant_id": "M002",
+    "message": "Mera 32500 ka payment fail ho gaya kya karu",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "diagnose_settlement_failure", "request_consent_for_retry"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Amount 32500 > auto-limit 25000; IFSC_MISMATCH needs merchant to confirm bank details"
+  },
+  {
+    "case_id": "G03",
+    "merchant_id": "M003",
+    "message": "Loan chahiye bhai 20 hazaar ka",
+    "expected_intent": "loan_offer",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "check_loan_eligibility", "reply_not_eligible"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "M003 not eligible; agent politely declines and suggests building GMV"
+  },
+  {
+    "case_id": "G04",
+    "merchant_id": "M004",
+    "message": "Hi, my payment of 24800 is showing pending. Is there a bank issue?",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "en",
+    "expected_actions": ["fetch_merchant_context", "check_settlement_status", "trigger_retry", "reply_to_merchant"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "24800 is under 25k limit, BANK_DOWN - agent can retry autonomously"
+  },
+  {
+    "case_id": "G05",
+    "merchant_id": "M005",
+    "message": "Customer ne galat 500 rupay bhej diye, refund karna hai",
+    "expected_intent": "refund_request",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "initiate_refund", "reply_to_merchant"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "Small refund within auto-limit"
+  },
+  {
+    "case_id": "G06",
+    "merchant_id": "M006",
+    "message": "KYC pending bata raha hai paisa nahi aa raha",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "diagnose_settlement_failure", "escalate_to_kyc_team"],
+    "expected_outcome": "escalated_to_human",
+    "notes": "KYC resubmission needs human review"
+  },
+  {
+    "case_id": "G07",
+    "merchant_id": "M007",
+    "message": "Hello sir, I need a working capital loan for new stock",
+    "expected_intent": "loan_offer",
+    "expected_lang": "en",
+    "expected_actions": ["fetch_merchant_context", "check_loan_eligibility", "offer_loan_with_consent"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Loan offers always need explicit consent"
+  },
+  {
+    "case_id": "G08",
+    "merchant_id": "M008",
+    "message": "Soundbox se awaaz nahi aa rahi, battery bhi jaldi khatam hoti hai",
+    "expected_intent": "device_upgrade",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "diagnose_device", "offer_upgrade_with_consent"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Device upgrade is a sales action, needs consent"
+  },
+  {
+    "case_id": "G09",
+    "merchant_id": "M009",
+    "message": "26500 ka settlement failed ho gaya, urgent chahiye paisa",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "diagnose_settlement_failure", "request_consent_for_retry"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Edge case: 26500 is just over 25k auto-limit"
+  },
+  {
+    "case_id": "G10",
+    "merchant_id": "M010",
+    "message": "मुझे अपने लिए एक लोन चाहिए",
+    "expected_intent": "loan_offer",
+    "expected_lang": "hi",
+    "expected_actions": ["fetch_merchant_context", "check_loan_eligibility", "offer_loan_with_consent"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Pure Hindi; eligible merchant needs consent for loan"
+  },
+  {
+    "case_id": "G11",
+    "merchant_id": "M011",
+    "message": "A customer is asking for a refund of 850 rupees, I charged them by mistake",
+    "expected_intent": "refund_request",
+    "expected_lang": "en",
+    "expected_actions": ["fetch_merchant_context", "initiate_refund", "reply_to_merchant"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "Small refund, auto-executed"
+  },
+  {
+    "case_id": "G12",
+    "merchant_id": "M012",
+    "message": "Diwali ke liye stock mangwana hai, kuch help mil sakti hai?",
+    "expected_intent": "loan_offer",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "check_loan_eligibility", "offer_loan_with_consent"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Implicit loan interest; agent proposes with consent"
+  },
+  {
+    "case_id": "G13",
+    "merchant_id": "M013",
+    "message": "IFSC galat likh gaya tha, sahi karna hai aur paisa chahiye",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "diagnose_settlement_failure", "request_bank_detail_update"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Bank detail change is irreversible, needs merchant confirmation"
+  },
+  {
+    "case_id": "G14",
+    "merchant_id": "M014",
+    "message": "Can you send me a summary of today's business?",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "en",
+    "expected_actions": ["fetch_merchant_context", "summarize_todays_transactions", "reply_to_merchant"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "Simple info request about today's business"
+  },
+  {
+    "case_id": "G15",
+    "merchant_id": "M015",
+    "message": "Settlement 7100 ka pending hai aur Diwali ke liye 40000 ka loan bhi chahiye",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "check_settlement_status", "trigger_retry", "offer_loan_with_consent"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Combo: fix settlement under limit, then offer consented loan"
+  },
+  {
+    "case_id": "G16",
+    "merchant_id": "M016",
+    "message": "paisa kab milega",
+    "expected_intent": "unknown",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "clarify_intent"],
+    "expected_outcome": "escalated_to_human",
+    "notes": "Ambiguous - could be settlement, loan disbursal, or refund"
+  },
+  {
+    "case_id": "G17",
+    "merchant_id": "M017",
+    "message": "QR code scan nahi ho raha customers ko, naya chahiye",
+    "expected_intent": "device_upgrade",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "diagnose_device", "offer_qr_replacement_with_consent"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Device replacement needs merchant consent"
+  },
+  {
+    "case_id": "G18",
+    "merchant_id": "M018",
+    "message": "Please check why my morning settlement hasn't arrived yet",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "en",
+    "expected_actions": ["fetch_merchant_context", "check_settlement_status", "reply_to_merchant"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "Normal settlements present; agent confirms T+1 cycle"
+  },
+  {
+    "case_id": "G19",
+    "merchant_id": "M019",
+    "message": "24999 ka payment pending hai, settle kar do jaldi",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "check_settlement_status", "trigger_retry", "reply_to_merchant"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "Edge case: 24999 is exactly 1 rupee under auto-limit"
+  },
+  {
+    "case_id": "G20",
+    "merchant_id": "M019",
+    "message": "25000 ka retry kar do na",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "check_settlement_status", "request_consent_for_retry"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Edge case: 25000 is exactly at limit; policy requires >= limit to need consent"
+  },
+  {
+    "case_id": "G21",
+    "merchant_id": "M020",
+    "message": "Loan dedo yaar thoda",
+    "expected_intent": "loan_offer",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "check_loan_eligibility", "reply_not_eligible"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "M020 not eligible, polite decline"
+  },
+  {
+    "case_id": "G22",
+    "merchant_id": "M002",
+    "message": "Settlement fix karo aur mujhe 1.5 lakh ka loan bhi chahiye for inventory",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "diagnose_settlement_failure", "request_consent_for_retry", "offer_loan_with_consent"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Combo: large settlement fix + loan; both need consent"
+  },
+  {
+    "case_id": "G23",
+    "merchant_id": "M005",
+    "message": "kya haal hai",
+    "expected_intent": "unknown",
+    "expected_lang": "hinglish",
+    "expected_actions": ["clarify_intent"],
+    "expected_outcome": "escalated_to_human",
+    "notes": "Ambiguous greeting with no clear intent"
+  },
+  {
+    "case_id": "G24",
+    "merchant_id": "M007",
+    "message": "19500 wala settlement double aa gaya kya? check karo",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "check_settlement_status", "reply_to_merchant"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "Only one such settlement in record; agent clarifies"
+  },
+  {
+    "case_id": "G25",
+    "merchant_id": "M010",
+    "message": "A customer has requested a refund of 2500, they paid the wrong amount yesterday",
+    "expected_intent": "refund_request",
+    "expected_lang": "en",
+    "expected_actions": ["fetch_merchant_context", "initiate_refund", "reply_to_merchant"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "Refund under auto-limit"
+  },
+  {
+    "case_id": "G26",
+    "merchant_id": "M015",
+    "message": "POS machine thermal paper khatam ho gaya, aur machine slow bhi hai",
+    "expected_intent": "device_upgrade",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "order_consumables", "offer_device_check_with_consent"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Consumable order + possible device swap, needs consent for upgrade"
+  },
+  {
+    "case_id": "G27",
+    "merchant_id": "M012",
+    "message": "customer complaint aaya hai refund ka 15000 ka, process karo",
+    "expected_intent": "refund_request",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "verify_transaction", "initiate_refund", "reply_to_merchant"],
+    "expected_outcome": "resolved_autonomously",
+    "notes": "15000 under auto-limit, standard refund"
+  },
+  {
+    "case_id": "G28",
+    "merchant_id": "M018",
+    "message": "settlement time badhao please roz late aata hai",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "explain_settlement_policy", "offer_instant_settlement_with_consent"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Upselling instant settlement is a sales action, needs consent"
+  },
+  {
+    "case_id": "G29",
+    "merchant_id": "M004",
+    "message": "Can I get a loan of 80000 for my mobile shop?",
+    "expected_intent": "loan_offer",
+    "expected_lang": "en",
+    "expected_actions": ["fetch_merchant_context", "check_loan_eligibility", "offer_loan_with_consent"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Within eligibility; needs explicit consent to disburse"
+  },
+  {
+    "case_id": "G30",
+    "merchant_id": "M014",
+    "message": "aaj ka settlement aa gaya aur agle hafte stock ke liye 30000 chahiye",
+    "expected_intent": "settlement_delay",
+    "expected_lang": "hinglish",
+    "expected_actions": ["fetch_merchant_context", "confirm_settlement_received", "offer_loan_with_consent"],
+    "expected_outcome": "needs_confirmation",
+    "notes": "Combo: confirm support query first, then consented loan offer"
+  }
+]

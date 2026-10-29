@@ -1,0 +1,3 @@
+# Guardrail policy — Owner: Member 2 · CONTRACTS C2 / C6, design B4
+# TODO: auto_limit_inr, daily_auto_limit_inr, offer_cooling_off_days, allow_list, disabled_actions (kill switch), retention_days,
+#       never_allowed, consent_required, pii_fields, intent_confidence_threshold

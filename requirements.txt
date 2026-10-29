@@ -1,0 +1,9 @@
+# Python 3.11 — pin exact versions after first install (pip freeze), same on all laptops
+fastapi
+uvicorn[standard]
+pydantic>=2
+pyyaml
+openai
+httpx
+python-dotenv
+pytest

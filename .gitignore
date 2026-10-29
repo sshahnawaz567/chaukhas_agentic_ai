@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+data/*.db
+traces/*
+!traces/.gitkeep
+.pytest_cache/
+video/*
+!video/.gitkeep

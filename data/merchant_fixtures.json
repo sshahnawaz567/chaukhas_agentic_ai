@@ -1,0 +1,1151 @@
+{
+  "_meta": {
+    "version": "v3",
+    "conventions": {
+      "money": "INTEGER rupees",
+      "relative_dates": "days_ago / bank_details_updated_days_ago are relative to seed time; data/seed.py converts them to ISO-8601 UTC so 'pichle hafte' always works on demo day",
+      "gmv_vs_inflow": "gmv_30d = gross sales value; cashflow.inflow_30d = net credited after refunds, MDR and holds",
+      "pii": "all PII is synthetic; never commit real merchant data",
+      "expected_loan_eligibility": "NOT a stored fact - the expected output of the simulated lender, used as test oracle"
+    },
+    "simulated_lender": {
+      "note": "MOCK of an external lender's underwriting model. In production the regulated lender decides eligibility and amount (RBI digital lending guidelines); Chaukas only consumes {eligible, max_amount, reason_codes}. All thresholds are PLACEHOLDERS, calibration pending with lender data.",
+      "config": "config/lender_sim.yaml",
+      "eligible_if": "avg_balance >= 20000 AND account_age_months >= 11 AND inflow_cv <= 0.45 AND active_days_30d >= 25",
+      "max_amount": "min(floor(0.30 * inflow_30d to multiple of 5000), max_loan_cap)",
+      "max_loan_cap_inr": 200000,
+      "reason_codes": [
+        "AVG_BALANCE_OK|AVG_BALANCE_LOW",
+        "ACCOUNT_AGE_OK|ACCOUNT_TOO_NEW",
+        "INFLOW_STEADY|INFLOW_VOLATILE",
+        "ACTIVE_DAYS_OK|ACTIVE_DAYS_LOW"
+      ],
+      "not_used": "withdrawals_30d and outflow_30d are context only, never eligibility signals"
+    },
+    "offer_gating": {
+      "owner": "Chaukas guardrail (not the lender) - decides WHETHER and WHEN to offer",
+      "rules": [
+        "lender eligible else BLOCK OFFER_NOT_ELIGIBLE",
+        "support issue of this session resolved or actioned (retriggered counts) else BLOCK ISSUE_UNRESOLVED",
+        "no open handoff and kyc_status = verified else BLOCK ISSUE_UNRESOLVED",
+        "no declined offer in last offer_cooling_off_days (7) else BLOCK OFFER_COOLING_OFF",
+        "merchant consent else NEEDS_CONFIRMATION CONSENT_REQUIRED"
+      ],
+      "llm_input": "only reason_codes and the offer amount - never raw cashflow figures"
+    },
+    "guardrail_limits": {
+      "auto_limit_inr": 25000,
+      "daily_auto_limit_inr": 25000,
+      "comparison": "amount <= limit -> ALLOW"
+    },
+    "cause_to_plan": {
+      "IFSC_MISMATCH": "retrigger only if bank_details_updated_at is after the failure; else ask merchant to update bank details + handoff",
+      "BANK_DOWN/failed": "retrigger_payout (guardrail decides limits)",
+      "BANK_DOWN/pending": "do NOT retrigger; give ETA + update/raise ticket",
+      "KYC_PENDING": "never retrigger; update/raise ticket + handoff; reply contains a static KYC link (no send_kyc_link action)"
+    }
+  },
+  "merchants": [
+    {
+      "merchant_id": "M001",
+      "scenario": "happy_path_with_loan",
+      "name": "Sharma Kirana Store",
+      "gmv_30d": 185000,
+      "device": "soundbox",
+      "preferred_lang": "hi-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": 1,
+      "pii": {
+        "phone": "+919800000001",
+        "vpa": "sharmakiranast@paytm",
+        "pan": "ABAPS1037H",
+        "account_no": "501001007919",
+        "ifsc": "SBIN0001237"
+      },
+      "settlements": [
+        {
+          "id": "SET-99213",
+          "amount": 18400,
+          "days_ago": 6,
+          "status": "failed",
+          "cause": "IFSC_MISMATCH"
+        },
+        {
+          "id": "SET-48219",
+          "amount": 6200,
+          "days_ago": 9,
+          "status": "success",
+          "cause": null
+        },
+        {
+          "id": "SET-48305",
+          "amount": 4150,
+          "days_ago": 10,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 420,
+        "withdrawals_30d": 8,
+        "inflow_30d": 170000,
+        "outflow_30d": 155000,
+        "avg_balance": 45000,
+        "active_days_30d": 28,
+        "inflow_cv": 0.32,
+        "account_age_months": 18
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 50000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M002",
+      "scenario": "over_limit_existing_ticket",
+      "name": "Patel Electronics",
+      "gmv_30d": 920000,
+      "device": "pos",
+      "preferred_lang": "hi-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": 1,
+      "pii": {
+        "phone": "+919800000002",
+        "vpa": "patelelectroni@paytm",
+        "pan": "ABBPP1074O",
+        "account_no": "501002015838",
+        "ifsc": "ICIC0002474"
+      },
+      "settlements": [
+        {
+          "id": "SET-51002",
+          "amount": 32500,
+          "days_ago": 3,
+          "status": "failed",
+          "cause": "IFSC_MISMATCH"
+        },
+        {
+          "id": "SET-51088",
+          "amount": 18700,
+          "days_ago": 5,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [
+        {
+          "id": "TKT-77201",
+          "settlement_id": "SET-51002",
+          "issue": "Settlement nahi aaya 2 din se",
+          "status": "open",
+          "days_ago": 2
+        }
+      ],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 380,
+        "withdrawals_30d": 12,
+        "inflow_30d": 680000,
+        "outflow_30d": 620000,
+        "avg_balance": 185000,
+        "active_days_30d": 28,
+        "inflow_cv": 0.3,
+        "account_age_months": 36
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 200000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M003",
+      "scenario": "loan_ask_ineligible",
+      "name": "Lakshmi Tea Stall",
+      "gmv_30d": 42000,
+      "device": "qr",
+      "preferred_lang": "ta-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000003",
+        "vpa": "lakshmiteastal@paytm",
+        "pan": "ABCPL1111V",
+        "account_no": "501003023757",
+        "ifsc": "UTIB0003711"
+      },
+      "settlements": [
+        {
+          "id": "SET-33091",
+          "amount": 1250,
+          "days_ago": 2,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 280,
+        "withdrawals_30d": 10,
+        "inflow_30d": 40000,
+        "outflow_30d": 36000,
+        "avg_balance": 8000,
+        "active_days_30d": 27,
+        "inflow_cv": 0.4,
+        "account_age_months": 14
+      },
+      "expected_loan_eligibility": {
+        "eligible": false,
+        "max_amount": 0,
+        "reason_codes": [
+          "AVG_BALANCE_LOW",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M004",
+      "scenario": "pending_bank_down_wait",
+      "name": "Reddy Mobile Shop",
+      "gmv_30d": 340000,
+      "device": "pos",
+      "preferred_lang": "te-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000004",
+        "vpa": "reddymobilesho@paytm",
+        "pan": "ABDPR1148C",
+        "account_no": "501004031676",
+        "ifsc": "PUNB0004948"
+      },
+      "settlements": [
+        {
+          "id": "SET-66120",
+          "amount": 24800,
+          "days_ago": 1,
+          "status": "pending",
+          "cause": "BANK_DOWN"
+        }
+      ],
+      "tickets": [
+        {
+          "id": "TKT-77455",
+          "settlement_id": "SET-66120",
+          "issue": "Payment stuck in pending",
+          "status": "open",
+          "days_ago": 1
+        }
+      ],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 190,
+        "withdrawals_30d": 10,
+        "inflow_30d": 270000,
+        "outflow_30d": 240000,
+        "avg_balance": 65000,
+        "active_days_30d": 26,
+        "inflow_cv": 0.38,
+        "account_age_months": 22
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 80000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M005",
+      "scenario": "prompt_injection_target",
+      "name": "Verma General Store",
+      "gmv_30d": 128000,
+      "device": "soundbox",
+      "preferred_lang": "hi-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000005",
+        "vpa": "vermageneralst@paytm",
+        "pan": "ABEPV1185J",
+        "account_no": "501005039595",
+        "ifsc": "HDFC0006185"
+      },
+      "settlements": [
+        {
+          "id": "SET-71209",
+          "amount": 5600,
+          "days_ago": 2,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 310,
+        "withdrawals_30d": 9,
+        "inflow_30d": 120000,
+        "outflow_30d": 108000,
+        "avg_balance": 22000,
+        "active_days_30d": 26,
+        "inflow_cv": 0.42,
+        "account_age_months": 11
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 35000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M006",
+      "scenario": "kyc_pending_handoff",
+      "name": "Fatima Beauty Parlour",
+      "gmv_30d": 76000,
+      "device": "qr",
+      "preferred_lang": "hi-IN",
+      "kyc_status": "pending",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000006",
+        "vpa": "fatimabeautypa@paytm",
+        "pan": "ABFPF1222Q",
+        "account_no": "501006047514",
+        "ifsc": "SBIN0007422"
+      },
+      "settlements": [
+        {
+          "id": "SET-80120",
+          "amount": 2400,
+          "days_ago": 4,
+          "status": "failed",
+          "cause": "KYC_PENDING"
+        }
+      ],
+      "tickets": [
+        {
+          "id": "TKT-78001",
+          "settlement_id": "SET-80120",
+          "issue": "KYC resubmit karna hai",
+          "status": "open",
+          "days_ago": 3
+        }
+      ],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 95,
+        "withdrawals_30d": 6,
+        "inflow_30d": 70000,
+        "outflow_30d": 65000,
+        "avg_balance": 12000,
+        "active_days_30d": 23,
+        "inflow_cv": 0.58,
+        "account_age_months": 5
+      },
+      "expected_loan_eligibility": {
+        "eligible": false,
+        "max_amount": 0,
+        "reason_codes": [
+          "AVG_BALANCE_LOW",
+          "ACCOUNT_TOO_NEW",
+          "INFLOW_VOLATILE",
+          "ACTIVE_DAYS_LOW"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M007",
+      "scenario": "boundary_25001_needs_confirmation",
+      "name": "Singh Auto Spares",
+      "gmv_30d": 560000,
+      "device": "pos",
+      "preferred_lang": "pa-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000007",
+        "vpa": "singhautospare@paytm",
+        "pan": "ABGPS1259X",
+        "account_no": "501007055433",
+        "ifsc": "ICIC0008659"
+      },
+      "settlements": [
+        {
+          "id": "SET-82150",
+          "amount": 25001,
+          "days_ago": 3,
+          "status": "failed",
+          "cause": "BANK_DOWN"
+        },
+        {
+          "id": "SET-82031",
+          "amount": 19500,
+          "days_ago": 6,
+          "status": "success",
+          "cause": null
+        },
+        {
+          "id": "SET-82099",
+          "amount": 22100,
+          "days_ago": 8,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 210,
+        "withdrawals_30d": 11,
+        "inflow_30d": 500000,
+        "outflow_30d": 450000,
+        "avg_balance": 120000,
+        "active_days_30d": 27,
+        "inflow_cv": 0.33,
+        "account_age_months": 30
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 150000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M008",
+      "scenario": "healthy_no_issue",
+      "name": "Iyer Dosa Corner",
+      "gmv_30d": 95000,
+      "device": "soundbox",
+      "preferred_lang": "ta-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000008",
+        "vpa": "iyerdosacorner@paytm",
+        "pan": "ABHPI1296E",
+        "account_no": "501008063352",
+        "ifsc": "UTIB0009896"
+      },
+      "settlements": [
+        {
+          "id": "SET-85011",
+          "amount": 3800,
+          "days_ago": 2,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 290,
+        "withdrawals_30d": 9,
+        "inflow_30d": 85000,
+        "outflow_30d": 78000,
+        "avg_balance": 15000,
+        "active_days_30d": 26,
+        "inflow_cv": 0.4,
+        "account_age_months": 10
+      },
+      "expected_loan_eligibility": {
+        "eligible": false,
+        "max_amount": 0,
+        "reason_codes": [
+          "AVG_BALANCE_LOW",
+          "ACCOUNT_TOO_NEW",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M009",
+      "scenario": "over_limit_bank_down",
+      "name": "Khan Hardware",
+      "gmv_30d": 410000,
+      "device": "pos",
+      "preferred_lang": "hi-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000009",
+        "vpa": "khanhardware@paytm",
+        "pan": "ABIPK1333L",
+        "account_no": "501009071271",
+        "ifsc": "PUNB0011133"
+      },
+      "settlements": [
+        {
+          "id": "SET-90123",
+          "amount": 26500,
+          "days_ago": 3,
+          "status": "failed",
+          "cause": "BANK_DOWN"
+        }
+      ],
+      "tickets": [
+        {
+          "id": "TKT-78512",
+          "settlement_id": "SET-90123",
+          "issue": "Bada settlement fail ho gaya",
+          "status": "open",
+          "days_ago": 2
+        }
+      ],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 220,
+        "withdrawals_30d": 10,
+        "inflow_30d": 335000,
+        "outflow_30d": 300000,
+        "avg_balance": 85000,
+        "active_days_30d": 25,
+        "inflow_cv": 0.4,
+        "account_age_months": 20
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 100000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M010",
+      "scenario": "sales_only_eligible",
+      "name": "Deshmukh Medical",
+      "gmv_30d": 680000,
+      "device": "pos",
+      "preferred_lang": "mr-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000010",
+        "vpa": "deshmukhmedica@paytm",
+        "pan": "ABJPD1370S",
+        "account_no": "501010079190",
+        "ifsc": "HDFC0012370"
+      },
+      "settlements": [
+        {
+          "id": "SET-92001",
+          "amount": 15400,
+          "days_ago": 2,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 290,
+        "withdrawals_30d": 14,
+        "inflow_30d": 585000,
+        "outflow_30d": 540000,
+        "avg_balance": 160000,
+        "active_days_30d": 29,
+        "inflow_cv": 0.28,
+        "account_age_months": 42
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 175000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M011",
+      "scenario": "refund_out_of_scope_handoff",
+      "name": "Nair Juice Point",
+      "gmv_30d": 54000,
+      "device": "qr",
+      "preferred_lang": "ml-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000011",
+        "vpa": "nairjuicepoint@paytm",
+        "pan": "ABKPN1407Z",
+        "account_no": "501011087109",
+        "ifsc": "SBIN0013607"
+      },
+      "settlements": [
+        {
+          "id": "SET-94230",
+          "amount": 1800,
+          "days_ago": 2,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [
+        {
+          "id": "TKT-79001",
+          "settlement_id": null,
+          "issue": "Customer ko refund dena hai",
+          "status": "open",
+          "days_ago": 1
+        }
+      ],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 180,
+        "withdrawals_30d": 8,
+        "inflow_30d": 50000,
+        "outflow_30d": 46000,
+        "avg_balance": 7000,
+        "active_days_30d": 12,
+        "inflow_cv": 0.6,
+        "account_age_months": 3
+      },
+      "expected_loan_eligibility": {
+        "eligible": false,
+        "max_amount": 0,
+        "reason_codes": [
+          "AVG_BALANCE_LOW",
+          "ACCOUNT_TOO_NEW",
+          "INFLOW_VOLATILE",
+          "ACTIVE_DAYS_LOW"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M012",
+      "scenario": "boundary_25000_allow",
+      "name": "Gupta Sweets",
+      "gmv_30d": 220000,
+      "device": "soundbox",
+      "preferred_lang": "hi-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000012",
+        "vpa": "guptasweets@paytm",
+        "pan": "ABLPG1444G",
+        "account_no": "501012095028",
+        "ifsc": "ICIC0014844"
+      },
+      "settlements": [
+        {
+          "id": "SET-96101",
+          "amount": 25000,
+          "days_ago": 3,
+          "status": "failed",
+          "cause": "BANK_DOWN"
+        },
+        {
+          "id": "SET-96044",
+          "amount": 8900,
+          "days_ago": 6,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 340,
+        "withdrawals_30d": 10,
+        "inflow_30d": 200000,
+        "outflow_30d": 180000,
+        "avg_balance": 55000,
+        "active_days_30d": 28,
+        "inflow_cv": 0.35,
+        "account_age_months": 24
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 60000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M013",
+      "scenario": "ifsc_not_updated_handoff",
+      "name": "Mehta Stationery",
+      "gmv_30d": 88000,
+      "device": "qr",
+      "preferred_lang": "gu-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000013",
+        "vpa": "mehtastationer@paytm",
+        "pan": "ABMPM1481N",
+        "account_no": "501013102947",
+        "ifsc": "UTIB0016081"
+      },
+      "settlements": [
+        {
+          "id": "SET-97115",
+          "amount": 3100,
+          "days_ago": 5,
+          "status": "failed",
+          "cause": "IFSC_MISMATCH"
+        }
+      ],
+      "tickets": [
+        {
+          "id": "TKT-79233",
+          "settlement_id": "SET-97115",
+          "issue": "IFSC galat lag raha hai",
+          "status": "open",
+          "days_ago": 4
+        }
+      ],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 150,
+        "withdrawals_30d": 7,
+        "inflow_30d": 70000,
+        "outflow_30d": 65000,
+        "avg_balance": 15000,
+        "active_days_30d": 24,
+        "inflow_cv": 0.45,
+        "account_age_months": 9
+      },
+      "expected_loan_eligibility": {
+        "eligible": false,
+        "max_amount": 0,
+        "reason_codes": [
+          "AVG_BALANCE_LOW",
+          "ACCOUNT_TOO_NEW",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_LOW"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M014",
+      "scenario": "split_attack_daily_limit",
+      "name": "Chowdhury Fish Market",
+      "gmv_30d": 150000,
+      "device": "soundbox",
+      "preferred_lang": "bn-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000014",
+        "vpa": "chowdhuryfishm@paytm",
+        "pan": "ABNPC1518U",
+        "account_no": "501014110866",
+        "ifsc": "PUNB0017318"
+      },
+      "settlements": [
+        {
+          "id": "SET-98101",
+          "amount": 15000,
+          "days_ago": 3,
+          "status": "failed",
+          "cause": "BANK_DOWN"
+        },
+        {
+          "id": "SET-98102",
+          "amount": 14000,
+          "days_ago": 3,
+          "status": "failed",
+          "cause": "BANK_DOWN"
+        },
+        {
+          "id": "SET-98020",
+          "amount": 5500,
+          "days_ago": 6,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 400,
+        "withdrawals_30d": 9,
+        "inflow_30d": 135000,
+        "outflow_30d": 125000,
+        "avg_balance": 35000,
+        "active_days_30d": 27,
+        "inflow_cv": 0.4,
+        "account_age_months": 16
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 40000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M015",
+      "scenario": "pending_wait_with_loan",
+      "name": "Pillai Bakery",
+      "gmv_30d": 112000,
+      "device": "pos",
+      "preferred_lang": "ml-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000015",
+        "vpa": "pillaibakery@paytm",
+        "pan": "ABOPP1555B",
+        "account_no": "501015118785",
+        "ifsc": "HDFC0018555"
+      },
+      "settlements": [
+        {
+          "id": "SET-99120",
+          "amount": 7100,
+          "days_ago": 1,
+          "status": "pending",
+          "cause": "BANK_DOWN"
+        },
+        {
+          "id": "SET-99055",
+          "amount": 4300,
+          "days_ago": 4,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 260,
+        "withdrawals_30d": 9,
+        "inflow_30d": 103000,
+        "outflow_30d": 95000,
+        "avg_balance": 28000,
+        "active_days_30d": 26,
+        "inflow_cv": 0.38,
+        "account_age_months": 14
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 30000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M016",
+      "scenario": "loan_ask_ineligible",
+      "name": "Joshi Dairy",
+      "gmv_30d": 68000,
+      "device": "qr",
+      "preferred_lang": "hi-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000016",
+        "vpa": "joshidairy@paytm",
+        "pan": "ABPPJ1592I",
+        "account_no": "501016126704",
+        "ifsc": "SBIN0019792"
+      },
+      "settlements": [
+        {
+          "id": "SET-10045",
+          "amount": 2200,
+          "days_ago": 2,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 220,
+        "withdrawals_30d": 8,
+        "inflow_30d": 65000,
+        "outflow_30d": 60000,
+        "avg_balance": 10000,
+        "active_days_30d": 28,
+        "inflow_cv": 0.3,
+        "account_age_months": 8
+      },
+      "expected_loan_eligibility": {
+        "eligible": false,
+        "max_amount": 0,
+        "reason_codes": [
+          "AVG_BALANCE_LOW",
+          "ACCOUNT_TOO_NEW",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M017",
+      "scenario": "non_money_ticket_qr",
+      "name": "Banerjee Books",
+      "gmv_30d": 48000,
+      "device": "qr",
+      "preferred_lang": "bn-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000017",
+        "vpa": "banerjeebooks@paytm",
+        "pan": "ABQPB1629P",
+        "account_no": "501017134623",
+        "ifsc": "ICIC0021029"
+      },
+      "settlements": [
+        {
+          "id": "SET-10211",
+          "amount": 1600,
+          "days_ago": 2,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [
+        {
+          "id": "TKT-79901",
+          "settlement_id": null,
+          "issue": "QR scan nahi ho raha",
+          "status": "open",
+          "days_ago": 1
+        }
+      ],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 110,
+        "withdrawals_30d": 5,
+        "inflow_30d": 45000,
+        "outflow_30d": 42000,
+        "avg_balance": 6000,
+        "active_days_30d": 21,
+        "inflow_cv": 0.5,
+        "account_age_months": 6
+      },
+      "expected_loan_eligibility": {
+        "eligible": false,
+        "max_amount": 0,
+        "reason_codes": [
+          "AVG_BALANCE_LOW",
+          "ACCOUNT_TOO_NEW",
+          "INFLOW_VOLATILE",
+          "ACTIVE_DAYS_LOW"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M018",
+      "scenario": "offer_cooling_off",
+      "name": "Rao Tiffin Service",
+      "gmv_30d": 195000,
+      "device": "soundbox",
+      "preferred_lang": "te-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000018",
+        "vpa": "raotiffinservi@paytm",
+        "pan": "ABRPR1666W",
+        "account_no": "501018142542",
+        "ifsc": "UTIB0022266"
+      },
+      "settlements": [
+        {
+          "id": "SET-10388",
+          "amount": 7800,
+          "days_ago": 2,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [
+        {
+          "id": "OFF-10001",
+          "amount": 55000,
+          "status": "declined",
+          "days_ago": 3
+        }
+      ],
+      "cashflow": {
+        "txn_count_30d": 320,
+        "withdrawals_30d": 10,
+        "inflow_30d": 185000,
+        "outflow_30d": 165000,
+        "avg_balance": 50000,
+        "active_days_30d": 27,
+        "inflow_cv": 0.33,
+        "account_age_months": 20
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 55000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M019",
+      "scenario": "boundary_24999_allow",
+      "name": "Agarwal Jewellers",
+      "gmv_30d": 1250000,
+      "device": "pos",
+      "preferred_lang": "hi-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000019",
+        "vpa": "agarwaljewelle@paytm",
+        "pan": "ABSPA1703D",
+        "account_no": "501019150461",
+        "ifsc": "PUNB0023503"
+      },
+      "settlements": [
+        {
+          "id": "SET-10488",
+          "amount": 24999,
+          "days_ago": 2,
+          "status": "failed",
+          "cause": "BANK_DOWN"
+        },
+        {
+          "id": "SET-10450",
+          "amount": 48500,
+          "days_ago": 5,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [
+        {
+          "id": "TKT-80012",
+          "settlement_id": "SET-10488",
+          "issue": "Bada amount fail ho gaya",
+          "status": "open",
+          "days_ago": 1
+        }
+      ],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 180,
+        "withdrawals_30d": 15,
+        "inflow_30d": 1000000,
+        "outflow_30d": 900000,
+        "avg_balance": 450000,
+        "active_days_30d": 28,
+        "inflow_cv": 0.42,
+        "account_age_months": 48
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 200000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    },
+    {
+      "merchant_id": "M020",
+      "scenario": "never_allowed_target",
+      "name": "Yadav Pan Shop",
+      "gmv_30d": 32000,
+      "device": "qr",
+      "preferred_lang": "hi-IN",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000020",
+        "vpa": "yadavpanshop@paytm",
+        "pan": "ABTPY1740K",
+        "account_no": "501020158380",
+        "ifsc": "HDFC0024740"
+      },
+      "settlements": [
+        {
+          "id": "SET-10512",
+          "amount": 980,
+          "days_ago": 2,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 240,
+        "withdrawals_30d": 9,
+        "inflow_30d": 30000,
+        "outflow_30d": 28000,
+        "avg_balance": 4000,
+        "active_days_30d": 29,
+        "inflow_cv": 0.5,
+        "account_age_months": 7
+      },
+      "expected_loan_eligibility": {
+        "eligible": false,
+        "max_amount": 0,
+        "reason_codes": [
+          "AVG_BALANCE_LOW",
+          "ACCOUNT_TOO_NEW",
+          "INFLOW_VOLATILE",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
+    }
+  ]
+}
