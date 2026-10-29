@@ -8,6 +8,37 @@
 
 ---
 
+## 0. For Claude Code — read this first
+
+> **To the team member:** start every Claude Code session with: *"I am Member 3. Read `MEMBER_3_INTERFACE_PRIVACY_DEMO.md` and follow its section 0."* That is all Claude needs.
+
+**Claude: you are helping Member 3 (UI + Demo + Video + Deck + Submission).** Before doing any work, read these in order. Read them fully, not skimmed:
+
+| # | File | What to take from it |
+|---|------|----------------------|
+| 1 | `CLAUDE.md` | Project rules (non-negotiables, git, commands) |
+| 2 | this file, sections 1–9 | Your deliverables, priorities, timeline, definition of done |
+| 3 | `DEMO_SCRIPT.md` | **The main playbook**: 5 scenes (§3), UI panels (§4), video script (§5), deck outline (§6), screenshot list (§7), timeline (§8), fallbacks (§9), submission (§10) |
+| 4 | `CONTRACTS.md` **C5** | Every API route the UI calls + the `TurnResponse` shape |
+| 5 | `CONTRACTS.md` **C1** | The models inside API responses: `PlannedStep`, `Decision`, `ActionResult`, `HandoffBrief`, `Verdict`, `ReasonCode` |
+| 6 | `COMPLIANCE.md` §2, §5, §6 | UI compliance surfaces (AI badge, "Talk to a human", KFS card, consent toggle) and the **only** compliance lines allowed on slides |
+| 7 | `CHAUKAS_EXPLAINED.md` | The whole design in Hinglish; §14 judge Q&A for deck speaker notes |
+
+**Read when working on a specific piece:**
+
+| Working on | Also read |
+|-----------|-----------|
+| UI panels (`ui/`) | `DEMO_SCRIPT.md` §3 (what each scene must show) and §4. Build against **sample `TurnResponse` JSON** first (C5); switch to the real API when Member 1's skeleton runs |
+| Deck | `DEMO_SCRIPT.md` §6–7; `CHAUKAS_PROBLEM_STATEMENT.md` §2–3, §8; `COMPLIANCE.md` §5. Never invent numbers: use `[N]` placeholders until Member 2's real eval run |
+| Video | `DEMO_SCRIPT.md` §5 |
+| `README.md` | `CLAUDE.md` → Commands; `COMPLIANCE.md` and deck slide 13 for "what's mocked" |
+
+**Do not edit** (owned by Members 1 and 2; tell the user instead): anything under `chaukas/`, `data/`, `config/`, `eval/`, `tests/`, `prompts/`. If the UI needs a field the API doesn't return, ask for it to be added to C5; don't work around it.
+
+**How to verify your work:** fresh seed (`python -m data.seed`), run the API, and walk all 5 DEMO_SCRIPT scenes in the UI with a timer; Hindi renders correctly; every verdict is colour-coded with its reason visible; the deck has no invented numbers.
+
+---
+
 ## 1. What you own
 
 **Your folders** (full tree with everyone's files: `CONTRACTS.md` §C6):

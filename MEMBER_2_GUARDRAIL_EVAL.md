@@ -7,6 +7,42 @@
 
 ---
 
+## 0. For Claude Code — read this first
+
+> **To the team member:** start every Claude Code session with: *"I am Member 2. Read `MEMBER_2_GUARDRAIL_EVAL.md` and follow its section 0."* That is all Claude needs.
+
+**Claude: you are helping Member 2 (Guardrail + Data + Privacy + Compliance + Eval).** Before writing any code, read these in order. Read them fully, not skimmed:
+
+| # | File | What to take from it |
+|---|------|----------------------|
+| 1 | `CLAUDE.md` | Project rules (non-negotiables, git, commands) |
+| 2 | this file, sections 1–10 | Your files, the 10 guardrail checks, priorities, build order, definition of done |
+| 3 | `CONTRACTS.md` **C2** | The guardrail contract: check order, verdicts, reason codes, confirmation + execution rules, red-team expectations. **Implement exactly this** |
+| 4 | `CONTRACTS.md` **C1** | `PlannedStep`, `Decision`, `Confirmation`, `ReasonCode`, `ConversationState`. You consume these; Member 1 defines them |
+| 5 | `CONTRACTS.md` **C4** | Privacy function signatures you implement |
+| 6 | `CONTRACTS.md` **C6** | Repo layout, owners, `config/policy.yaml` keys |
+| 7 | `data/schema.sql` | **All of it**: triggers (`audit_log` append-only, `executions_require_allow`, `consents` append-only), CHECK constraints, the `reason_code` list |
+| 8 | `data/merchant_fixtures.json` | Every merchant's `scenario` (these become your golden + red-team cases); `_meta.guardrail_limits`, `offer_gating`, `simulated_lender` |
+| 9 | `COMPLIANCE.md` | **You own this file.** Every row with status ✅ must be true in code |
+| 10 | `DEMO_SCRIPT.md` scenes 2, 4, 5 | Exact verdicts, reason codes and DB rows the stage demo shows |
+
+**Read when working on a specific piece:**
+
+| Working on | Also read |
+|-----------|-----------|
+| `chaukas/policy/engine.py`, `chaukas/agents/guardrail.py` | `CHAUKAS_EXPLAINED.md` §5 (why each check exists); `CHAUKAS_SYSTEM_DESIGN.md` B4 + B4.1 (policy.yaml, offer gating) |
+| `chaukas/privacy/*` | `CHAUKAS_SYSTEM_DESIGN.md` A8, B7.2, B7.3 (mask formats, per-agent access matrix) |
+| `chaukas/compliance/*` | `COMPLIANCE.md` §1–4 (R1, R5, D1–D7) |
+| `chaukas/observability/*` | `CONTRACTS.md` C3 (`Span`); `data/schema.sql` (`audit_log`, `executions`) |
+| `data/seed.py` | `merchant_fixtures.json` `_meta.conventions` (days_ago to ISO dates, `pii` block, `offers`) |
+| `eval/*`, `data/golden_set.json`, `data/redteam_set.json` | `CHAUKAS_SYSTEM_DESIGN.md` B8–B8.4; `CHAUKAS_PROBLEM_STATEMENT.md` §8 (6 metrics). ⚠ The current golden/redteam JSON is **stale**: rewrite it to the C1 intents, `ActionType` and `ReasonCode` |
+
+**Do not edit** (owned by others; tell the user instead): `chaukas/core/`, `chaukas/agents/` (except `guardrail.py`), `chaukas/integrations/`, `chaukas/llm/`, `chaukas/gateway/`, `chaukas/api/chat.py`, `chaukas/api/desk.py`, `ui/`. You may change `data/schema.sql` and `config/policy.yaml`, but they are **shared**: keep changes additive and flag them for review.
+
+**How to verify your work:** `pytest tests/test_guardrail.py tests/test_privacy.py` (boundary trio ₹24,999 / ₹25,000 / ₹25,001, BLOCK-is-final, bait-and-switch); `python -m eval.redteam` gives **0 unexpected ALLOWs**; `sqlite3 data/chaukas.db "UPDATE audit_log SET amount=1 WHERE id=1;"` gives the append-only error.
+
+---
+
 ## 1. What you own
 
 **Your folders** (full tree with everyone's files: `CONTRACTS.md` §C6). Every file already exists with a docstring — open it, read the docstring, write the code.

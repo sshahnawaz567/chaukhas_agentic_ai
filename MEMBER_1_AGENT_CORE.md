@@ -7,6 +7,42 @@
 
 ---
 
+## 0. For Claude Code — read this first
+
+> **To the team member:** start every Claude Code session with: *"I am Member 1. Read `MEMBER_1_AGENT_CORE.md` and follow its section 0."* That is all Claude needs.
+
+**Claude: you are helping Member 1 (Agent Core + API).** Before writing any code, read these in order. Read them fully, not skimmed:
+
+| # | File | What to take from it |
+|---|------|----------------------|
+| 1 | `CLAUDE.md` | Project rules (non-negotiables, git, commands) |
+| 2 | this file, sections 1–8 | Your files, priorities, build order, definition of done |
+| 3 | `CONTRACTS.md` **C1** | Exact Pydantic models, enums, intent list, state machine. You implement `chaukas/core/models.py` from this **verbatim** |
+| 4 | `CONTRACTS.md` **C3** | Mock tool signatures, rollback, `build_kfs`, trace `Span` |
+| 5 | `CONTRACTS.md` **C5** | Every API route + the `TurnResponse` shape |
+| 6 | `CONTRACTS.md` **C2** | Guardrail contract. You **call** `check()`; Member 2 implements it. Understand the confirmation rules, because you resume pending steps with them |
+| 7 | `CONTRACTS.md` **C6** | Where every file lives and who owns it |
+| 8 | `data/schema.sql` | Tables you read/write: `merchants`, `settlements`, `sessions`, `turns`, `tickets`, `offers`, `handoffs`, `ticket_events` |
+| 9 | `data/merchant_fixtures.json` → `_meta` | `cause_to_plan` (your plan branching), `simulated_lender`, `offer_gating` |
+| 10 | `DEMO_SCRIPT.md` §2–3 | Scenes 1–4: exact inputs and the trace/DB output your code must produce |
+
+**Read when working on a specific piece:**
+
+| Working on | Also read |
+|-----------|-----------|
+| `chaukas/agents/intent.py`, `reply.py`, `handoff.py`, prompts | `CHAUKAS_EXPLAINED.md` §3–4; `COMPLIANCE.md` R1, R2, D4 (what the LLM may and may not see) |
+| `chaukas/agents/context.py` | `CHAUKAS_SYSTEM_DESIGN.md` B7.3 (PII access matrix: context holds **tokens**, not raw PII) |
+| `chaukas/integrations/lending.py`, KFS | `CHAUKAS_SYSTEM_DESIGN.md` B4.1; `COMPLIANCE.md` §2 (L1–L5) |
+| `chaukas/gateway/session.py` | `COMPLIANCE.md` R1, D1 (disclosure + notice as the first message) |
+| `chaukas/llm/client.py` | `CHAUKAS_PROBLEM_STATEMENT.md` §6 (model stack, cost target); `COMPLIANCE.md` P1 (fallback model gets masked data only) |
+| `chaukas/api/desk.py` (scene 3) | `DEMO_SCRIPT.md` scene 3 (brief fields, approve flow, ticket timeline) |
+
+**Do not edit** (owned by others; tell the user instead): `chaukas/agents/guardrail.py`, `chaukas/policy/`, `chaukas/privacy/`, `chaukas/compliance/`, `chaukas/observability/`, `chaukas/api/ops.py`, `chaukas/db.py`, `data/`, `eval/`, `ui/`. Use **stubs** for Member 2's functions until theirs land (e.g. a `check()` that always returns ALLOW, clearly marked `# STUB`).
+
+**How to verify your work:** `pytest tests/test_orchestrator.py`; run the API and replay DEMO_SCRIPT scenes 1–3; confirm no path reaches `chaukas/agents/action.py` without an ALLOW.
+
+---
+
 ## 1. What you own
 
 **Your folders** (full tree with everyone's files: `CONTRACTS.md` §C6). Every file already exists with a docstring — open it, read the docstring, write the code.
