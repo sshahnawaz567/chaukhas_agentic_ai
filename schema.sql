@@ -32,6 +32,21 @@ CREATE TABLE merchants (
     ifsc             TEXT                               -- [PII-1]  bank branch (IFSC_MISMATCH cause lives here)
 );
 
+-- CASHFLOW FEATURE LAYER — pre-aggregated per merchant ("feature layer over
+-- transactions": we store features, NOT raw transactions). Feeds the
+-- deterministic loan-eligibility rule. Seeded from merchant_fixtures.json.
+CREATE TABLE cashflow_features (
+    merchant_id        TEXT PRIMARY KEY REFERENCES merchants(merchant_id),
+    txn_count_30d      INTEGER NOT NULL DEFAULT 0,   -- total transactions, 30d
+    withdrawals_30d    INTEGER NOT NULL DEFAULT 0,   -- wallet withdrawal count, 30d
+    inflow_30d         INTEGER NOT NULL DEFAULT 0,   -- total credited, rupees
+    outflow_30d        INTEGER NOT NULL DEFAULT 0,   -- total debited, rupees
+    avg_balance        INTEGER NOT NULL DEFAULT 0,   -- avg wallet balance, rupees
+    active_days_30d    INTEGER NOT NULL DEFAULT 0,   -- days with >=1 txn (0-30)
+    inflow_cv          REAL    NOT NULL DEFAULT 1.0, -- inflow volatility (coeff of variation; low = steady = low risk)
+    account_age_months INTEGER NOT NULL DEFAULT 0
+);
+
 -- MONEY STATE. Fetched FRESH every turn (never cached — see A7).
 CREATE TABLE settlements (
     id           TEXT PRIMARY KEY,                      -- "SET-51002"

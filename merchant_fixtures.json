@@ -1,4 +1,3 @@
-
 [
   {
     "merchant_id": "M001",
@@ -10,7 +9,17 @@
       {"id": "SET-48305", "amount": 4150, "status": "success", "cause": null}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": true, "max_amount": 50000}
+    "loan_eligibility": {"eligible": true, "max_amount": 50000},
+    "cashflow": {
+      "txn_count_30d": 420,
+      "withdrawals_30d": 8,
+      "inflow_30d": 170000,
+      "outflow_30d": 155000,
+      "avg_balance": 45000,
+      "active_days_30d": 28,
+      "inflow_cv": 0.32,
+      "account_age_months": 18
+    }
   },
   {
     "merchant_id": "M002",
@@ -22,7 +31,17 @@
       {"id": "SET-51088", "amount": 18700, "status": "success", "cause": null}
     ],
     "tickets": [{"id": "TKT-77201", "issue": "Settlement nahi aaya 2 din se", "status": "open"}],
-    "loan_eligibility": {"eligible": true, "max_amount": 200000}
+    "loan_eligibility": {"eligible": true, "max_amount": 200000},
+    "cashflow": {
+      "txn_count_30d": 380,
+      "withdrawals_30d": 12,
+      "inflow_30d": 680000,
+      "outflow_30d": 620000,
+      "avg_balance": 185000,
+      "active_days_30d": 28,
+      "inflow_cv": 0.30,
+      "account_age_months": 36
+    }
   },
   {
     "merchant_id": "M003",
@@ -33,7 +52,17 @@
       {"id": "SET-33091", "amount": 1250, "status": "success", "cause": null}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": false, "max_amount": 0}
+    "loan_eligibility": {"eligible": false, "max_amount": 0},
+    "cashflow": {
+      "txn_count_30d": 280,
+      "withdrawals_30d": 10,
+      "inflow_30d": 40000,
+      "outflow_30d": 36000,
+      "avg_balance": 8000,
+      "active_days_30d": 27,
+      "inflow_cv": 0.40,
+      "account_age_months": 14
+    }
   },
   {
     "merchant_id": "M004",
@@ -44,7 +73,17 @@
       {"id": "SET-66120", "amount": 24800, "status": "pending", "cause": "BANK_DOWN"}
     ],
     "tickets": [{"id": "TKT-77455", "issue": "Payment stuck in pending", "status": "open"}],
-    "loan_eligibility": {"eligible": true, "max_amount": 80000}
+    "loan_eligibility": {"eligible": true, "max_amount": 80000},
+    "cashflow": {
+      "txn_count_30d": 190,
+      "withdrawals_30d": 10,
+      "inflow_30d": 270000,
+      "outflow_30d": 240000,
+      "avg_balance": 65000,
+      "active_days_30d": 26,
+      "inflow_cv": 0.38,
+      "account_age_months": 22
+    }
   },
   {
     "merchant_id": "M005",
@@ -55,7 +94,17 @@
       {"id": "SET-71209", "amount": 5600, "status": "success", "cause": null}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": true, "max_amount": 35000}
+    "loan_eligibility": {"eligible": true, "max_amount": 35000},
+    "cashflow": {
+      "txn_count_30d": 310,
+      "withdrawals_30d": 9,
+      "inflow_30d": 120000,
+      "outflow_30d": 108000,
+      "avg_balance": 22000,
+      "active_days_30d": 26,
+      "inflow_cv": 0.42,
+      "account_age_months": 11
+    }
   },
   {
     "merchant_id": "M006",
@@ -66,7 +115,17 @@
       {"id": "SET-80120", "amount": 2400, "status": "failed", "cause": "KYC_PENDING"}
     ],
     "tickets": [{"id": "TKT-78001", "issue": "KYC resubmit karna hai", "status": "open"}],
-    "loan_eligibility": {"eligible": false, "max_amount": 0}
+    "loan_eligibility": {"eligible": false, "max_amount": 0},
+    "cashflow": {
+      "txn_count_30d": 95,
+      "withdrawals_30d": 6,
+      "inflow_30d": 70000,
+      "outflow_30d": 65000,
+      "avg_balance": 12000,
+      "active_days_30d": 23,
+      "inflow_cv": 0.58,
+      "account_age_months": 5
+    }
   },
   {
     "merchant_id": "M007",
@@ -78,7 +137,17 @@
       {"id": "SET-82099", "amount": 22100, "status": "success", "cause": null}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": true, "max_amount": 150000}
+    "loan_eligibility": {"eligible": true, "max_amount": 150000},
+    "cashflow": {
+      "txn_count_30d": 210,
+      "withdrawals_30d": 11,
+      "inflow_30d": 500000,
+      "outflow_30d": 450000,
+      "avg_balance": 120000,
+      "active_days_30d": 27,
+      "inflow_cv": 0.33,
+      "account_age_months": 30
+    }
   },
   {
     "merchant_id": "M008",
@@ -89,7 +158,17 @@
       {"id": "SET-85011", "amount": 3800, "status": "success", "cause": null}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": true, "max_amount": 25000}
+    "loan_eligibility": {"eligible": false, "max_amount": 0},
+    "cashflow": {
+      "txn_count_30d": 290,
+      "withdrawals_30d": 9,
+      "inflow_30d": 85000,
+      "outflow_30d": 78000,
+      "avg_balance": 15000,
+      "active_days_30d": 26,
+      "inflow_cv": 0.40,
+      "account_age_months": 10
+    }
   },
   {
     "merchant_id": "M009",
@@ -100,7 +179,17 @@
       {"id": "SET-90123", "amount": 26500, "status": "failed", "cause": "BANK_DOWN"}
     ],
     "tickets": [{"id": "TKT-78512", "issue": "Bada settlement fail ho gaya", "status": "open"}],
-    "loan_eligibility": {"eligible": true, "max_amount": 100000}
+    "loan_eligibility": {"eligible": true, "max_amount": 100000},
+    "cashflow": {
+      "txn_count_30d": 220,
+      "withdrawals_30d": 10,
+      "inflow_30d": 335000,
+      "outflow_30d": 300000,
+      "avg_balance": 85000,
+      "active_days_30d": 25,
+      "inflow_cv": 0.40,
+      "account_age_months": 20
+    }
   },
   {
     "merchant_id": "M010",
@@ -111,7 +200,17 @@
       {"id": "SET-92001", "amount": 15400, "status": "success", "cause": null}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": true, "max_amount": 175000}
+    "loan_eligibility": {"eligible": true, "max_amount": 175000},
+    "cashflow": {
+      "txn_count_30d": 290,
+      "withdrawals_30d": 14,
+      "inflow_30d": 585000,
+      "outflow_30d": 540000,
+      "avg_balance": 160000,
+      "active_days_30d": 29,
+      "inflow_cv": 0.28,
+      "account_age_months": 42
+    }
   },
   {
     "merchant_id": "M011",
@@ -122,7 +221,17 @@
       {"id": "SET-94230", "amount": 1800, "status": "success", "cause": null}
     ],
     "tickets": [{"id": "TKT-79001", "issue": "Customer ko refund dena hai", "status": "open"}],
-    "loan_eligibility": {"eligible": false, "max_amount": 0}
+    "loan_eligibility": {"eligible": false, "max_amount": 0},
+    "cashflow": {
+      "txn_count_30d": 180,
+      "withdrawals_30d": 8,
+      "inflow_30d": 50000,
+      "outflow_30d": 46000,
+      "avg_balance": 7000,
+      "active_days_30d": 12,
+      "inflow_cv": 0.60,
+      "account_age_months": 3
+    }
   },
   {
     "merchant_id": "M012",
@@ -133,7 +242,17 @@
       {"id": "SET-96044", "amount": 8900, "status": "success", "cause": null}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": true, "max_amount": 60000}
+    "loan_eligibility": {"eligible": true, "max_amount": 60000},
+    "cashflow": {
+      "txn_count_30d": 340,
+      "withdrawals_30d": 10,
+      "inflow_30d": 200000,
+      "outflow_30d": 180000,
+      "avg_balance": 55000,
+      "active_days_30d": 28,
+      "inflow_cv": 0.35,
+      "account_age_months": 24
+    }
   },
   {
     "merchant_id": "M013",
@@ -144,7 +263,17 @@
       {"id": "SET-97115", "amount": 3100, "status": "failed", "cause": "IFSC_MISMATCH"}
     ],
     "tickets": [{"id": "TKT-79233", "issue": "IFSC galat lag raha hai", "status": "open"}],
-    "loan_eligibility": {"eligible": true, "max_amount": 20000}
+    "loan_eligibility": {"eligible": false, "max_amount": 0},
+    "cashflow": {
+      "txn_count_30d": 150,
+      "withdrawals_30d": 7,
+      "inflow_30d": 70000,
+      "outflow_30d": 65000,
+      "avg_balance": 15000,
+      "active_days_30d": 24,
+      "inflow_cv": 0.45,
+      "account_age_months": 9
+    }
   },
   {
     "merchant_id": "M014",
@@ -155,7 +284,17 @@
       {"id": "SET-98020", "amount": 5500, "status": "success", "cause": null}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": true, "max_amount": 40000}
+    "loan_eligibility": {"eligible": true, "max_amount": 40000},
+    "cashflow": {
+      "txn_count_30d": 400,
+      "withdrawals_30d": 9,
+      "inflow_30d": 135000,
+      "outflow_30d": 125000,
+      "avg_balance": 35000,
+      "active_days_30d": 27,
+      "inflow_cv": 0.40,
+      "account_age_months": 16
+    }
   },
   {
     "merchant_id": "M015",
@@ -167,7 +306,17 @@
       {"id": "SET-99120", "amount": 7100, "status": "pending", "cause": "BANK_DOWN"}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": true, "max_amount": 30000}
+    "loan_eligibility": {"eligible": true, "max_amount": 30000},
+    "cashflow": {
+      "txn_count_30d": 260,
+      "withdrawals_30d": 9,
+      "inflow_30d": 103000,
+      "outflow_30d": 95000,
+      "avg_balance": 28000,
+      "active_days_30d": 26,
+      "inflow_cv": 0.38,
+      "account_age_months": 14
+    }
   },
   {
     "merchant_id": "M016",
@@ -178,7 +327,17 @@
       {"id": "SET-10045", "amount": 2200, "status": "success", "cause": null}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": false, "max_amount": 0}
+    "loan_eligibility": {"eligible": false, "max_amount": 0},
+    "cashflow": {
+      "txn_count_30d": 220,
+      "withdrawals_30d": 8,
+      "inflow_30d": 65000,
+      "outflow_30d": 60000,
+      "avg_balance": 10000,
+      "active_days_30d": 28,
+      "inflow_cv": 0.30,
+      "account_age_months": 8
+    }
   },
   {
     "merchant_id": "M017",
@@ -189,7 +348,17 @@
       {"id": "SET-10211", "amount": 1600, "status": "success", "cause": null}
     ],
     "tickets": [{"id": "TKT-79901", "issue": "QR scan nahi ho raha", "status": "open"}],
-    "loan_eligibility": {"eligible": false, "max_amount": 0}
+    "loan_eligibility": {"eligible": false, "max_amount": 0},
+    "cashflow": {
+      "txn_count_30d": 110,
+      "withdrawals_30d": 5,
+      "inflow_30d": 45000,
+      "outflow_30d": 42000,
+      "avg_balance": 6000,
+      "active_days_30d": 21,
+      "inflow_cv": 0.50,
+      "account_age_months": 6
+    }
   },
   {
     "merchant_id": "M018",
@@ -200,7 +369,17 @@
       {"id": "SET-10388", "amount": 7800, "status": "success", "cause": null}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": true, "max_amount": 55000}
+    "loan_eligibility": {"eligible": true, "max_amount": 55000},
+    "cashflow": {
+      "txn_count_30d": 320,
+      "withdrawals_30d": 10,
+      "inflow_30d": 185000,
+      "outflow_30d": 165000,
+      "avg_balance": 50000,
+      "active_days_30d": 27,
+      "inflow_cv": 0.33,
+      "account_age_months": 20
+    }
   },
   {
     "merchant_id": "M019",
@@ -212,7 +391,17 @@
       {"id": "SET-10488", "amount": 24999, "status": "pending", "cause": "BANK_DOWN"}
     ],
     "tickets": [{"id": "TKT-80012", "issue": "Bada amount pending hai", "status": "open"}],
-    "loan_eligibility": {"eligible": true, "max_amount": 300000}
+    "loan_eligibility": {"eligible": true, "max_amount": 200000},
+    "cashflow": {
+      "txn_count_30d": 180,
+      "withdrawals_30d": 15,
+      "inflow_30d": 1000000,
+      "outflow_30d": 900000,
+      "avg_balance": 450000,
+      "active_days_30d": 28,
+      "inflow_cv": 0.42,
+      "account_age_months": 48
+    }
   },
   {
     "merchant_id": "M020",
@@ -223,6 +412,16 @@
       {"id": "SET-10512", "amount": 980, "status": "success", "cause": null}
     ],
     "tickets": [],
-    "loan_eligibility": {"eligible": false, "max_amount": 0}
+    "loan_eligibility": {"eligible": false, "max_amount": 0},
+    "cashflow": {
+      "txn_count_30d": 240,
+      "withdrawals_30d": 9,
+      "inflow_30d": 30000,
+      "outflow_30d": 28000,
+      "avg_balance": 4000,
+      "active_days_30d": 29,
+      "inflow_cv": 0.50,
+      "account_age_months": 7
+    }
   }
 ]
