@@ -1,5 +1,5 @@
 -- ============================================================
---  Chaukas — SQLite schema  (v3.1: + consents, KFS on offers, ACTION_DISABLED;
+--  Chaukas — SQLite schema  (v3.2: + CONSENT_WITHDRAWN, consents DELETE trigger; v3.1: + consents, KFS on offers, ACTION_DISABLED;
 --  v3: + turns / handoffs / executions,
 --  append-only audit, cause-aware settlements, daily limit support)
 --  Portable to Postgres later: AUTOINCREMENT -> IDENTITY/SERIAL,
@@ -214,6 +214,9 @@ CREATE INDEX idx_consents_merchant ON consents(merchant_id, purpose, created_at)
 CREATE TRIGGER consents_append_only BEFORE UPDATE ON consents
 BEGIN SELECT RAISE(ABORT, 'consents is append-only — insert a withdrawn row instead'); END;
 
+CREATE TRIGGER consents_no_delete BEFORE DELETE ON consents
+BEGIN SELECT RAISE(ABORT, 'consents is append-only — insert a withdrawn row instead'); END;
+
 -- ============================================================
 -- TICKET_EVENTS — the human-readable activity trail (append-only).
 -- "Open a ticket, see the whole story + who did each step."
@@ -274,7 +277,8 @@ CREATE TABLE audit_log (
                          -- offer gating (create_offer) — guardrail decides WHETHER/WHEN to offer
                          'OFFER_NOT_ELIGIBLE',       -- BLOCK (simulated lender said not eligible)
                          'ISSUE_UNRESOLVED',         -- BLOCK (support issue not actioned / handoff open / KYC pending)
-                         'OFFER_COOLING_OFF'         -- BLOCK (merchant declined an offer within cooling-off window)
+                         'OFFER_COOLING_OFF',        -- BLOCK (merchant declined an offer within cooling-off window)
+                         'CONSENT_WITHDRAWN'         -- BLOCK (merchant withdrew loan_offer consent; DPDP s.6)
                        )),
     reason             TEXT    NOT NULL,                -- human-readable: "amount 32500 > auto_limit 25000"
     rollback_token     TEXT,                            -- issued BEFORE execution, only on ALLOW
