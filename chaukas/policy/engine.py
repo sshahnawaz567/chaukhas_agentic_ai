@@ -20,6 +20,7 @@ from pydantic import BaseModel, ValidationError
 from chaukas.core.models import (
     PARAMS_BY_ACTION, ActionType, Confirmation, ConversationState, PlannedStep, ReasonCode, Verdict,
 )
+from chaukas.compliance import consent
 from chaukas.db import ROOT, query_all, query_one
 from chaukas.observability.audit import params_masked
 
@@ -40,10 +41,12 @@ def load_policy(path: str | Path | None = None) -> dict:
     return policy
 
 
-def load_mock_otp() -> str | None:
-    """Mock OTP for step-up (config/mock.yaml, key 'otp', owned by Member 1). None = step-up can never pass."""
-    p = ROOT / "config" / "mock.yaml"
-    otp = (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("otp") if p.exists() else None
+def load_mock_otp(path: str | Path | None = None) -> str | None:
+    """Mock OTP for step-up: config/mock.yaml key 'mock_otp' (Member 1's name; 'otp' is also accepted).
+    None = step-up can never pass."""
+    p = Path(path) if path else ROOT / "config" / "mock.yaml"
+    data = (yaml.safe_load(p.read_text(encoding="utf-8")) or {}) if p.exists() else {}
+    otp = data.get("mock_otp", data.get("otp"))
     return str(otp) if otp is not None else None
 
 
@@ -227,6 +230,8 @@ def _open_issue(ctx: Ctx) -> str | None:
 def check_offer_gating(ctx: Ctx) -> Outcome | None:                                    # 7
     if ctx.action != "create_offer":
         return None
+    if consent.is_withdrawn(ctx.conn, ctx.merchant_id, "loan_offer"):     # DPDP s.6: next turn respects it
+        return _block(ReasonCode.CONSENT_WITHDRAWN, "the merchant withdrew consent for loan offers")
     merchant = ctx.state.merchant
     lender = merchant.eligibility if merchant else None
     if lender is None or not lender.eligible:           # no lender answer = fail closed

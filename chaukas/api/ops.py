@@ -1,5 +1,6 @@
 """Observability/eval routes: GET /api/traces/{trace_id}, GET /api/audit,
 POST /api/redteam/check (guardrail only, never executes), GET /api/eval/latest.
+Compliance routes: GET /api/disclosure, GET|POST /api/merchants/{id}/consents (DPDP notice + consent).
 
 Owner: Member 2 · Contract: CONTRACTS C5
 
@@ -10,12 +11,14 @@ import os
 import uuid
 from contextlib import closing
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from chaukas.agents import guardrail
+from chaukas.compliance import consent, disclosure
 from chaukas.core.models import (
     Channel, ConversationState, LenderDecision, MerchantContext, Mode, PlannedStep,
 )
@@ -122,3 +125,47 @@ def get_eval_latest():
     if not path.exists():
         return _error(404, "EVAL_NOT_RUN", "no eval result yet: run `python -m eval.run_eval`")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+# ------------------------------------------------------------------ compliance: notice + consent (DPDP)
+
+@router.get("/disclosure")
+def get_disclosure(lang: str | None = None):
+    """AI disclosure + DPDP notice in the merchant's language (falls back; see config/disclosure.yaml)."""
+    d = disclosure.get_disclosure_details(lang)
+    return {"lang": d.lang, "ai_disclosure": d.ai_disclosure, "notice": d.notice, "message": d.message,
+            "grievance_contact": d.grievance_contact, "notice_url": d.notice_url, "notice_version": d.notice_version}
+
+
+class ConsentRequest(BaseModel):
+    purpose: Literal["ai_assistance", "loan_offer"]
+    action: Literal["granted", "withdrawn"]
+    channel: Literal["chat", "voice", "agent_desk"] = "chat"
+    session_id: str | None = None
+    kfs_shown: bool = False        # must be true to GRANT loan_offer: the Key Fact Statement comes first
+
+
+def _consent_view(conn, merchant_id: str) -> dict:
+    return {"merchant_id": merchant_id, "purposes": consent.current_state(conn, merchant_id)}
+
+
+@router.get("/merchants/{merchant_id}/consents")
+def get_consents(merchant_id: str):
+    with closing(connect()) as conn:
+        if query_one(conn, "SELECT 1 FROM merchants WHERE merchant_id = ?", (merchant_id,)) is None:
+            return _error(404, "MERCHANT_NOT_FOUND", "no merchant with that id")
+        return _consent_view(conn, merchant_id)
+
+
+@router.post("/merchants/{merchant_id}/consents")
+def set_consent(merchant_id: str, req: ConsentRequest):
+    """Grant or withdraw one purpose. Withdrawal is exactly as easy as granting (DPDP s.6)."""
+    with closing(connect()) as conn:
+        if query_one(conn, "SELECT 1 FROM merchants WHERE merchant_id = ?", (merchant_id,)) is None:
+            return _error(404, "MERCHANT_NOT_FOUND", "no merchant with that id")
+        try:
+            consent.record(conn, merchant_id, req.purpose, req.action, channel=req.channel,
+                           session_id=req.session_id, kfs_shown=req.kfs_shown)
+        except consent.ConsentError as e:
+            return _error(400, "CONSENT_INVALID", str(e))
+        return _consent_view(conn, merchant_id)

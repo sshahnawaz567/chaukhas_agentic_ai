@@ -145,10 +145,20 @@ def test_no_fixture_pii_survives_scrub():
 
 
 def test_only_action_agent_calls_detokenise():
-    """CLAUDE.md rule 5: detokenise() may be called only from chaukas/agents/action.py (and defined in pii.py)."""
-    allowed = {Path("chaukas/agents/action.py"), Path("chaukas/privacy/pii.py")}
+    """CLAUDE.md rule 5: detokenise() may be CALLED only from chaukas/agents/action.py.
+    Looks at real call expressions, so comments, docstrings and the m2_shim wrapper definition do not count."""
+    import ast
+
+    allowed = {Path("chaukas/agents/action.py")}
     offenders = []
     for py in (ROOT / "chaukas").rglob("*.py"):
-        if py.relative_to(ROOT) not in allowed and "detokenise(" in py.read_text(encoding="utf-8"):
-            offenders.append(str(py.relative_to(ROOT)))
-    assert not offenders, f"detokenise() used outside action.py: {offenders}"
+        rel = py.relative_to(ROOT)
+        if rel in allowed:
+            continue
+        for node in ast.walk(ast.parse(py.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Call):
+                f = node.func
+                name = f.id if isinstance(f, ast.Name) else f.attr if isinstance(f, ast.Attribute) else None
+                if name == "detokenise":
+                    offenders.append(f"{rel}:{node.lineno}")
+    assert not offenders, f"detokenise() called outside action.py: {offenders}"

@@ -13,6 +13,7 @@ from chaukas.agents import guardrail
 from chaukas.core.models import Confirmation, ReasonCode, Verdict
 from chaukas.observability import audit
 from chaukas.policy import engine
+from chaukas.policy.engine import load_mock_otp as real_load_mock_otp   # conftest patches engine.load_mock_otp
 
 ROOT = Path(__file__).resolve().parent.parent
 A, B, N = Verdict.ALLOW, Verdict.BLOCK, Verdict.NEEDS_CONFIRMATION
@@ -401,3 +402,51 @@ def test_guardrail_has_no_llm_imports():
     for f in ("chaukas/agents/guardrail.py", "chaukas/policy/engine.py", "chaukas/observability/audit.py"):
         src = (ROOT / f).read_text(encoding="utf-8")
         assert not re.search(r"^\s*(from|import)\s+(openai|chaukas\.llm|langchain|langgraph|anthropic)", src, re.M)
+
+
+def test_mock_otp_is_read_from_mock_yaml_under_either_key(tmp_path):
+    """Member 1 named the key `mock_otp`; `otp` is accepted too; no file or no key means step-up can never pass."""
+    cases = [('mock_otp: "123456"', "123456"), ('otp: 654321', "654321"), ('# nothing', None)]
+    for text, expected in cases:
+        f = tmp_path / "mock.yaml"
+        f.write_text(text + chr(10), encoding="utf-8")
+        assert real_load_mock_otp(f) == expected
+    assert real_load_mock_otp(tmp_path / "missing.yaml") is None
+
+
+# ------------------------------------------------------------------ withdrawn consent (DPDP s.6)
+
+def test_7_withdrawn_loan_consent_blocks_the_offer(db, run):
+    from chaukas.compliance import consent
+    offer = {"merchant_id": "M010", "amount": 50000}
+    assert run("M010", "create_offer", offer, step_no=1, eligible=(True, 175000)).reason_code is ReasonCode.CONSENT_REQUIRED
+    consent.withdraw(db, "M010", "loan_offer")
+    d = run("M010", "create_offer", offer, step_no=2, eligible=(True, 175000))
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.CONSENT_WITHDRAWN)
+
+
+def test_7_granting_loan_consent_again_lifts_the_block(db, run):
+    from chaukas.compliance import consent
+    offer = {"merchant_id": "M010", "amount": 50000}
+    consent.withdraw(db, "M010", "loan_offer")
+    consent.grant(db, "M010", "loan_offer", kfs_shown=True)
+    d = run("M010", "create_offer", offer, eligible=(True, 175000))
+    assert (d.verdict, d.reason_code) == (N, ReasonCode.CONSENT_REQUIRED)
+
+
+def test_7_only_loan_consent_matters_and_only_for_that_merchant(db, run):
+    from chaukas.compliance import consent
+    consent.withdraw(db, "M010", "ai_assistance")                  # a different purpose
+    consent.withdraw(db, "M002", "loan_offer")                     # a different merchant
+    d = run("M010", "create_offer", {"merchant_id": "M010", "amount": 50000}, eligible=(True, 175000))
+    assert d.reason_code is ReasonCode.CONSENT_REQUIRED
+
+
+def test_withdrawn_consent_block_is_final_even_with_human_approval(db, run):
+    from chaukas.compliance import consent
+    offer = {"merchant_id": "M010", "amount": 50000}
+    pending = run("M010", "create_offer", offer, step_no=1, eligible=(True, 175000))
+    consent.withdraw(db, "M010", "loan_offer")
+    c = Confirmation(pending_audit_id=pending.audit_id, actor="human", actor_id="STAFF-7", kind="consent")
+    d = run("M010", "create_offer", offer, step_no=1, eligible=(True, 175000), confirmation=c)
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.CONSENT_WITHDRAWN)
