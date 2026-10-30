@@ -11,7 +11,7 @@ from typing import Any
 
 from chaukas import db
 from chaukas.compliance import consent
-from chaukas.core import m2_shim
+from chaukas.core import create_logs, m2_shim
 from chaukas.core.models import PlannedStep, TurnRecord
 from chaukas.integrations._common import load_config
 
@@ -61,7 +61,7 @@ def create_session(merchant_id: str, channel: str, mode: str) -> dict[str, Any]:
         lang = m["preferred_lang"]
         conn.execute("INSERT INTO sessions (session_id, merchant_id, channel, mode, lang) VALUES (?,?,?,?,?)",
                      (session_id, merchant_id, channel, mode, lang))
-        text, _notice_version = m2_shim.get_disclosure(lang)
+        text, notice_version = m2_shim.get_disclosure(lang)
         conn.execute("INSERT INTO turns (session_id, turn_no, trace_id, role, text_masked, lang) VALUES (?,?,?,?,?,?)",
                      (session_id, 1, "gateway-" + session_id, "agent", text, lang))
         conn.commit()
@@ -69,6 +69,7 @@ def create_session(merchant_id: str, channel: str, mode: str) -> dict[str, Any]:
         consent.grant(conn, merchant_id, "ai_assistance", channel=channel, session_id=session_id)
     finally:
         conn.close()
+    create_logs.log_session_started(session_id, merchant_id, channel, mode, lang, notice_version)
     return {"session_id": session_id, "disclosure": text, "lang": lang}
 
 

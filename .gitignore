@@ -6,6 +6,7 @@ venv/
 data/*.db
 traces/*
 !traces/.gitkeep
+logs/
 .pytest_cache/
 video/*
 !video/.gitkeep

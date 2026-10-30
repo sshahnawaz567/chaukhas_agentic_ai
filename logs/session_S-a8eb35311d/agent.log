@@ -1,0 +1,31 @@
+[2026-10-30T19:32:30Z] SESSION STARTED  merchant=M002 channel=chat mode=autonomous lang=hi-IN
+  disclosure sent (notice v1-b5ab69aa)
+
+[2026-10-30T19:32:32Z] TURN 2  trace=T-1cdbd39caaaf  status=handed_off  1518 ms  ₹0.078
+  merchant : Bhai mera 32,500 ka settlement 2 din se nahi aaya, jaldi bhejo.
+  intent   : settlement_delay (hi-IN, conf 0.99)
+  plan     : verify_ledger → update_ticket → retrigger_payout(₹32,500) → check_eligibility
+  guardrail: step 1 verify_ledger → ALLOW WITHIN_POLICY (verify_ledger is read-only)
+  guardrail: step 2 update_ticket → ALLOW WITHIN_POLICY (update_ticket: all checks passed)
+  guardrail: step 3 retrigger_payout → NEEDS_CONFIRMATION OVER_AUTO_LIMIT (amount 32500 > auto_limit 25000)
+  action   : step 1 verify_ledger → success 
+  action   : step 2 update_ticket → success TKT-77201
+  pending  : step_up (OVER_AUTO_LIMIT), audit #6
+  handoff  : OVER_AUTO_LIMIT — Approve the retrigger payout of 32500?
+  reply    : आपका 32,500 रुपये का settlement failed हो गया क्योंकि bank details (IFSC) गलत थे। payout अभी नहीं भेजा गया है और team इसे verify करेगी, ticket TKT-77201 update कर दिया गया है। अब एक human team member इसे आगे संभालेगा।
+  spans    :
+     1. intent      472 ms  settlement_delay hi-IN urgency=high conf=0.99 via llm [sarvam-105b-conversations ₹0.033]
+     2. context       1 ms  SET-51002 failed IFSC_MISMATCH
+     3. planner       0 ms  verify_ledger -> update_ticket -> retrigger_payout -> check_eligibility
+     4. guardrail     3 ms  ALLOW WITHIN_POLICY: verify_ledger is read-only
+     5. action        0 ms  success
+     6. guardrail     7 ms  ALLOW WITHIN_POLICY: update_ticket: all checks passed
+     7. action       12 ms  success TKT-77201
+     8. guardrail     6 ms  NEEDS_CONFIRMATION OVER_AUTO_LIMIT: amount 32500 > auto_limit 25000
+     9. handoff     488 ms  HO-00001: Approve the retrigger payout of 32500? [sarvam-105b-conversations ₹0.0195]
+    10. reply       505 ms  via llm: 217 chars [sarvam-105b-conversations ₹0.0255]
+
+[2026-10-30T19:32:32Z] HUMAN RESOLVE  staff=staff_7  retrigger_payout ₹32,500
+  guardrail: ALLOW APPROVED_BY_HUMAN (retrigger_payout confirmed by human)
+  action   : success PAY-51002-1
+

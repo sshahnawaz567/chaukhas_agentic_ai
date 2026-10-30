@@ -1,0 +1,47 @@
+[2026-10-30T19:32:27Z] SESSION STARTED  merchant=M001 channel=chat mode=autonomous lang=hi-IN
+  disclosure sent (notice v1-b5ab69aa)
+
+[2026-10-30T19:32:29Z] TURN 2  trace=T-aeb26d5cc187  status=awaiting_confirmation  2311 ms  ₹0.0661
+  merchant : पिछले हफ्ते का पैसा अभी तक नहीं आया।
+  intent   : settlement_delay (hi-IN, conf 0.95)
+  plan     : verify_ledger → raise_ticket → retrigger_payout(₹18,400) → check_eligibility → create_offer(₹50,000)
+  guardrail: step 1 verify_ledger → ALLOW WITHIN_POLICY (verify_ledger is read-only)
+  guardrail: step 2 raise_ticket → ALLOW WITHIN_POLICY (raise_ticket: all checks passed)
+  guardrail: step 3 retrigger_payout → ALLOW WITHIN_POLICY (retrigger_payout: amount 18400 <= auto_limit 25000)
+  guardrail: step 4 check_eligibility → ALLOW WITHIN_POLICY (check_eligibility is read-only)
+  guardrail: step 5 create_offer → NEEDS_CONFIRMATION CONSENT_REQUIRED (create_offer needs the merchant's consent)
+  action   : step 1 verify_ledger → success 
+  action   : step 2 raise_ticket → success TKT-33567
+  action   : step 3 retrigger_payout → success PAY-99213-1
+  action   : step 4 check_eligibility → success 
+  pending  : consent (CONSENT_REQUIRED), audit #3
+  reply    : SET-99213 का 18400 रुपये का settlement fail हो गया क्योंकि आपके bank details (IFSC) गलत थे। हमने payout फिर से भेज दिया है (PAY-99213-1) और ticket TKT-33567 बना दिया है। Demo NBFC Partner की तरफ से 50000 रुपये का loan offer है: lender name Demo NBFC Partner, amount 50000, APR 18.0%, processing fee 500, tenure 12 months, total repayable 59500, grievance contact g****@demo-lender.example। कृपया अपना consent yes या no में बताएं।
+  spans    :
+     1. intent     1494 ms  settlement_delay hi-IN urgency=med conf=0.95 via llm [sarvam-105b-conversations ₹0.0312]
+     2. context       4 ms  SET-99213 failed IFSC_MISMATCH
+     3. planner       0 ms  verify_ledger -> raise_ticket -> retrigger_payout -> check_eligibility
+     4. guardrail     3 ms  ALLOW WITHIN_POLICY: verify_ledger is read-only
+     5. action        0 ms  success
+     6. guardrail     6 ms  ALLOW WITHIN_POLICY: raise_ticket: all checks passed
+     7. action       11 ms  success TKT-33567
+     8. guardrail     5 ms  ALLOW WITHIN_POLICY: retrigger_payout: amount 18400 <= auto_limit 25000
+     9. action        9 ms  success PAY-99213-1
+    10. guardrail     2 ms  ALLOW WITHIN_POLICY: check_eligibility is read-only
+    11. action        1 ms  success
+    12. guardrail     5 ms  NEEDS_CONFIRMATION CONSENT_REQUIRED: create_offer needs the merchant's consent
+    13. reply       734 ms  via llm: 429 chars [sarvam-105b-conversations ₹0.0349]
+
+[2026-10-30T19:32:30Z] TURN 4  trace=T-XXXXXX5403aff  status=completed  1005 ms  ₹0.0552
+  merchant : हाँ, भेज दो।
+  intent   : confirm (hi-IN, conf 1.00)
+  plan     : create_offer(₹50,000)
+  guardrail: step 5 create_offer → ALLOW CONFIRMED_BY_MERCHANT (create_offer confirmed by merchant)
+  action   : step 5 create_offer → success OFF-55239
+  reply    : आपका ₹50,000 का लोन ऑफ़र OFF-55239 स्वीकार हो गया है।
+  spans    :
+     1. intent      489 ms  confirm hi-IN urgency=low conf=1.00 via llm [sarvam-105b-conversations ₹0.0336]
+     2. context       1 ms  no failed/pending settlement
+     3. guardrail    11 ms  ALLOW CONFIRMED_BY_MERCHANT: create_offer confirmed by merchant
+     4. action       18 ms  success OFF-55239
+     5. reply       459 ms  via template(ungrounded): 53 chars [sarvam-105b-conversations ₹0.0216]
+

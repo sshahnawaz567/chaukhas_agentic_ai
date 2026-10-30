@@ -80,6 +80,7 @@ def env(tmp_path, monkeypatch):
     seed(path)
     monkeypatch.setenv("CHAUKAS_DB_PATH", str(path))
     monkeypatch.setenv("CHAUKAS_REPLAY_MODE", "off")
+    monkeypatch.setenv("CHAUKAS_AGENT_LOG_DIR", str(tmp_path / "logs"))
     monkeypatch.setattr("chaukas.llm.client._client", lambda provider: None)  # no network, ever
     monkeypatch.setattr(m2_shim, "emit_span", lambda span: None)
     monkeypatch.setattr(m2_shim, "guardrail_check", fake_check)
@@ -367,3 +368,76 @@ def test_real_guardrail_scene2_then_scene3_human_approve(real_guardrail):
                       json={"staff_id": "staff_7", "decision": "approved", "execute_suggested": True}).json()
     assert res["decision"]["reason_code"] == "APPROVED_BY_HUMAN" and res["action_result"]["status"] == "success"
     assert rows("SELECT status FROM settlements WHERE id='SET-51002'")[0]["status"] == "retriggered"
+
+
+# ------------------------------------------------------------------ per-session agent logs
+def test_agent_log_per_session_without_raw_pii(env):
+    sid = new_session("M001")
+    orchestrator.handle_message(sid, "mera account 501001007919 hai aur phone 9800000001, paisa nahi aaya")
+    orchestrator.handle_message(sid, "haan")
+
+    folder = env.parent / "logs" / f"session_{sid}"
+    events = [json.loads(line) for line in (folder / "agent.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [e["event"] for e in events] == ["session_started", "turn", "turn"]
+    assert events[1]["plan"] and events[1]["decisions"] and events[1]["spans"]
+    assert events[2]["intent"] == "confirm"
+    text = (folder / "agent.log").read_text(encoding="utf-8")
+    assert "TURN 2" in text and "guardrail:" in text
+    for raw in ("501001007919", "9800000001"):
+        assert raw not in text and raw not in json.dumps(events)
+
+
+def test_llm_calls_logged_with_prompt_thought_and_output(env, monkeypatch):
+    from chaukas.llm.client import LLMResult
+
+    def fake_complete(agent, prompt, replay_key=None):
+        if agent == "intent":
+            out = {"thought_process": "Merchant says money not received for 9800000001.", "intent_result": {"intent": "settlement_delay", "lang": "hi-IN",
+                   "urgency": "high", "track": "support", "confidence": 0.93}}
+        else:
+            raise __import__("chaukas.llm.client", fromlist=["LLMUnavailable"]).LLMUnavailable("offline")
+        return LLMResult(text=json.dumps(out), model="fake-model", source="live", tokens_in=10, tokens_out=5)
+
+    monkeypatch.setattr("chaukas.llm.prompt.complete", fake_complete)
+    sid = new_session("M001")
+    orchestrator.handle_message(sid, "paisa nahi aaya, account 501001007919")
+
+    folder = env.parent / "logs" / f"session_{sid}"
+    calls = [json.loads(x) for x in (folder / "llm_calls.jsonl").read_text(encoding="utf-8").splitlines()]
+    intent_call = next(c for c in calls if c["agent"] == "intent")
+    assert intent_call["prompt_file"] == "intent.v1.txt" and "<USER QUESTION>" in intent_call["prompt"]
+    assert "settlement_delay" in intent_call["output"] and intent_call["model"] == "fake-model"
+    assert any(c["error"] for c in calls if c["agent"] == "reply")  # LLM down -> logged, template used
+    text = (folder / "llm_calls.log").read_text(encoding="utf-8")
+    assert "PROMPT" in text and "THOUGHT" in text and "OUTPUT" in text
+    assert "Merchant says money not received" in text and intent_call["thought_process"]
+    for raw in ("501001007919", "9800000001"):  # PII is scrubbed, in the thought too
+        assert raw not in text and raw not in json.dumps(calls)
+
+
+def test_broken_logging_never_changes_the_turn(env, monkeypatch):
+    """If every log write blows up, the turn and its API response are exactly what they would have been."""
+    from chaukas.core import create_logs
+
+    def boom(*a, **k):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(create_logs, "_write", boom)
+    monkeypatch.setattr(create_logs, "_split_output", boom)
+    sid = new_session("M001")
+    r1 = orchestrator.handle_message(sid, "पिछले हफ्ते का पैसा अभी तक नहीं आया।")
+    assert r1.status == TurnStatus.AWAITING_CONFIRMATION and "50,000" in r1.reply
+    assert actions_of(r1) == ["verify_ledger", "raise_ticket", "retrigger_payout", "check_eligibility", "create_offer"]
+    r2 = orchestrator.handle_message(sid, "हाँ, भेज दो।")
+    assert r2.status == TurnStatus.COMPLETED
+    assert not (env.parent / "logs").exists()
+
+
+def test_log_turn_does_not_touch_the_response(env):
+    from chaukas.core import create_logs
+
+    sid = new_session("M002")
+    r = orchestrator.handle_message(sid, "Bhai mera 32,500 ka settlement 2 din se nahi aaya, jaldi bhejo.")
+    before = r.model_dump(mode="json")
+    create_logs.log_turn(r, "again", 0.5)
+    assert r.model_dump(mode="json") == before

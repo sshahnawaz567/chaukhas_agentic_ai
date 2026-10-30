@@ -54,7 +54,7 @@ Prompt file = `<SYSTEM INSTRUCTION>`, `<CONTEXT>` (`{context}`), `<INSTRUCTION>`
 - Variables are filled with plain `str.format()` (called directly in `llm.prompt.run_validated()`; no helper). Literal braces in a prompt file (the JSON `O/P SCHEMA` block) are written **doubled** (`{{ }}`); only `{context}` and `{user_question}` are real variables. A stray single `{` raises `KeyError`; `tests/test_llm_prompt.py` renders every prompt file to catch that.
 - Context is built as XML with `llm.prompt.to_xml()`; every value is XML-escaped, so merchant text cannot close a tag (injection hygiene).
 - Output JSON is validated by Pydantic models in `chaukas/agents/schemas.py` (`IntentOutput`, `ReplyOutput`, `HandoffOutput`) with one repair retry; then the typed result is passed on.
-- `thought_process` is for tracing only: never shown to the merchant, never stored.
+- `thought_process` is for debugging only: never shown to the merchant, never written to the DB. It **is** written (scrubbed) to the per-session `logs/session_<id>/llm_calls.log` (decision changed 31 Oct, user request).
 
 ## 5. Decisions taken (flag if you disagree)
 

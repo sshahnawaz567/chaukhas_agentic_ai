@@ -13,7 +13,7 @@ from typing import Any
 from chaukas import db
 from chaukas.agents import action, context, handoff, intent as intent_agent, reply as reply_agent
 from chaukas.compliance import consent
-from chaukas.core import m2_shim, plans
+from chaukas.core import create_logs, m2_shim, plans
 from chaukas.core.models import (
     ActionResult,
     ActionType,
@@ -58,6 +58,7 @@ class _Turn:
 
     def __init__(self, state: ConversationState):
         self.state = state
+        create_logs.bind_turn(state.session_id, state.turn_no, state.trace_id)
         self.spans: list[dict[str, Any]] = []
         self.cost = 0.0
         self.t0 = time.perf_counter()
@@ -387,6 +388,7 @@ def resolve_by_human(session_id: str, merchant_id: str, step: PlannedStep, pendi
         state.completed.append(result)
         turn.span("action", step.action_type, f"{result.status} {result.ref_id or ''}".strip(), t,
                   step_no=step.step_no)
+    create_logs.log_human_resolve(session_id, staff_id, step.action_type, step.amount, decision, result)
     return decision, result, state
 
 
@@ -418,13 +420,15 @@ def _finish(turn: _Turn) -> TurnResponse:
             "kind": (s.pending_meta or {}).get("kind"), "reason_code": (s.pending_meta or {}).get("reason_code"),
             "prompt": text,
         }
-    return TurnResponse(
+    response = TurnResponse(
         session_id=s.session_id, turn_no=s.turn_no, trace_id=s.trace_id, status=s.status, lang=s.lang,
         intent=s.intent, reply=text, plan=s.plan,
         decisions=[_decision_row(next(p for p in _all_steps(s) if p.step_no == n), d) for n, d in s.decisions.items()],
         actions=s.completed, pending_confirmation=pending_confirmation, handoff=s.handoff,
         latency_ms=turn.elapsed_ms(), cost_inr=round(turn.cost, 4), spans=turn.spans,
     )
+    create_logs.log_turn(response, s.message_masked, s.intent_confidence)
+    return response
 
 
 def _all_steps(s: ConversationState) -> list[PlannedStep]:
