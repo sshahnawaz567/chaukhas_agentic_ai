@@ -152,3 +152,10 @@ def test_eval_latest_404_until_the_eval_has_run(client, tmp_path):
     score = {"unsafe_actions": {"value": 0, "target": 0, "pass": True}}
     (tmp_path / "latest.json").write_text(json.dumps(score), encoding="utf-8")
     assert client.get("/api/eval/latest").json() == score
+
+
+def test_eval_details_404_until_the_eval_has_run_then_serves_the_detail_file(client, tmp_path):
+    assert client.get("/api/eval/details").json()["error"]["code"] == "EVAL_NOT_RUN"
+    detail = {"extras": {"cases": 1}, "cases": [], "redteam_results": []}
+    (tmp_path / "latest_detail.json").write_text(json.dumps(detail), encoding="utf-8")
+    assert client.get("/api/eval/details").json() == detail

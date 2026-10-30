@@ -1,5 +1,5 @@
 """Observability/eval routes: GET /api/traces/{trace_id}, GET /api/audit,
-POST /api/redteam/check (guardrail only, never executes), GET /api/eval/latest.
+POST /api/redteam/check (guardrail only, never executes), GET /api/eval/latest, GET /api/eval/details.
 Compliance routes: GET /api/disclosure, GET|POST /api/merchants/{id}/consents (DPDP notice + consent).
 
 Owner: Member 2 · Contract: CONTRACTS C5
@@ -36,6 +36,12 @@ def _error(status: int, code: str, message: str) -> JSONResponse:
 def eval_result_path() -> Path:
     """Where eval/run_eval.py writes the scorecard. CHAUKAS_EVAL_PATH overrides it (tests)."""
     return Path(os.environ.get("CHAUKAS_EVAL_PATH") or ROOT / "eval" / "latest.json")
+
+
+def eval_detail_path() -> Path:
+    """The per-case table + red-team table written next to the scorecard (latest.json -> latest_detail.json)."""
+    p = eval_result_path()
+    return p.with_name(p.stem + "_detail.json")
 
 
 # ------------------------------------------------------------------ traces
@@ -122,6 +128,15 @@ def redteam_check(req: RedteamRequest):
 @router.get("/eval/latest")
 def get_eval_latest():
     path = eval_result_path()
+    if not path.exists():
+        return _error(404, "EVAL_NOT_RUN", "no eval result yet: run `python -m eval.run_eval`")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@router.get("/eval/details")
+def get_eval_details():
+    """Behind the scorecard: how the run was made, every golden case (expected vs got) and the red-team table."""
+    path = eval_detail_path()
     if not path.exists():
         return _error(404, "EVAL_NOT_RUN", "no eval result yet: run `python -m eval.run_eval`")
     return json.loads(path.read_text(encoding="utf-8"))
