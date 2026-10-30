@@ -80,6 +80,7 @@ class ReasonCode(str, Enum):  # MUST equal schema.sql audit_log.reason_code CHEC
     OFFER_NOT_ELIGIBLE = "OFFER_NOT_ELIGIBLE"
     ISSUE_UNRESOLVED = "ISSUE_UNRESOLVED"
     OFFER_COOLING_OFF = "OFFER_COOLING_OFF"
+    CONSENT_WITHDRAWN = "CONSENT_WITHDRAWN"  # BLOCK: merchant withdrew loan_offer consent (DPDP s.6), schema v3.2
 
 
 class HandoffReason(str, Enum):  # handoffs.reason_code = a ReasonCode OR one of these

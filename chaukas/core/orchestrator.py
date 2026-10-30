@@ -12,6 +12,7 @@ from typing import Any
 
 from chaukas import db
 from chaukas.agents import action, context, handoff, intent as intent_agent, reply as reply_agent
+from chaukas.compliance import consent
 from chaukas.core import m2_shim, plans
 from chaukas.core.models import (
     ActionResult,
@@ -324,6 +325,7 @@ def _resume(turn: _Turn, pending: tuple[PlannedStep, dict, int | None], *, appro
     if audit_id is None:
         raise PendingMismatch("pending step has no audit row to confirm")
     confirmation = Confirmation(pending_audit_id=audit_id, actor=actor, actor_id=actor_id, kind=kind, otp=otp)
+    _refresh_eligibility(s, step)
     t = time.perf_counter()
     decision = m2_shim.guardrail_check(step, s, confirmation)
     s.decisions[step.step_no] = decision
@@ -333,12 +335,32 @@ def _resume(turn: _Turn, pending: tuple[PlannedStep, dict, int | None], *, appro
     if decision.verdict == Verdict.ALLOW:
         if _run_allowed(turn, step, decision, [], kfs_shown_at=meta.get("kfs_shown_at")):
             s.status = TurnStatus.COMPLETED
+            if step.action_type == ActionType.CREATE_OFFER.value:
+                _grant_consent(s, "loan_offer", kfs_shown=True)  # KFS was shown when the offer was parked
     elif decision.verdict == Verdict.NEEDS_CONFIRMATION:  # e.g. wrong OTP or params changed since
         _park_for_confirmation(turn, step, decision)
     else:
         s.refused.append(RefusedStep(action_type=step.action_type, verdict=decision.verdict,
                                      reason_code=decision.reason_code, reason=decision.reason))
         s.status = TurnStatus.COMPLETED
+
+
+def _refresh_eligibility(s: ConversationState, step: PlannedStep) -> None:
+    """A resume turn has no check_eligibility step, so the guardrail's offer gating (check 7) would see none."""
+    if step.action_type == ActionType.CREATE_OFFER.value and s.merchant is not None:
+        s.merchant.eligibility = lending.check_eligibility(step.params["merchant_id"])
+
+
+def _grant_consent(s: ConversationState, purpose: str, *, kfs_shown: bool = False) -> None:
+    """Append a consents row (DPDP / RBI L1). Never breaks the turn: the action already ran."""
+    conn = db.connect()
+    try:
+        consent.grant(conn, s.merchant_id, purpose, channel=s.channel.value, session_id=s.session_id,
+                      kfs_shown=kfs_shown)
+    except Exception:
+        log.exception("consent record failed")
+    finally:
+        conn.close()
 
 
 def resolve_by_human(session_id: str, merchant_id: str, step: PlannedStep, pending_audit_id: int,
@@ -352,6 +374,7 @@ def resolve_by_human(session_id: str, merchant_id: str, step: PlannedStep, pendi
     step.session_id = session_id
     turn = _Turn(state)
     confirmation = Confirmation(pending_audit_id=pending_audit_id, actor="human", actor_id=staff_id, kind=kind)
+    _refresh_eligibility(state, step)
     t = time.perf_counter()
     decision = m2_shim.guardrail_check(step, state, confirmation)
     state.decisions[step.step_no] = decision

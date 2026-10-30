@@ -3,7 +3,7 @@
 > Running record of what Member 1's side of the code does and what was changed. Update it with every work session.
 > Scope: only Member 1 files (see `MEMBER_1_AGENT_CORE.md` §1). Nothing in Member 2 / 3 files, `CONTRACTS.md`, `data/schema.sql`, `config/policy.yaml` or `requirements.txt` was edited.
 
-**Status (30 Oct 2026):** P0 walking skeleton is built and tested end to end, **now with live Sarvam calls** (intent, reply, handoff), against **stubbed** Member 2 pieces. `pytest` → 50 passed (no network in tests). Gemini fallback has no key yet.
+**Status (30 Oct 2026):** P0 is built and now runs against **Member 2's real guardrail, privacy, trace, ops and compliance** (`origin/main` merged into `m1/agentic`). `pytest` → 254 passed (whole repo, no network); `python -m eval.redteam` → 40/40, 0 unsafe. Live Sarvam calls work. Gemini fallback has no key yet. **M1 code is not on `main` yet: PR pending.**
 
 ---
 
@@ -22,9 +22,9 @@
 | Prompts | `prompts/{intent,reply,handoff}.v1.txt` | In the user's agent format (see §4) |
 | Config | `config/{models,lender_sim,mock,languages,fallback_replies}.yaml` | `fallback_replies.yaml` is new (deterministic replies when the LLM is down) |
 | Seam to Member 2 | `chaukas/core/m2_shim.py` | See §2. The stub guardrail now asks consent for `create_offer` and step-up above `policy.yaml auto_limit_inr`, so scenes 1-2 run before Member 2 lands |
-| Tests | `tests/test_orchestrator.py`, `tests/test_llm_prompt.py` | 42 tests, no network |
+| Tests | `tests/test_orchestrator.py`, `tests/test_llm_prompt.py` | No network. Most orchestrator tests use a fake guardrail; two run scenes 1-3 against the REAL one |
 
-Not built yet: `channel/voice.py` (P1), `cache/` (P2), naive-LLM comparison for scene 4 (P1), recordings for replay mode (needs live keys).
+Not built yet: `channel/voice.py` (P1), `cache/` (P2), naive-LLM comparison for scene 4 (P1), recordings for replay mode (`recordings/` is empty). `device_issue` template IS built (with a test).
 
 ## 2. Member 2 seam (`m2_shim.py`) — what to swap when their code lands
 
@@ -80,7 +80,7 @@ Prompt file = `<SYSTEM INSTRUCTION>`, `<CONTEXT>` (`{context}`), `<INSTRUCTION>`
 ## 6. Open items / for the team
 
 - **Gemini fallback is untested** (no `GEMINI_API_KEY`); model name `gemini-3.5-flash-lite` is from the problem statement. With only Sarvam configured, a Sarvam outage drops to keyword intent + template replies (still safe, less natural).
-- **Member 2:** `observability/trace.py` signature; `compliance/consent.py` (we do not write the `consents` table; `loan_offer` consent should be recorded when the merchant accepts); disclosure text; confirm that `check()` returns `confirmation_kind` on NEEDS_CONFIRMATION and that `Decision.audit_id` exists for write actions.
+- **Member 2:** their code is merged and wired (guardrail, privacy, disclosure, consent). Still open: `m2_shim.emit_span` writes spans itself; switch it to `observability.trace.emit()` so `/api/traces/{id}` reads one format.
 - **Member 3:** `TurnResponse` is the contract; sample JSON per scene can be produced from the tests. `GET /api/handoffs/{id}` also returns `ticket_events` (the timeline for scene 3).
 - **Next:** record LLM replays now that the Sarvam key works (`CHAUKAS_REPLAY_MODE=record`, run scenes 1-4); voice (go/no-go 3 PM); naive-agent comparison for scene 4; real-guardrail integration run of scenes 1–3.
 
@@ -88,6 +88,7 @@ Prompt file = `<SYSTEM INSTRUCTION>`, `<CONTEXT>` (`{context}`), `<INSTRUCTION>`
 
 | Date | What |
 |------|------|
+| 2026-10-30 | Merged `origin/main` (Member 2: real guardrail, privacy, trace, ops, compliance). Per Member 2's request: `ReasonCode.CONSENT_WITHDRAWN`; orchestrator refreshes eligibility before the guardrail on a resumed / human-approved `create_offer` (else check 7 BLOCKs it as `OFFER_NOT_ELIGIBLE`); reply text for `CONSENT_WITHDRAWN`; `consents` rows: `ai_assistance` at session start, `loan_offer` (kfs_shown) when an offer is accepted. 2 tests against the real guardrail. 254 tests, red-team 0 unsafe. |
 | 2026-10-30 | Sarvam key added: first live calls. Model -> `sarvam-105b-conversations`; stub guardrail made demo-runnable; reply `<outcome>` + grounding guard; handoff question names the action and amount. 50 tests. |
 | 2026-10-30 | Removed `render()`; prompts filled by `str.format()` directly with doubled schema braces (per user decision); test added. |
 | 2026-10-30 | Built the full P0 skeleton: models, config, prompts, LLM client/replay/prompt layer, mocks, context, plans, intent, reply, handoff, action, orchestrator, gateway, chat + desk API, `main.py`, tests (42 passing). Created `.venv` and installed the dependencies. |

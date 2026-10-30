@@ -10,6 +10,7 @@ import uuid
 from typing import Any
 
 from chaukas import db
+from chaukas.compliance import consent
 from chaukas.core import m2_shim
 from chaukas.core.models import PlannedStep, TurnRecord
 from chaukas.integrations._common import load_config
@@ -64,6 +65,8 @@ def create_session(merchant_id: str, channel: str, mode: str) -> dict[str, Any]:
         conn.execute("INSERT INTO turns (session_id, turn_no, trace_id, role, text_masked, lang) VALUES (?,?,?,?,?,?)",
                      (session_id, 1, "gateway-" + session_id, "agent", text, lang))
         conn.commit()
+        # DPDP consent artefact for AI assistance, against the notice just shown (no-op if already granted)
+        consent.grant(conn, merchant_id, "ai_assistance", channel=channel, session_id=session_id)
     finally:
         conn.close()
     return {"session_id": session_id, "disclosure": text, "lang": lang}

@@ -30,6 +30,7 @@ _REFUSAL_PLAIN = {
     ReasonCode.ISSUE_UNRESOLVED: "a loan offer is not appropriate until the open issue is resolved",
     ReasonCode.NOT_RETRIGGERABLE: "the payout cannot be re-sent in the current state",
     ReasonCode.LEDGER_MISMATCH: "the amount did not match the records",
+    ReasonCode.CONSENT_WITHDRAWN: "the merchant asked us not to make loan offers",
 }
 
 _CAUSE_PLAIN = {

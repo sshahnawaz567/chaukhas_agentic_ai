@@ -29,6 +29,7 @@ from chaukas.integrations._common import load_config
 from data.seed import seed
 
 AUTO_LIMIT = 25000
+REAL_CHECK = m2_shim.guardrail_check  # captured before the autouse fixture swaps in fake_check
 
 
 # ------------------------------------------------------------------ fixtures
@@ -329,3 +330,40 @@ def test_confirm_button_wrong_audit_id_is_rejected():
     r = orchestrator.handle_confirm(sid, rows("SELECT pending_audit_id FROM sessions")[0]["pending_audit_id"],
                                     True, "consent", None, "merchant", None)
     assert r.status == TurnStatus.COMPLETED and rows("SELECT status FROM offers")[0]["status"] == "accepted"
+
+
+# ------------------------------------------------------------------ with Member 2's REAL guardrail
+@pytest.fixture
+def real_guardrail(monkeypatch):
+    monkeypatch.setattr(m2_shim, "guardrail_check", REAL_CHECK)
+
+
+def test_real_guardrail_scene1_consent_resume_allows_offer_and_records_consent(real_guardrail):
+    sid = new_session("M001")
+    assert rows("SELECT purpose, action FROM consents WHERE session_id=?", sid) == [
+        {"purpose": "ai_assistance", "action": "granted"}]
+    r1 = orchestrator.handle_message(sid, "पिछले हफ्ते का पैसा अभी तक नहीं आया।")
+    assert r1.status == TurnStatus.AWAITING_CONFIRMATION and r1.pending_confirmation["kind"] == "consent"
+
+    # resume turn has no check_eligibility step: the orchestrator must refresh it, else check 7 BLOCKs
+    r2 = orchestrator.handle_message(sid, "हाँ, भेज दो।")
+    assert r2.status == TurnStatus.COMPLETED
+    assert r2.decisions[-1]["reason_code"] == "CONFIRMED_BY_MERCHANT"
+    assert rows("SELECT status FROM offers WHERE merchant_id='M001'")[0]["status"] == "accepted"
+    assert rows("SELECT purpose FROM consents WHERE session_id=? ORDER BY id", sid) == [
+        {"purpose": "ai_assistance"}, {"purpose": "loan_offer"}]
+
+
+def test_real_guardrail_scene2_then_scene3_human_approve(real_guardrail):
+    client = TestClient(__import__("chaukas.main", fromlist=["app"]).app)
+    sid = client.post("/api/sessions", json={"merchant_id": "M002", "channel": "chat", "mode": "autonomous"}).json()["session_id"]
+    r = client.post(f"/api/sessions/{sid}/messages",
+                    json={"text": "Bhai mera 32,500 ka settlement 2 din se nahi aaya, jaldi bhejo."}).json()
+    assert r["decisions"][-1]["reason_code"] == "OVER_AUTO_LIMIT" and r["status"] == "handed_off"
+    assert not rows("SELECT * FROM executions WHERE action_type='retrigger_payout'")
+
+    ho_id = client.get("/api/handoffs?status=open").json()[0]["id"]
+    res = client.post(f"/api/handoffs/{ho_id}/resolve",
+                      json={"staff_id": "staff_7", "decision": "approved", "execute_suggested": True}).json()
+    assert res["decision"]["reason_code"] == "APPROVED_BY_HUMAN" and res["action_result"]["status"] == "success"
+    assert rows("SELECT status FROM settlements WHERE id='SET-51002'")[0]["status"] == "retriggered"
