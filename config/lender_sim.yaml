@@ -1,1 +1,19 @@
 # SIMULATED lender (placeholders, calibration pending) — Owner: Member 1 · design B4.1
+# In production the regulated lender decides eligibility; Chaukas only consumes the result.
+lender_name: "Demo NBFC Partner (simulated)"
+eligibility:
+  min_avg_balance: 20000
+  min_account_age_months: 11
+  max_inflow_cv: 0.45
+  min_active_days_30d: 25
+max_amount:
+  inflow_fraction: 0.30
+  round_to: 5000
+  max_loan_cap_inr: 200000
+# KFS values are MOCK (RBI Digital Lending: Key Fact Statement shown BEFORE consent)
+kfs:
+  apr_pct: 18.0
+  processing_fee_pct: 1.0
+  tenure_months: 12
+  grievance_contact: "grievance@demo-lender.example (mock)"
+offer_expiry_days: 7

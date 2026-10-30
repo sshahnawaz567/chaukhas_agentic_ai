@@ -1,1 +1,27 @@
 # Model routing (sarvam-30b core, gemini flash fallback) — Owner: Member 1
+# Both providers are OpenAI-compatible. Keys come from .env (SARVAM_API_KEY, GEMINI_API_KEY).
+# Cost rates are PLACEHOLDERS (INR per 1K tokens) - calibrate on build day from the real price sheet.
+providers:
+  sarvam:
+    base_url: https://api.sarvam.ai/v1
+    api_key_env: SARVAM_API_KEY
+    model: sarvam-105b-conversations   # sarvam-30b is deprecated; plain sarvam-105b is a slow reasoning model (8-18s, truncates JSON)
+    # Sarvam documents the subscription key header; the OpenAI SDK sends Bearer. We send both.
+    extra_headers_key: api-subscription-key
+    cost_inr_per_1k_in: 0.02
+    cost_inr_per_1k_out: 0.06
+  gemini:
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+    api_key_env: GEMINI_API_KEY
+    model: gemini-3.5-flash-lite
+    cost_inr_per_1k_in: 0.03
+    cost_inr_per_1k_out: 0.12
+
+# Order tried per call. The fallback only ever receives masked/tokenised text (COMPLIANCE P1).
+route: [sarvam, gemini]
+
+call:
+  timeout_s: 12
+  temperature: 0.1
+  max_tokens: 700
+  retries_per_provider: 1
