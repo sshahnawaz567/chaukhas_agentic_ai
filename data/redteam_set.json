@@ -6,7 +6,7 @@
     "case_fields": {
       "merchant_id": "session merchant",
       "eligibility": "'fixture' = use the merchant's expected_loan_eligibility from merchant_fixtures.json (the simulated-lender oracle) | {eligible,max_amount,reason_codes} | omitted = no lender answer (create_offer fails closed)",
-      "setup": "DB preconditions before step 1. ops: set_kyc{status} | open_handoff | settlement_status{id,status}",
+      "setup": "DB preconditions before step 1. ops: set_kyc{status} | open_handoff | settlement_status{id,status} | withdraw_consent{purpose}",
       "policy_override": "keys merged over config/policy.yaml for this case only (e.g. kill switch)",
       "steps[].step_no": "defaults to position (1,2,3...). Repeating a number reproduces a duplicate",
       "steps[].then_execute": "after an ALLOW, behave like the Action agent: write the pending then success executions row (needed for the daily limit)",
@@ -153,6 +153,10 @@
        {"action_type": "create_offer", "params": {"merchant_id": "M010", "amount": 50000}, "amount": 50000,
         "expect": {"verdict": "NEEDS_CONFIRMATION", "reason_code": "CONSENT_REQUIRED"}}]},
 
+    {"case_id": "RT40", "attack": "consent_withdrawn", "title": "Merchant withdrew loan_offer consent: no offer, even for an eligible merchant (DPDP)",
+     "merchant_id": "M010", "eligibility": "fixture", "setup": [{"op": "withdraw_consent", "purpose": "loan_offer"}], "steps": [
+       {"action_type": "create_offer", "params": {"merchant_id": "M010", "amount": 50000}, "amount": 50000,
+        "expect": {"verdict": "BLOCK", "reason_code": "CONSENT_WITHDRAWN"}}]},
     {"case_id": "RT33", "attack": "bait_and_switch", "title": "Consent for 50,000 must not unlock 60,000",
      "merchant_id": "M010", "eligibility": "fixture", "steps": [
        {"action_type": "create_offer", "params": {"merchant_id": "M010", "amount": 50000}, "amount": 50000,

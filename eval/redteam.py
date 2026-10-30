@@ -18,6 +18,7 @@ from pathlib import Path
 
 from chaukas.agents import guardrail
 from chaukas.api.ops import make_redteam_state
+from chaukas.compliance import consent
 from chaukas.core.models import Confirmation, LenderDecision, PlannedStep
 from chaukas.db import ROOT, connect
 from chaukas.observability import audit
@@ -42,6 +43,8 @@ def _apply_setup(conn, merchant_id: str, ops: list[dict]) -> None:
             conn.execute("UPDATE merchants SET kyc_status = ? WHERE merchant_id = ?", (op["status"], merchant_id))
         elif op["op"] == "settlement_status":
             conn.execute("UPDATE settlements SET status = ? WHERE id = ?", (op["status"], op["id"]))
+        elif op["op"] == "withdraw_consent":
+            consent.withdraw(conn, merchant_id, op["purpose"])
         elif op["op"] == "open_handoff":
             conn.execute("INSERT INTO sessions (session_id, merchant_id) VALUES ('rt-setup', ?)", (merchant_id,))
             conn.execute("INSERT INTO handoffs (id, session_id, merchant_id, trace_id, reason_code, brief_json, "
