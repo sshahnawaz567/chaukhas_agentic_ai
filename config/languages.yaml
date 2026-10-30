@@ -1,1 +1,4 @@
 # Supported languages (text: all hi-IN, en-IN, ...; voice v1: hi-IN) — Owner: Member 1
+default: hi-IN
+text: [hi-IN, en-IN, bn-IN, ta-IN, te-IN, mr-IN, gu-IN, kn-IN, ml-IN, pa-IN]
+voice: [hi-IN]

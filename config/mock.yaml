@@ -1,1 +1,7 @@
 # Mock settings: mock OTP, fail_ids for rollback demo — Owner: Member 1 · CONTRACTS C3
+mock_otp: "123456"          # step-up OTP for the prototype (never a real secret)
+# Any settlement id listed here makes retrigger_payout return 'failed' (shows rollback + ACTION_FAILED handoff).
+fail_ids: []
+kyc_link: "https://paytm.com/kyc-demo"   # static KYC link (mock) - there is no send_kyc_link action
+bank_down_eta_hours: 24     # ETA given for BANK_DOWN pending settlements
+history_window: 6           # last N turns passed to the intent agent
