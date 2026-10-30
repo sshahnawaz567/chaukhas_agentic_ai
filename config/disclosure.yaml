@@ -1,0 +1,63 @@
+# AI disclosure + DPDP notice text — Owner: Member 2 · COMPLIANCE.md R1, D1, L5, D8
+# Read by chaukas/compliance/disclosure.py. UTF-8. Never hardcode these strings in code.
+#
+# REVIEW STATUS (be honest on stage):
+#   hi-Latn (Hinglish), hi-IN, en-IN : full AI disclosure + notice.
+#   ta/te/mr/ml/gu/bn/pa-IN          : AI-disclosure line only; the notice falls back to en-IN.
+#                                      These lines are NOT yet reviewed by a native speaker.
+#   Do not claim "11 languages" for the notice until the other languages are translated and reviewed.
+#
+# Any edit to a text below automatically changes notice_version (it is a hash of this file's texts),
+# so consents.notice_version always identifies the exact wording the merchant saw.
+
+version: v1
+fallback_lang: hi-IN
+
+# PLACEHOLDERS (mock): replace with the regulated entity's real grievance contact and notice page.
+grievance_contact: grievance@chaukas-demo.example.com
+notice_url: https://chaukas-demo.example.com/privacy
+
+messages:
+  hi-Latn:
+    ai_disclosure: "Namaste! Main Chaukas hoon, Paytm ka AI assistant."
+    notice: >-
+      Aapki jaankari ka istemaal: Chaukas aapka naam, settlement aur payment ki details, aur bank account ka
+      sirf ek reference istemaal karta hai - sirf aapki payment ya support ki samasya suljhane ke liye, aur
+      aapki ijaazat se loan offer dikhane ke liye. Bank account number jaisi personal details AI model tak
+      masked roop mein hi pahunchti hain. Aap kabhi bhi apni jaankari dekhne, sudhaarne ya mitaane ko keh
+      sakte hain, aur apni ijaazat wapas le sakte hain. Kisi insaan se baat karni ho to bas keh dijiye.
+      Shikayat: {grievance_contact}. Poori jaankari: {notice_url}
+
+  hi-IN:
+    ai_disclosure: "नमस्ते! मैं चौकस हूँ, Paytm का AI असिस्टेंट।"
+    notice: >-
+      आपकी जानकारी का उपयोग: चौकस आपका नाम, settlement और payment की जानकारी, और बैंक अकाउंट का सिर्फ़ एक
+      संदर्भ इस्तेमाल करता है। यह सिर्फ़ आपकी payment या support की समस्या सुलझाने के लिए है, और आपकी इजाज़त
+      से लोन ऑफ़र दिखाने के लिए। बैंक अकाउंट नंबर जैसी निजी जानकारी AI मॉडल तक मास्क करके ही पहुँचती है।
+      आप कभी भी अपनी जानकारी देखने, सुधारने या मिटाने के लिए कह सकते हैं, और अपनी इजाज़त वापस ले सकते हैं।
+      किसी इंसान से बात करनी हो तो बस कह दीजिए। शिकायत: {grievance_contact}। पूरी जानकारी: {notice_url}
+
+  en-IN:
+    ai_disclosure: "Hello! I am Chaukas, Paytm's AI assistant."
+    notice: >-
+      How your data is used: Chaukas uses your name, your settlement and payment details, and a reference to
+      your bank account only to fix your payment or support problem and, with your permission, to show you
+      loan offers. Personal details such as your bank account number reach the AI model only in masked form.
+      You can ask to see, correct or erase your data and withdraw your permission at any time. To talk to a
+      person, just say so. Grievances: {grievance_contact}. Full notice: {notice_url}
+
+  # ---- AI-disclosure line only (notice falls back to en-IN). NOT native-speaker reviewed. ----
+  ta-IN:
+    ai_disclosure: "வணக்கம்! நான் சௌகஸ், Paytm-இன் AI உதவியாளர்."
+  te-IN:
+    ai_disclosure: "నమస్కారం! నేను చౌకస్, Paytm యొక్క AI అసిస్టెంట్."
+  mr-IN:
+    ai_disclosure: "नमस्कार! मी चौकस आहे, Paytm चा AI असिस्टंट."
+  ml-IN:
+    ai_disclosure: "നമസ്കാരം! ഞാൻ ചൗകസ്, Paytm-ന്റെ AI അസിസ്റ്റന്റ്."
+  gu-IN:
+    ai_disclosure: "નમસ્તે! હું ચૌકસ છું, Paytm નો AI આસિસ્ટન્ટ."
+  bn-IN:
+    ai_disclosure: "নমস্কার! আমি চৌকস, Paytm-এর AI সহকারী।"
+  pa-IN:
+    ai_disclosure: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਚੌਕਸ ਹਾਂ, Paytm ਦਾ AI ਸਹਾਇਕ।"

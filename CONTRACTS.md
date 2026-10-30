@@ -60,6 +60,7 @@ class ReasonCode(str, Enum):   # MUST equal schema.sql audit_log.reason_code CHE
     OVER_DAILY_LIMIT = "OVER_DAILY_LIMIT"; CONSENT_REQUIRED = "CONSENT_REQUIRED"
     OFFER_NOT_ELIGIBLE = "OFFER_NOT_ELIGIBLE"; ISSUE_UNRESOLVED = "ISSUE_UNRESOLVED"
     OFFER_COOLING_OFF = "OFFER_COOLING_OFF"
+    CONSENT_WITHDRAWN = "CONSENT_WITHDRAWN"   # BLOCK: merchant withdrew loan_offer consent (DPDP s.6) — added in v3.2
 
 class HandoffReason(str, Enum):  # handoffs.reason_code = a ReasonCode OR one of these
     LOW_CONFIDENCE = "LOW_CONFIDENCE"; UNKNOWN_INTENT = "UNKNOWN_INTENT"
@@ -260,7 +261,7 @@ def check(step: PlannedStep, state: ConversationState,
 | 4 | idempotency key not already executed | BLOCK `DUPLICATE_ACTION` (orchestrator returns the earlier `ActionResult` with `replayed=True`) |
 | 5 | `retrigger_payout`: settlement exists, belongs to merchant, `amount == ledger amount` | BLOCK `LEDGER_MISMATCH` |
 | 6 | `retrigger_payout`: status `failed` AND cause allows retrigger | BLOCK `NOT_RETRIGGERABLE` |
-| 7 | `create_offer`: offer gating 1–4 (system design B4.1), `amount <= lender max_amount` | BLOCK `OFFER_NOT_ELIGIBLE` / `ISSUE_UNRESOLVED` / `OFFER_COOLING_OFF` |
+| 7 | `create_offer`: offer gating 1–4 (system design B4.1), `amount <= lender max_amount`; first of all, the latest `loan_offer` row in `consents` must not be `withdrawn` | BLOCK `CONSENT_WITHDRAWN` / `OFFER_NOT_ELIGIBLE` / `ISSUE_UNRESOLVED` / `OFFER_COOLING_OFF` |
 | 8 | `amount <= auto_limit_inr` | NEEDS_CONFIRMATION `OVER_AUTO_LIMIT` (kind = `step_up`) |
 | 9 | `today_total + amount <= daily_auto_limit_inr` | NEEDS_CONFIRMATION `OVER_DAILY_LIMIT` (kind = `step_up`) |
 | 10 | `create_offer` or `reversible == False` | NEEDS_CONFIRMATION `CONSENT_REQUIRED` (kind = `consent`) |
