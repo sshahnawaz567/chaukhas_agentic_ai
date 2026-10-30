@@ -8,8 +8,9 @@ Nothing here is estimated: every number comes from the run. The scorecard also s
 (`basis`), because an offline run (no LLM) has no LLM latency and no LLM cost.
 
     python -m eval.run_eval                 offline: keyword intent + template replies, no network (default)
-    python -m eval.run_eval --llm replay    LLM answers served from recordings/ (Member 1's replay files)
-    python -m eval.run_eval --llm live      real LLM calls (slow, costs money)
+    python -m eval.run_eval --llm record    real LLM calls, every answer saved to eval/recordings/ (slow, costs money)
+    python -m eval.run_eval --llm replay    LLM answers served from eval/recordings/, no network (fast, real answers)
+    python -m eval.run_eval --llm live      real LLM calls, nothing saved (slow, costs money)
 
 Exit code 0 = every metric passes, 1 = at least one metric misses its target, 2 = cannot run.
 """
@@ -28,6 +29,7 @@ from chaukas.db import ROOT
 
 GOLDEN_PATH = ROOT / "data" / "golden_set.json"
 EVAL_OTP = "123456"       # used only when config/mock.yaml has no mock_otp
+RECORDINGS_DIR = ROOT / "eval" / "recordings"   # the golden set's own LLM recordings (recordings/ is Member 1's demo scenes)
 
 MONEY_ACTIONS = ("retrigger_payout", "create_offer")
 FINAL_STATUS = {"completed", "awaiting_confirmation", "handed_off"}
@@ -41,6 +43,30 @@ TARGETS = {
     "p95_latency_s": ("p95 latency per turn", "< 4 s", "s"),
     "cost_per_resolved_inr": ("Cost per resolved conversation", "< Rs 3", "INR"),
 }
+
+
+TIMINGS_PATH = RECORDINGS_DIR / "timings.json"
+
+
+def load_timings(path: Path | None = None) -> dict | None:
+    """The per-turn latency / cost measured on the last live `--llm record` run, or None."""
+    try:
+        return json.loads(Path(path or TIMINGS_PATH).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def apply_timings(run: dict, case_id: str, timings: dict | None) -> bool:
+    """Replace this replayed case's latency + cost by the values recorded on the live run (same case, same number
+    of turns). Returns True if applied. The recording does not store timings, so without this a replay would
+    report 0.1 s and Rs 0, which is not what a real conversation costs."""
+    rec = (timings or {}).get("turns", {}).get(case_id)
+    if not rec or len(rec) != len(run["latencies_ms"]):
+        return False
+    run["latencies_ms"] = [t["latency_ms"] for t in rec]
+    run["costs_inr"] = [t["cost_inr"] for t in rec]
+    run["cost_inr"] = sum(run["costs_inr"])
+    return True
 
 
 class EvalUnavailable(RuntimeError):
@@ -114,7 +140,8 @@ def score_case(case: dict, run: dict) -> dict:
         "escalated": escalated, "should_escalate": case["labels"]["should_escalate"],
         "ticket": case["labels"]["ticket"],
         "autonomous": run["final_status"] == "completed" and not escalated and not run["errors"],
-        "latencies_ms": run["latencies_ms"], "cost_inr": run["cost_inr"], "llm_calls": run["llm_calls"],
+        "latencies_ms": run["latencies_ms"], "costs_inr": run.get("costs_inr", []), "cost_inr": run["cost_inr"],
+        "llm_calls": run["llm_calls"],
         "expected": {"intent": exp["intent"], "steps": exp["steps"], "final_status": exp["final_status"],
                      "handoff_reason": exp["handoff_reason"]},
         "got": {"intent": run["intent"], "steps": run["steps"], "final_status": run["final_status"],
@@ -218,6 +245,7 @@ def _run_case(case: dict, template: Path, workdir: Path, mods: tuple, otp: str) 
     amount_of: dict[int, int | None] = {}
     steps: list[list] = []
     latencies: list[int] = []
+    costs: list[float] = []
     errors: list[str] = []
     cost = 0.0
     llm_calls = 0
@@ -248,6 +276,7 @@ def _run_case(case: dict, template: Path, workdir: Path, mods: tuple, otp: str) 
             steps.append([d["action_type"], amount_of.get(d["step_no"]), d["verdict"], d["reason_code"]])
         latencies.append(last.latency_ms)
         cost += last.cost_inr
+        costs.append(last.cost_inr)
         llm_calls += sum(1 for s in last.spans if s.get("model"))
         pending_audit_id = (last.pending_confirmation or {}).get("pending_audit_id")
         if last.status.value == "failed":
@@ -259,7 +288,7 @@ def _run_case(case: dict, template: Path, workdir: Path, mods: tuple, otp: str) 
         "final_status": last.status.value if last else "failed",
         "handoff_reason": handoff_reason,
         "executed": _executed(db_file),
-        "latencies_ms": latencies, "cost_inr": cost, "llm_calls": llm_calls, "errors": errors,
+        "latencies_ms": latencies, "costs_inr": costs, "cost_inr": cost, "llm_calls": llm_calls, "errors": errors,
     }
 
 
@@ -274,8 +303,11 @@ def _set_llm_mode(mode: str, mods: tuple):
             raise LLMUnavailable("eval is running offline")
         undo.append((llm_prompt, "complete", llm_prompt.complete))
         llm_prompt.complete = _no_llm
-    elif mode == "replay":
-        os.environ["CHAUKAS_REPLAY_MODE"] = "replay"
+    elif mode in ("record", "replay"):
+        from chaukas.llm import replay
+        os.environ["CHAUKAS_REPLAY_MODE"] = mode
+        undo.append((replay, "RECORDINGS_DIR", replay.RECORDINGS_DIR))
+        replay.RECORDINGS_DIR = RECORDINGS_DIR
     return undo
 
 
@@ -297,7 +329,14 @@ def run(path: Path | None = None, *, llm: str = "offline", write: bool = True, w
             workdir = Path(tmp)
             template = workdir / "template.db"
             seed(template)
-            scored = [score_case(c, _run_case(c, template, workdir, mods, otp)) for c in cases]
+            timings = load_timings() if llm == "replay" else None
+            runs, timed = [], 0
+            for c in cases:
+                r = _run_case(c, template, workdir, mods, otp)
+                if llm == "replay" and not r["errors"]:
+                    timed += apply_timings(r, c["case_id"], timings)
+                runs.append(r)
+            scored = [score_case(c, r) for c, r in zip(cases, runs)]
     finally:
         m2_shim.emit_span = saved_emit
         for obj, name, original in undo:
@@ -318,7 +357,12 @@ def run(path: Path | None = None, *, llm: str = "offline", write: bool = True, w
     basis = {
         "offline": f"offline run: {llm_calls} LLM calls (intent = keyword fallback, replies = templates), "
                    f"so latency excludes LLM time and cost is Rs 0",
-        "replay": f"LLM answers replayed from recordings/ ({llm_calls} LLM calls); latency excludes network time",
+        "replay": (f"LLM answers replayed from eval/recordings/; latency and cost are the values measured on the live "
+                   f"run of {timings['recorded_at']} ({timings['llm_calls']} LLM calls) for {timed} of {len(cases)} cases"
+                   if timed else
+                   f"LLM answers replayed from eval/recordings/ ({llm_calls} replayed calls); no recorded timings "
+                   f"found, so latency excludes network time and cost is Rs 0"),
+        "record": f"live LLM run: {llm_calls} LLM calls (answers saved to eval/recordings/); latency and cost include them",
         "live": f"live LLM run: {llm_calls} LLM calls; latency and cost include them",
     }[llm]
     card = compute_metrics(scored, redteam["unexpected_allows"] if redteam else 0, basis)
@@ -334,6 +378,13 @@ def run(path: Path | None = None, *, llm: str = "offline", write: bool = True, w
     summary = {"scorecard": card, "extras": extras, "cases": scored,
                "redteam_results": redteam["results"] if redteam else [],
                "ok": all(m["pass"] for m in card.values())}
+    if llm == "record":
+        RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+        TIMINGS_PATH.write_text(json.dumps({
+            "recorded_at": extras["ran_at"], "llm_calls": llm_calls,
+            "turns": {c["case_id"]: [{"latency_ms": ms, "cost_inr": cost}
+                                        for ms, cost in zip(c["latencies_ms"], c["costs_inr"])] for c in scored},
+        }, indent=2), encoding="utf-8")
     if write:
         # same paths GET /api/eval/latest and /api/eval/details read (CHAUKAS_EVAL_PATH overrides, for tests)
         from chaukas.api.ops import eval_detail_path, eval_result_path
@@ -377,7 +428,7 @@ def _print(summary: dict) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Replay the golden set and print the six headline metrics.")
-    ap.add_argument("--llm", choices=["offline", "replay", "live"], default="offline")
+    ap.add_argument("--llm", choices=["offline", "record", "replay", "live"], default="offline")
     ap.add_argument("--no-write", action="store_true", help="do not write eval/latest.json")
     args = ap.parse_args(argv)
     try:

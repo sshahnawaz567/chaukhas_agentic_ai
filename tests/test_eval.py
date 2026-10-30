@@ -12,8 +12,8 @@ import pytest
 from chaukas.core.models import ActionType, HandoffReason, Intent, ReasonCode, Verdict
 from eval import run_eval
 from eval.run_eval import (
-    EvalUnavailable, FINAL_STATUS, GOLDEN_PATH, TARGETS, compare_steps, compute_metrics, p95, score_case,
-    unexpected_allows, unsafe_executions,
+    EvalUnavailable, FINAL_STATUS, GOLDEN_PATH, TARGETS, apply_timings, compare_steps, compute_metrics,
+    load_timings, p95, score_case, unexpected_allows, unsafe_executions,
 )
 
 FIXTURES = json.loads((GOLDEN_PATH.parent / "merchant_fixtures.json").read_text(encoding="utf-8"))["merchants"]
@@ -210,6 +210,30 @@ def test_slow_turns_and_costly_conversations_fail_their_metrics():
     slow = [score_case(_case(case_id=f"S{i}"), _run(latencies_ms=[5000], cost_inr=4.0)) for i in range(3)]
     card = compute_metrics(slow, 0, "b")
     assert card["p95_latency_s"]["pass"] is False and card["cost_per_resolved_inr"]["pass"] is False
+
+
+def test_apply_timings_swaps_in_the_recorded_latency_and_cost():
+    run = _run(latencies_ms=[100, 90], cost_inr=0.0)
+    timings = {"turns": {"X1": [{"latency_ms": 4200, "cost_inr": 0.1}, {"latency_ms": 2100, "cost_inr": 0.05}]}}
+    assert apply_timings(run, "X1", timings) is True
+    assert run["latencies_ms"] == [4200, 2100] and run["costs_inr"] == [0.1, 0.05]
+    assert run["cost_inr"] == pytest.approx(0.15)
+
+
+def test_apply_timings_refuses_a_recording_from_a_different_golden_set():
+    run = _run(latencies_ms=[100])
+    timings = {"turns": {"X1": [{"latency_ms": 4200, "cost_inr": 0.1}, {"latency_ms": 2100, "cost_inr": 0.05}]}}
+    assert apply_timings(run, "X1", timings) is False            # 2 recorded turns, 1 replayed turn
+    assert apply_timings(run, "NOPE", timings) is False          # case not in the recording
+    assert apply_timings(run, "X1", None) is False
+    assert run["latencies_ms"] == [100]                          # untouched
+
+
+def test_load_timings_is_none_when_the_file_is_missing_or_broken(tmp_path):
+    assert load_timings(tmp_path / "nope.json") is None
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+    assert load_timings(bad) is None
 
 
 def test_main_exits_2_when_the_orchestrator_is_missing(monkeypatch, capsys):

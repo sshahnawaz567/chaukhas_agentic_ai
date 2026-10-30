@@ -1,0 +1,46 @@
+{
+ "4062de0f1f366611": {
+  "key": "handoff|M002|Mera 32500 ka settlement nahi aaya, bahut urgent hai|OVER_AUTO_LIMIT",
+  "text": "```json\n{\n  \"thought_process\": \"The merchant wanted their ₹32,500 settlement, which was blocked by an IFSC mismatch on SET-51002. The bank details were updated after the failure, and the ledger amount matches. The only remaining step is to retrigger the payout.\",\n  \"handoff_result\": {\n    \"asked\": \"The merchant wanted their pending settlement of ₹32,500.\",\n    \"decision_needed\": \"Approve retrigger of ₹32,500 payout?\"\n  }\n}\n```"
+ },
+ "3548f173e7816032": {
+  "key": "handoff|M002|Mera 32500 ka settlement nahi aaya|OVER_AUTO_LIMIT",
+  "text": "```json\n{\n  \"thought_process\": \"The merchant wanted their ₹32,500 settlement which failed due to an IFSC mismatch. The bank details were updated after the failure. The pending action to resolve this is to retrigger the payout.\",\n  \"handoff_result\": {\n    \"asked\": \"The merchant wants their missing settlement of ₹32,500.\",\n    \"decision_needed\": \"Approve retrigger of ₹32,500 payout?\"\n  }\n}\n```"
+ },
+ "bcf40c9ec1770b83": {
+  "key": "handoff|M002|[button] confirm|OVER_AUTO_LIMIT",
+  "text": "```json\n{\n  \"thought_process\": \"The merchant's payout of 32500 was blocked by an IFSC mismatch, but the bank details were updated after the failure and KYC is verified. The only remaining step is to retrigger the payout. All facts are present in the provided context.\",\n  \"handoff_result\": {\n    \"asked\": \"The merchant wanted to complete the failed payout of 32500.\",\n    \"decision_needed\": \"Approve retrigger of ₹32,500 to the merchant's registered account?\"\n  }\n}\n```"
+ },
+ "16a39bf8ebd3fd1d": {
+  "key": "handoff|M006|Mera 2400 ka payment ruka hua hai|KYC_PENDING",
+  "text": "```json\n{\n  \"thought_process\": \"The merchant's payment is stuck. The system is blocked because KYC is pending. The human must approve resolving the KYC hold.\",\n  \"handoff_result\": {\n    \"asked\": \"The merchant wants their pending payment released.\",\n    \"decision_needed\": \"Should the KYC pending status be resolved to release the payment?\"\n  }\n}\n```"
+ },
+ "1d3493573760f7be": {
+  "key": "handoff|M007|Mera 25001 ka settlement nahi aaya|OVER_AUTO_LIMIT",
+  "text": "```json\n{\n  \"thought_process\": \"The merchant wants their settlement of 25001, which failed due to a bank downtime. The only action required is to retrigger the payout. All facts are present in the provided context.\",\n  \"handoff_result\": {\n    \"asked\": \"The merchant wants the settlement of 25001 that did not arrive.\",\n    \"decision_needed\": \"Approve retrigger of ₹25,001?\"\n  }\n}\n```"
+ },
+ "b1e3a41f42b3fd38": {
+  "key": "handoff|M009|Mera 26500 ka payment fail ho gaya, kya karu|OVER_AUTO_LIMIT",
+  "text": "```json\n{\n  \"thought_process\": \"The merchant's payment of 26500 failed due to a bank downtime. To resolve this, the system needs to be retriggered for the same amount. Both the amount and the pending retrigger action are explicitly stated in the context.\",\n  \"handoff_result\": {\n    \"asked\": \"The merchant wanted to know what to do about their failed 26500 payment.\",\n    \"decision_needed\": \"Approve retrigger of ₹26,500?\"\n  }\n}\n```"
+ },
+ "5ae8380bbf028086": {
+  "key": "handoff|M011|Customer ko refund karna hai, kaise karu?|OUT_OF_SCOPE",
+  "text": "```json\n{\n  \"thought_process\": \"The merchant requested a refund, which is out of the current system's scope. The only remaining step is for the human to approve this refund request. Both facts are directly present in the provided context.\",\n  \"handoff_result\": {\n    \"asked\": \"The merchant wanted a refund for the transaction.\",\n    \"decision_needed\": \"Approve the refund request?\"\n  }\n}\n```"
+ },
+ "396af96a0c08074a": {
+  "key": "handoff|M013|Mera 3100 ka payment nahi aaya|BANK_DETAILS_NOT_UPDATED",
+  "text": "```json\n{\n  \"thought_process\": \"The merchant wants their unpaid settlement. The settlement failed due to an IFSC mismatch, and the bank details were never updated. The human must decide whether to update the bank details to proceed.\",\n  \"handoff_result\": {\n    \"asked\": \"The merchant wants to receive their unpaid settlement of ₹3,100.\",\n    \"decision_needed\": \"Should the support staff update the merchant's bank details to resolve the IFSC mismatch?\"\n  }\n}\n```"
+ },
+ "1fdb8142b86829ca": {
+  "key": "handoff|M014|Mere do payment nahi aaye, 14000 aur 15000 ke|OVER_DAILY_LIMIT",
+  "text": "```json\n{\n  \"thought_process\": \"The merchant wanted two payments of 14000 and 15000 that failed due to bank downtime. The only remaining action is to retrigger the payout for 15000. Both amounts and the pending action are confirmed in the context.\",\n  \"handoff_result\": {\n    \"asked\": \"The merchant wanted the two failed payments of 14000 and 15000 to be processed.\",\n    \"decision_needed\": \"Approve retrigger of ₹15,000?\"\n  }\n}\n```"
+ },
+ "6ee15c0cb9aaa85d": {
+  "key": "handoff|M008|Mujhe kisi insaan se baat karni hai|HUMAN_REQUESTED",
+  "text": "```json\n{\n  \"thought_process\": \"The merchant wants to speak to a human agent. The context indicates the request is human-requested and KYC is verified, so no further system checks are blocking this. The human only needs to confirm the handoff.\",\n  \"handoff_result\": {\n    \"asked\": \"The merchant wants to speak to a human support agent.\",\n    \"decision_needed\": \"Confirm and proceed with the human handoff?\"\n  }\n}\n```"
+ },
+ "1f2d5677937348cd": {
+  "key": "handoff|M008|hello ji|UNKNOWN_INTENT",
+  "text": "```json\n{\n  \"thought_process\": \"The merchant initiated contact, but the intent is unknown and no specific request is detailed in the context. No pending action is identified to resolve this. Therefore, the human must determine the next step based on the unknown intent.\",\n  \"handoff_result\": {\n    \"asked\": \"The merchant initiated contact with an unknown intent.\",\n    \"decision_needed\": \"Should the support staff proceed with resolving the unknown intent?\"\n  }\n}\n```"
+ }
+}
