@@ -80,29 +80,36 @@ class RedteamRequest(BaseModel):
     eligibility: LenderDecision | None = None
 
 
+def make_redteam_state(conn, merchant_id: str, eligibility: LenderDecision | None = None,
+                       run_id: str | None = None) -> ConversationState | None:
+    """The state a red-team step is checked against. None if the merchant does not exist.
+    Shared by POST /api/redteam/check and eval/redteam.py, so both attack the guardrail the same way."""
+    merchant = query_one(conn, "SELECT preferred_lang, kyc_status, device, gmv_30d, bank_details_updated_at "
+                               "FROM merchants WHERE merchant_id = ?", (merchant_id,))
+    if merchant is None:
+        return None
+    context = None
+    if eligibility is not None:
+        context = MerchantContext(
+            merchant_id=merchant_id, name_masked="****", account_ref="redteam",
+            preferred_lang=merchant["preferred_lang"], kyc_status=merchant["kyc_status"],
+            device=merchant["device"], gmv_30d=merchant["gmv_30d"],
+            bank_details_updated_at=merchant["bank_details_updated_at"], settlements=[], open_tickets=[],
+            has_open_handoff=False, declined_offer_recently=False, eligibility=eligibility)
+    run_id = run_id or uuid.uuid4().hex[:8]
+    return ConversationState(
+        session_id=f"redteam-{run_id}", turn_no=0, trace_id=f"redteam-{run_id}", merchant_id=merchant_id,
+        channel=Channel.CHAT, mode=Mode.AUTONOMOUS, message_masked="red-team check", merchant=context)
+
+
 @router.post("/redteam/check")
 def redteam_check(req: RedteamRequest):
     """Run guardrail.check() on a hand-crafted step. NEVER executes anything: no executions row, no tool call.
     The decision is audited with actor='system'."""
     with closing(connect()) as conn:
-        merchant = query_one(conn, "SELECT preferred_lang, kyc_status, device, gmv_30d, bank_details_updated_at "
-                                   "FROM merchants WHERE merchant_id = ?", (req.merchant_id,))
-        if merchant is None:
+        state = make_redteam_state(conn, req.merchant_id, req.eligibility)
+        if state is None:
             return _error(404, "MERCHANT_NOT_FOUND", "no merchant with that id")
-
-        context = None
-        if req.eligibility is not None:
-            context = MerchantContext(
-                merchant_id=req.merchant_id, name_masked="****", account_ref="redteam",
-                preferred_lang=merchant["preferred_lang"], kyc_status=merchant["kyc_status"],
-                device=merchant["device"], gmv_30d=merchant["gmv_30d"],
-                bank_details_updated_at=merchant["bank_details_updated_at"], settlements=[], open_tickets=[],
-                has_open_handoff=False, declined_offer_recently=False, eligibility=req.eligibility)
-
-        run_id = uuid.uuid4().hex[:8]
-        state = ConversationState(
-            session_id=f"redteam-{run_id}", turn_no=0, trace_id=f"redteam-{run_id}", merchant_id=req.merchant_id,
-            channel=Channel.CHAT, mode=Mode.AUTONOMOUS, message_masked="red-team check", merchant=context)
         decision = guardrail.check(req.step, state, conn=conn, actor="system")
     return decision.model_dump(mode="json")
 
