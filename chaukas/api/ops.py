@@ -158,7 +158,8 @@ def get_disclosure(lang: str | None = None):
     """AI disclosure + DPDP notice in the merchant's language (falls back; see config/disclosure.yaml)."""
     d = disclosure.get_disclosure_details(lang)
     return {"lang": d.lang, "ai_disclosure": d.ai_disclosure, "notice": d.notice, "message": d.message,
-            "grievance_contact": d.grievance_contact, "notice_url": d.notice_url, "notice_version": d.notice_version}
+            "grievance_contact": d.grievance_contact, "notice_url": d.notice_url, "notice_version": d.notice_version,
+            "reviewed": d.reviewed}
 
 
 class ConsentRequest(BaseModel):

@@ -27,6 +27,7 @@ class Disclosure:
     grievance_contact: str
     notice_url: str
     notice_version: str
+    reviewed: bool = True      # False = machine-written text no native speaker has read yet (config unreviewed_languages)
 
     @property
     def message(self) -> str:
@@ -76,7 +77,7 @@ def get_disclosure_details(lang: str | None = None, path: Path | None = None) ->
     return Disclosure(
         lang=used, ai_disclosure=entry["ai_disclosure"], notice=notice.format(**fields),
         grievance_contact=cfg["grievance_contact"], notice_url=cfg["notice_url"],
-        notice_version=notice_version(path),
+        notice_version=notice_version(path), reviewed=used not in (cfg.get("unreviewed_languages") or []),
     )
 
 
