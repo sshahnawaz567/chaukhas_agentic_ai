@@ -18,7 +18,7 @@ from chaukas.agents.schemas import ReplyOutput
 from chaukas.core.models import ActionType, ConversationState, Intent, ReasonCode, Verdict
 from chaukas.db import ROOT
 from chaukas.integrations._common import load_config
-from chaukas.integrations import devices
+from chaukas.integrations import devices, insurance
 from chaukas.integrations.lending import build_kfs
 from chaukas.llm.client import LLMResult, LLMUnavailable
 from chaukas.llm.prompt import LLMOutputError, esc, run_validated, to_xml
@@ -33,6 +33,13 @@ _REFUSAL_PLAIN = {
     ReasonCode.NOT_RETRIGGERABLE: "the payout cannot be re-sent in the current state",
     ReasonCode.LEDGER_MISMATCH: "the amount did not match the records",
     ReasonCode.CONSENT_WITHDRAWN: "the merchant asked us not to make loan offers",
+}
+
+# why an insurance fits, in plain words (the reasons come from the rules, never from the LLM)
+_INSURANCE_WHY = {
+    "CATEGORY_ELECTRONICS": "you run an electronics shop",
+    "PHYSICAL_SHOP": "you run a shop",
+    "DEVICE_TICKET_HISTORY": "you had a device problem before",
 }
 
 _CAUSE_PLAIN = {
@@ -51,6 +58,19 @@ def template_line(lang: str | None, key: str) -> str:
 def _templates(lang: str) -> dict[str, str]:
     data = yaml.safe_load((ROOT / "config" / "fallback_replies.yaml").read_text(encoding="utf-8"))
     return data.get(lang) or data["en-IN"]
+
+
+def _line(lang: str, key: str) -> str:
+    """An insurance reply line: the merchant's language if it has one, else Hinglish, else English."""
+    data = yaml.safe_load((ROOT / "config" / "fallback_replies.yaml").read_text(encoding="utf-8"))
+    for code in (lang, "hi-Latn", "en-IN"):
+        if key in (data.get(code) or {}):
+            return data[code][key]
+    raise KeyError(key)
+
+
+def _insurer() -> str:
+    return load_config("insurance_sim")["insurer_name"]
 
 
 def _refs(state: ConversationState) -> dict[str, str | None]:
@@ -90,12 +110,14 @@ def build_facts(state: ConversationState) -> dict[str, Any]:
 
     done = []
     for r in state.completed:
-        if r.status != "success" or r.action_type in (ActionType.VERIFY_LEDGER.value, ActionType.CHECK_ELIGIBILITY.value):
+        if r.status != "success" or r.action_type in (ActionType.VERIFY_LEDGER.value, ActionType.CHECK_ELIGIBILITY.value,
+                                                      ActionType.CHECK_INSURANCE.value):
             continue
         step = next((p for p in state.plan if p.step_no == r.step_no), None)
         label = {"retrigger_payout": "payout_resent", "raise_ticket": "ticket_created",
                  "update_ticket": "ticket_updated", "create_offer": "offer_accepted",
-                 "request_device_upgrade": "device_requested"}.get(r.action_type, r.action_type)
+                 "request_device_upgrade": "device_requested",
+                 "offer_insurance": "insurance_interest_recorded"}.get(r.action_type, r.action_type)
         item = {"what": label, "ref": r.ref_id, "amount": step.amount if step else None}
         if label == "device_requested":  # the field-team ticket and the device, from the device_offers row
             req = devices.get_request(r.ref_id) or {}
@@ -108,8 +130,19 @@ def build_facts(state: ConversationState) -> dict[str, Any]:
     if failed:
         facts["action_failed"] = True
 
-    facts["refused"] = [{"what": x.action_type, "why": _REFUSAL_PLAIN.get(x.reason_code, "not allowed")}
+    facts["refused"] = [{"what": x.action_type,
+                         "why": ("an insurance offer is not appropriate right now" if x.action_type == ActionType.OFFER_INSURANCE.value
+                                 else _REFUSAL_PLAIN.get(x.reason_code, "not allowed"))}
                         for x in state.refused] or None
+
+    if state.pending_step and state.pending_step.action_type == ActionType.OFFER_INSURANCE.value:
+        card = insurance.recommend_for(state.pending_step.params["merchant_id"])
+        if card and card["product_id"] == state.pending_step.params["product_id"]:
+            facts["insurance_offer"] = {
+                "product_name": card["product_name"], "insurer_name": card["insurer_name"],
+                "cover_inr": card["cover_inr"], "premium_inr_per_year": card["premium_inr"],
+                "covers": ", ".join(card["covers"]), "grievance_contact": card["grievance_contact"],
+                "why": " and ".join(_INSURANCE_WHY[r] for r in card["reasons"] if r in _INSURANCE_WHY) or "it fits your shop"}
 
     if state.pending_step and state.pending_step.action_type == ActionType.CREATE_OFFER.value:
         p = state.pending_step.params
@@ -177,6 +210,12 @@ def _outcome(state: ConversationState, facts: dict, done: list[dict]) -> list[st
         out.append("Based on the merchant's own payments, the current device is the right one now. No request was sent.")
     if "one_offer_per_session" in state.outcome_tags:
         out.append("An offer was already accepted in this conversation; no further offer is made now.")
+    if "insurance_declined" in state.outcome_tags:
+        out.append("The merchant declined the insurance offer; nothing was recorded.")
+    if "insurance_none" in state.outcome_tags:
+        out.append("No insurance product fits this merchant right now.")
+    if any(d["what"] == "insurance_interest_recorded" for d in done):
+        out.append("The merchant's interest was recorded. NO premium was charged and NO policy was issued yet; the insurer will contact them.")
     return out
 
 
@@ -184,7 +223,7 @@ def _outcome(state: ConversationState, facts: dict, done: list[dict]) -> list[st
 _PAYOUT_CLAIM = re.compile(
     r"(भेज\s*दिया|भेजा\s*गया|भेज\s*दी|भेजा\s*जाएगा|भेज\s*देंगे|दोबारा\s*भेज|फिर\s*से\s*भेज|"
     r"re-?sent|re-?sending|re-?triggered|has\s+been\s+sent|have\s+sent|will\s+be\s+(?:re-?)?sent|sent\s+again)", re.I)
-_IDS = re.compile(r"\b(?:TKT|PAY|OFF|SET|HO|DEV)-\d+(?:-\d+)?\b")
+_IDS = re.compile(r"\b(?:TKT|PAY|OFF|SET|HO|DEV|INS)-\d+(?:-\d+)?\b")
 
 
 def _grounded(reply: str, state: ConversationState, facts: dict) -> bool:
@@ -252,7 +291,8 @@ def _signature(state: ConversationState, facts: dict) -> str:
     """Stable (id-free) description of the outcome, for replay keys."""
     done = ",".join(d["what"] for d in (facts.get("done") or []))
     refused = ",".join(x.reason_code.value for x in state.refused)
-    return f"{facts['intent']}|{','.join(state.outcome_tags)}|{done}|{refused}|{bool(state.handoff)}|{'offer_kfs' in facts}"
+    base = f"{facts['intent']}|{','.join(state.outcome_tags)}|{done}|{refused}|{bool(state.handoff)}|{'offer_kfs' in facts}"
+    return base + ("|insurance_offer" if "insurance_offer" in facts else "")   # unchanged for every non-insurance turn
 
 
 def fallback_reply(state: ConversationState, facts: dict) -> str:
@@ -260,10 +300,12 @@ def fallback_reply(state: ConversationState, facts: dict) -> str:
     parts: list[str] = []
     tags = set(state.outcome_tags)
     done = {d["what"]: d for d in (facts.get("done") or [])}
-    refused_codes = {x.reason_code for x in state.refused}
+    refused_codes = {x.reason_code for x in state.refused if x.action_type != ActionType.OFFER_INSURANCE.value}
 
     if "nothing_pending" in tags:
         return t["nothing_pending"]
+    if "insurance_declined" in tags:
+        return _line(facts["lang"], "insurance_declined")
     if "offer_declined" in tags:
         return t["offer_declined"]
     if "device_declined" in tags:
@@ -305,6 +347,18 @@ def fallback_reply(state: ConversationState, facts: dict) -> str:
         amount = offer_step.amount if offer_step else None
         key = "credit_line_accepted" if credit_line else "offer_accepted"
         parts.append(t[key].format(offer_id=done["offer_accepted"]["ref"], amount=f"{amount:,}" if amount else ""))
+    if "insurance_interest_recorded" in done:
+        d = done["insurance_interest_recorded"]
+        parts.append(_line(facts["lang"], "insurance_interest").format(lead_id=d["ref"], insurer_name=_insurer()))
+    if "insurance_offer" in facts:
+        k = facts["insurance_offer"]
+        parts.append(_line(facts["lang"], "insurance_offer").format(
+            product_name=k["product_name"], insurer_name=k["insurer_name"], cover=f"{k['cover_inr']:,}",
+            premium=f"{k['premium_inr_per_year']:,}", covers=k["covers"], why=k["why"], grievance=k["grievance_contact"]))
+    if "insurance_none" in tags:
+        parts.append(_line(facts["lang"], "insurance_none"))
+    if any(x.action_type == ActionType.OFFER_INSURANCE.value for x in state.refused):
+        parts.append(_line(facts["lang"], "insurance_later"))
     if "offer_kfs" in facts:
         k = facts["offer_kfs"]
         if k.get("product") == "credit_line":

@@ -32,10 +32,11 @@ GOLDEN_PATH = ROOT / "data" / "golden_set.json"
 EVAL_OTP = "123456"       # used only when config/mock.yaml has no mock_otp
 RECORDINGS_DIR = ROOT / "eval" / "recordings"   # the golden set's own LLM recordings (recordings/ is Member 1's demo scenes)
 
-MONEY_ACTIONS = ("retrigger_payout", "create_offer", "request_device_upgrade")   # every consent-gated action: never run without an expected ALLOW
+# actions that must never execute unexpectedly (money, and the consent-gated sales offers)
+MONEY_ACTIONS = ("retrigger_payout", "create_offer", "offer_insurance", "request_device_upgrade")
 # Briefs written for the back office AFTER the merchant's request is done (an accepted loan). The conversation
 # stays `completed` and no human is needed to finish it, so these are NOT escalations.
-FOLLOW_UP_ONLY = ("LOAN_ACCEPTED", "DEVICE_UPGRADE_REQUESTED")
+FOLLOW_UP_ONLY = ("LOAN_ACCEPTED", "INSURANCE_INTEREST", "DEVICE_UPGRADE_REQUESTED")
 
 # A brief that has no suggested step is not asking anybody to approve anything, so its `decision_needed` must not read
 # like an approval request. Found on the live LLM: "Should the request for a Rs 1,00,000 transfer be approved?".

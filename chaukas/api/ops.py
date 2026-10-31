@@ -162,7 +162,7 @@ def get_disclosure(lang: str | None = None):
 
 
 class ConsentRequest(BaseModel):
-    purpose: Literal["ai_assistance", "loan_offer"]
+    purpose: Literal["ai_assistance", "loan_offer", "insurance_offer"]
     action: Literal["granted", "withdrawn"]
     channel: Literal["chat", "voice", "agent_desk"] = "chat"
     session_id: str | None = None

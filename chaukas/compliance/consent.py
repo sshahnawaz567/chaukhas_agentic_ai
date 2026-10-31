@@ -13,8 +13,8 @@ from typing import Literal
 from chaukas.compliance import disclosure
 from chaukas.db import execute, query_one
 
-PURPOSES = ("ai_assistance", "loan_offer", "device_offer")
-Purpose = Literal["ai_assistance", "loan_offer"]
+PURPOSES = ("ai_assistance", "loan_offer", "insurance_offer", "device_offer")
+Purpose = Literal["ai_assistance", "loan_offer", "insurance_offer", "device_offer"]
 Action = Literal["granted", "withdrawn"]
 
 

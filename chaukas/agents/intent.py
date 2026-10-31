@@ -23,6 +23,7 @@ _DENY = re.compile(r"\b(nahi|nahin|nope|no|mat|cancel|rehne do)\b|नहीं|�
 _HUMAN = re.compile(r"\b(insaan|insan|human|real person|manager|agent se|shikayat|shikaayat|complaint|grievance|kisi se baat)\b|इंसान|इन्सान|शिकायत|मैनेजर|किसी से बात", re.I)
 _REFUND = re.compile(r"\b(refund|refund karna|customer ko wapas)\b|रिफंड", re.I)
 _LOAN = re.compile(r"\b(loan|udhaar|udhar|udhari|credit|karz|karj|postpaid|post paid)\b|लोन|उधार|कर्ज|पोस्टपेड|ઉધાર|લોન", re.I)
+_INSURANCE = re.compile(r"\b(insurance|bima|beema)\b", re.I)
 _DEVICE = re.compile(r"\b(soundbox|sound box|qr|pos|speaker|device|machine|battery)\b|साउंडबॉक्स|क्यूआर|स्पीकर|मशीन", re.I)
 _SETTLEMENT = re.compile(r"\b(settlement|paisa|paise|payment|payout|nahi aaya|nahin aaya|transfer|bheja)\b|पैसा|पैसे|भुगतान|सेटलमेंट|नहीं आया|नही आया", re.I)
 _URGENT = re.compile(r"\b(jaldi|urgent|turant|abhi|asap|2 din|do din)\b|जल्दी|तुरंत|अभी", re.I)
@@ -64,6 +65,7 @@ def keyword_classify(text: str, pending: bool) -> IntentResult:
     for rx, intent, track in (
         (_HUMAN, Intent.HUMAN_REQUEST, Track.SUPPORT),
         (_REFUND, Intent.REFUND_REQUEST, Track.SUPPORT),
+        (_INSURANCE, Intent.INSURANCE_INQUIRY, Track.SALES),
         (_LOAN, Intent.LOAN_INQUIRY, Track.SALES),
         (_DEVICE, Intent.DEVICE_ISSUE, Track.SUPPORT),
         (_SETTLEMENT, Intent.SETTLEMENT_DELAY, Track.SUPPORT),

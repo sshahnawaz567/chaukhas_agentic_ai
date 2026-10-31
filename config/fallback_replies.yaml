@@ -32,6 +32,11 @@ hi-IN:
   unclear: "माफ़ कीजिए, मैं समझ नहीं पाया। मैं इसे हमारी टीम को भेज रहा हूँ।"
   nothing_pending: "अभी कोई पेंडिंग अनुरोध नहीं है। बताइए, मैं क्या मदद करूँ?"
 hi-Latn:
+  insurance_offer: "Aap {why}, isliye ye cover aapke liye theek hai: {product_name}, {insurer_name} ki taraf se. Cover Rs {cover} tak, premium lagbhag Rs {premium} saal ka (illustrative). Ismein {covers} cover hota hai. Kya insurer aapse sampark kare? Haan ya nahi bataiye. Sawal ho to: {grievance}."
+  insurance_interest: "Ho gaya. Maine aapki ruchi note kar li (reference {lead_id}). {insurer_name} aapse sampark karega. Koi premium nahi kata aur abhi koi policy issue nahi hui."
+  insurance_declined: "Koi baat nahi, kuch record nahi kiya. Shop ke insurance ke liye jab chahein pooch lijiye."
+  insurance_none: "Abhi aapki shop ke liye koi suitable insurance nahi hai."
+  insurance_later: "Abhi insurance offer sahi nahi rahega. Sahi samay par bata denge."
   all_good: "Aapke sabhi settlements successful hain, koi payment pending nahi hai."
   retriggered: "Aapka ₹{amount} ka payment dobara bhej diya gaya hai."
   ticket_raised: "Ticket {ticket_id} bana diya gaya hai."
@@ -119,6 +124,11 @@ gu-IN:
   unclear: "માફ કરશો, મને સમજાયું નહીં. હું આ અમારી ટીમને મોકલું છું."
   nothing_pending: "હાલમાં કોઈ બાકી વિનંતી નથી. કહો, હું શું મદદ કરું?"
 en-IN:
+  insurance_offer: "Since {why}, this cover fits you: {product_name} from {insurer_name}. Cover up to Rs {cover}, premium about Rs {premium} a year (illustrative). It covers {covers}. Do you want the insurer to contact you? Please say yes or no. Questions: {grievance}."
+  insurance_interest: "Done. I noted your interest (reference {lead_id}). {insurer_name} will contact you. No premium was charged and no policy is issued yet."
+  insurance_declined: "No problem, nothing was recorded. Ask me any time if you want insurance for your shop."
+  insurance_none: "I do not have a suitable insurance for your shop right now."
+  insurance_later: "An insurance offer is not appropriate right now. We will tell you when it is."
   all_good: "All your settlements are successful, nothing is pending."
   retriggered: "Your payout of ₹{amount} has been re-sent."
   ticket_raised: "Ticket {ticket_id} has been created."

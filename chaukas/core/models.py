@@ -23,6 +23,7 @@ class Intent(str, Enum):
     CONFIRM = "confirm"                     # reply to a pending step: "haan bhejo" / OTP
     DENY = "deny"                           # reply to a pending step: "nahi"
     HUMAN_REQUEST = "human_request"         # "insaan se baat karao" / grievance -> ALWAYS handoff
+    INSURANCE_INQUIRY = "insurance_inquiry"  # sales: "insurance milega kya?" (ADDITIVE)
     UNKNOWN = "unknown"                     # low confidence / anything else -> handoff
     DEVICE_UPGRADE = "device_upgrade"       # ADDITIVE, sales: "naya soundbox / POS chahiye" -> device advisor
 
@@ -57,6 +58,8 @@ class ActionType(str, Enum):  # == policy.yaml allow_list (+ never_allowed for r
     UPDATE_TICKET = "update_ticket"
     CREATE_OFFER = "create_offer"            # sales, always needs consent
     REQUEST_DEVICE_UPGRADE = "request_device_upgrade"  # ADDITIVE, sales: field-team request, always needs consent
+    CHECK_INSURANCE = "check_insurance"      # read-only: which shop insurance fits this merchant (ADDITIVE)
+    OFFER_INSURANCE = "offer_insurance"      # sales, always needs consent; records interest, never charges (ADDITIVE)
 
 
 class Verdict(str, Enum):
@@ -97,6 +100,7 @@ class HandoffReason(str, Enum):  # handoffs.reason_code = a ReasonCode OR one of
     LOAN_ACCEPTED = "LOAN_ACCEPTED"  # ADDITIVE: merchant accepted an offer -> back-office follow-up, not an approval
     SUSPECTED_INJECTION = "SUSPECTED_INJECTION"  # ADDITIVE: message carries instructions aimed at the AI -> fraud review
     DEVICE_UPGRADE_REQUESTED = "DEVICE_UPGRADE_REQUESTED"  # ADDITIVE: merchant said yes to a device upgrade -> field-team follow-up, not an approval
+    INSURANCE_INTEREST = "INSURANCE_INTEREST"  # ADDITIVE: merchant said yes to an insurance offer -> insurer follow-up
 
 
 class TurnStatus(str, Enum):  # the state machine — see C1.4
@@ -160,6 +164,13 @@ class RequestDeviceUpgradeParams(BaseModel):  # ADDITIVE
     merchant_id: str
     from_device: DeviceType   # must equal the merchant's current device (guardrail reads it fresh)
     to_device: UpgradeDevice  # must equal what the device advisor recommends
+class CheckInsuranceParams(BaseModel):  # ADDITIVE
+    merchant_id: str
+
+
+class OfferInsuranceParams(BaseModel):  # ADDITIVE: no amount: nothing is charged or sent
+    merchant_id: str
+    product_id: str
 
 
 PARAMS_BY_ACTION: dict[ActionType, type[BaseModel]] = {
@@ -170,6 +181,8 @@ PARAMS_BY_ACTION: dict[ActionType, type[BaseModel]] = {
     ActionType.UPDATE_TICKET: UpdateTicketParams,
     ActionType.CREATE_OFFER: CreateOfferParams,
     ActionType.REQUEST_DEVICE_UPGRADE: RequestDeviceUpgradeParams,
+    ActionType.CHECK_INSURANCE: CheckInsuranceParams,
+    ActionType.OFFER_INSURANCE: OfferInsuranceParams,
 }
 
 
@@ -303,6 +316,7 @@ class MerchantContext(BaseModel):  # what Context Agent puts in state — tokens
     has_open_handoff: bool
     declined_offer_recently: bool  # within offer_cooling_off_days
     eligibility: LenderDecision | None = None  # filled by check_eligibility step
+    insurance: dict | None = None  # ADDITIVE: filled by check_insurance (the recommendation, or None = nothing fits)
     credit_line: LenderDecision | None = None  # ADDITIVE: filled by check_eligibility(product=credit_line)
     device_advice: DeviceAdvice | None = None  # ADDITIVE: filled by the Context agent (deterministic, DB only)
 

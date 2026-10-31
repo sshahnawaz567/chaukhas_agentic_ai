@@ -210,7 +210,7 @@ def test_erasure_keeps_the_loan_follow_up_details_of_a_brief(db):
 
 def test_erasure_keeps_every_record_the_law_requires(db):
     consent.grant(db, "M001", "ai_assistance")
-    before = {t: count(db, t) for t in ("audit_log", "executions", "offers", "tickets", "ticket_events",
+    before = {t: count(db, t) for t in ("audit_log", "executions", "offers", "insurance_leads", "tickets", "ticket_events",
                                         "settlements", "cashflow_features")}
     receipt = retention.erase_merchant(db, "M001", now=NOW)
     assert {t: count(db, t) for t in before} == before
@@ -221,8 +221,9 @@ def test_erasure_keeps_every_record_the_law_requires(db):
 def test_erasure_withdraws_both_consents_so_no_offer_is_made_again(db, make_state, make_step):
     consent.grant(db, "M001", "ai_assistance")
     receipt = retention.erase_merchant(db, "M001", now=NOW)
-    assert set(receipt["consents_withdrawn_now"]) == {"ai_assistance", "loan_offer", "device_offer"}
-    assert all(consent.is_withdrawn(db, "M001", p) for p in ("ai_assistance", "loan_offer", "device_offer"))
+    assert set(receipt["consents_withdrawn_now"]) == {"ai_assistance", "loan_offer", "insurance_offer", "device_offer"}
+    for purpose in ("ai_assistance", "loan_offer", "insurance_offer", "device_offer"):
+        assert consent.is_withdrawn(db, "M001", purpose), purpose
     d = guardrail.check(make_step("create_offer", {"merchant_id": "M001", "amount": 50000}, amount=50000),
                         make_state("M001", eligible=(True, 50000)), None, conn=db, policy=engine.load_policy())
     assert (d.verdict.value, d.reason_code.value) == ("BLOCK", "CONSENT_WITHDRAWN")

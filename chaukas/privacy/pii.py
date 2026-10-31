@@ -36,7 +36,7 @@ _CONTACT_IN_TEXT = re.compile(r"[\w.\-]+@[\w.\-]*\w")
 @lru_cache(maxsize=1)
 def public_contacts() -> tuple[str, ...]:
     """Contact addresses the company publishes ON PURPOSE: the grievance contact in the DPDP notice
-    (config/disclosure.yaml) and in the loan Key Fact Statement (config/lender_sim.yaml). They look like an e-mail
+    (config/disclosure.yaml), in the loan Key Fact Statement (config/lender_sim.yaml) and in the insurance offer (config/insurance_sim.yaml). They look like an e-mail
     or UPI id, but they are the company's, not a person's, and RBI / DPDP require the merchant to be shown them,
     so masking them would hide exactly what must be visible. Static config, so reading it once is safe.
     If the config cannot be read nothing is protected: everything that looks like PII stays masked (fail closed)."""
@@ -44,7 +44,8 @@ def public_contacts() -> tuple[str, ...]:
     try:
         import yaml
 
-        for name, keys in (("disclosure", ("grievance_contact",)), ("lender_sim", ("kfs", "grievance_contact"))):
+        for name, keys in (("disclosure", ("grievance_contact",)), ("lender_sim", ("kfs", "grievance_contact")),
+                           ("insurance_sim", ("grievance_contact",))):
             node = yaml.safe_load((_CONFIG_DIR / f"{name}.yaml").read_text(encoding="utf-8")) or {}
             for key in keys:
                 node = node.get(key) if isinstance(node, dict) else None

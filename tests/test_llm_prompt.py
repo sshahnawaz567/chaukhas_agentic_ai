@@ -221,6 +221,12 @@ def test_every_supported_language_has_fallback_and_notification_templates():
 
     replies = yaml.safe_load((ROOT / "config" / "fallback_replies.yaml").read_text(encoding="utf-8"))
     notes = _templates()
+    def core(keys):  # insurance lines fall back (own language -> Hinglish -> English) until they are translated and reviewed
+        return {k for k in keys if not k.startswith("insurance_")}
+
     for code in language_codes():
-        assert set(replies[code]) == set(replies["en-IN"]), code
+        assert core(replies[code]) == core(replies["en-IN"]), code
         assert set(notes[code]) == set(notes["en-IN"]), code
+    insurance_keys = {"insurance_offer", "insurance_interest", "insurance_declined", "insurance_none", "insurance_later"}
+    for code in ("en-IN", "hi-Latn"):          # the two languages that carry the insurance lines
+        assert insurance_keys <= set(replies[code]), code

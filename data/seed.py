@@ -42,9 +42,10 @@ def seed(path: str | os.PathLike | None = None, now: datetime | None = None) -> 
             mid, pii = m["merchant_id"], m["pii"]
             conn.execute(
                 """INSERT INTO merchants (merchant_id, name, gmv_30d, device, preferred_lang,
-                       kyc_status, bank_details_updated_at, phone, vpa, pan, account_no, ifsc)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       kyc_status, business_category, bank_details_updated_at, phone, vpa, pan, account_no, ifsc)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (mid, m["name"], m["gmv_30d"], m["device"], m["preferred_lang"], m["kyc_status"],
+                 m.get("business_category"),
                  _ago(now, m.get("bank_details_updated_days_ago")),
                  pii["phone"], pii["vpa"], pii["pan"], pii["account_no"], pii["ifsc"]),
             )

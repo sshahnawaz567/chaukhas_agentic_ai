@@ -45,6 +45,13 @@ def _apply_setup(conn, merchant_id: str, ops: list[dict]) -> None:
             conn.execute("UPDATE settlements SET status = ? WHERE id = ?", (op["status"], op["id"]))
         elif op["op"] == "withdraw_consent":
             consent.withdraw(conn, merchant_id, op["purpose"])
+        elif op["op"] == "insurance_lead":        # an earlier lead: interested (already asked) or declined (cooling-off)
+            declined = op["status"] == "declined"
+            conn.execute(
+                "INSERT INTO insurance_leads (id, merchant_id, product_id, product_name, insurer_name, cover_inr, "
+                "premium_inr, consent_at, declined_at, status) VALUES ('INS-RT', ?, ?, 'x', 'x', 1000, 10, ?, ?, ?)",
+                (merchant_id, op["product_id"], None if declined else "2026-10-31T00:00:00Z",
+                 "2099-01-01T00:00:00Z" if declined else None, op["status"]))
         elif op["op"] == "open_handoff":
             conn.execute("INSERT INTO sessions (session_id, merchant_id) VALUES ('rt-setup', ?)", (merchant_id,))
             conn.execute("INSERT INTO handoffs (id, session_id, merchant_id, trace_id, reason_code, brief_json, "

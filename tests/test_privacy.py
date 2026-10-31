@@ -198,7 +198,9 @@ def test_ordinary_numbers_and_ids_are_not_masked_by_the_wider_patterns(text):
 def _config_contacts():
     disclosure = yaml.safe_load((Path(__file__).resolve().parents[1] / "config" / "disclosure.yaml").read_text(encoding="utf-8"))
     lender = yaml.safe_load((Path(__file__).resolve().parents[1] / "config" / "lender_sim.yaml").read_text(encoding="utf-8"))
-    return disclosure["grievance_contact"], re.search(r"\S+@[\w.\-]*\w", lender["kfs"]["grievance_contact"]).group(0)
+    insurance = yaml.safe_load((Path(__file__).resolve().parents[1] / "config" / "insurance_sim.yaml").read_text(encoding="utf-8"))
+    return (disclosure["grievance_contact"], re.search(r"\S+@[\w.\-]*\w", lender["kfs"]["grievance_contact"]).group(0),
+            re.search(r"\S+@[\w.\-]*\w", insurance["grievance_contact"]).group(0))
 
 
 def test_public_contacts_come_from_config_not_from_code():

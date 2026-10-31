@@ -51,7 +51,7 @@ def _audit(state, step, verdict, code, reason, actor="agent", token=None, confir
 
 def fake_check(step, state, confirmation=None):
     """Stand-in for Member 2's guardrail: only what the orchestrator tests need."""
-    if step.action_type in ("verify_ledger", "check_eligibility"):
+    if step.action_type in ("verify_ledger", "check_eligibility", "check_insurance"):
         return Decision(verdict=Verdict.ALLOW, reason_code=ReasonCode.WITHIN_POLICY, reason="read-only",
                         audit_id=None, rollback_token=None)
     if confirmation is not None:
@@ -60,7 +60,7 @@ def fake_check(step, state, confirmation=None):
         aid = _audit(state, step, "ALLOW", code.value, "confirmed", confirmation.actor, token,
                      confirmation.pending_audit_id)
         return Decision(verdict=Verdict.ALLOW, reason_code=code, reason="confirmed", audit_id=aid, rollback_token=token)
-    if step.action_type == "create_offer":
+    if step.action_type in ("create_offer", "offer_insurance"):
         aid = _audit(state, step, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED", "offer needs consent")
         return Decision(verdict=Verdict.NEEDS_CONFIRMATION, reason_code=ReasonCode.CONSENT_REQUIRED,
                         reason="offer needs consent", audit_id=aid, rollback_token=None, confirmation_kind="consent")
@@ -248,7 +248,10 @@ def test_loan_inquiry_ineligible_merchant_gets_no_offer():
 
 def test_device_issue_raises_ticket():
     r = orchestrator.handle_message(new_session("M008"), "mera soundbox nahi chal raha")
-    assert actions_of(r) == ["raise_ticket"] and r.actions[0].ref_id.startswith("TKT-")
+    # support first: the ticket; sales after: a shop-insurance offer waits for the merchant's yes (nothing recorded yet)
+    assert actions_of(r) == ["raise_ticket", "check_insurance", "offer_insurance"] and r.actions[0].ref_id.startswith("TKT-")
+    assert r.pending_confirmation["step"]["action_type"] == "offer_insurance"
+    assert not rows("SELECT * FROM insurance_leads")
 
 
 # ------------------------------------------------------------------ invariants

@@ -1,5 +1,5 @@
 -- ============================================================
---  Chaukas — SQLite schema  (v3.2: + CONSENT_WITHDRAWN, consents DELETE trigger; v3.1: + consents, KFS on offers, ACTION_DISABLED;
+--  Chaukas — SQLite schema  (v3.3: + CONSENT_WITHDRAWN, consents DELETE trigger; v3.1: + consents, KFS on offers, ACTION_DISABLED;
 --  v3: + turns / handoffs / executions,
 --  append-only audit, cause-aware settlements, daily limit support)
 --  Portable to Postgres later: AUTOINCREMENT -> IDENTITY/SERIAL,
@@ -38,6 +38,7 @@ CREATE TABLE merchants (
     preferred_lang   TEXT    NOT NULL DEFAULT 'hi-IN',
     kyc_status       TEXT    NOT NULL DEFAULT 'verified'
                           CHECK (kyc_status IN ('verified','pending','rejected')),
+    business_category TEXT,                            -- 'electronics','grocery','food','pharmacy','hardware','auto_spares','retail','services','jewellery' (not PII; drives which insurance fits)
     -- When the merchant last corrected bank details. If this is AFTER a
     -- settlement failed with IFSC_MISMATCH, a retrigger is valid; else it
     -- would just fail again -> ask merchant to update details / handoff.
@@ -200,6 +201,31 @@ CREATE INDEX idx_device_offers_merchant ON device_offers(merchant_id, status);
 
 -- Human-in-the-loop queue. Agent-desk (Mode 2) reads THIS table.
 -- A structured decision brief — never a transcript.
+-- Insurance interest = the "sales" outcome for shop insurance, next to loan offers.
+-- Chaukas never issues a policy and never charges a premium: it records that the merchant said YES (consent) so the
+-- insurer partner can follow up. Declined rows start the cooling-off window, like declined loan offers.
+CREATE TABLE insurance_leads (
+    id            TEXT PRIMARY KEY,                     -- "INS-12345"
+    merchant_id   TEXT    NOT NULL REFERENCES merchants(merchant_id),
+    product_id    TEXT    NOT NULL,                     -- 'ELECTRONICS_PARTS' | 'SHOP_FIRE' | 'DEVICE_PROTECT'
+    product_name  TEXT    NOT NULL,
+    insurer_name  TEXT    NOT NULL,                     -- the regulated insurer making the offer (disclose it)
+    cover_inr     INTEGER NOT NULL CHECK (cover_inr > 0),     -- rupees, illustrative (mock config/insurance_sim.yaml)
+    premium_inr   INTEGER NOT NULL CHECK (premium_inr > 0),   -- rupees per year, illustrative
+    reasons_json  TEXT,                                 -- why this product fits, e.g. ["CATEGORY_ELECTRONICS","GMV_OK"]
+    session_id    TEXT,
+    trace_id      TEXT,
+    consent_at    TEXT,
+    declined_at   TEXT,                                 -- drives the insurance cooling-off
+    status        TEXT    NOT NULL DEFAULT 'interested'
+                       CHECK (status IN ('interested','declined','withdrawn')),
+    created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    CHECK (status <> 'interested' OR consent_at IS NOT NULL),
+    CHECK (status <> 'declined' OR declined_at IS NOT NULL)
+);
+CREATE INDEX idx_insurance_leads_merchant ON insurance_leads(merchant_id, status);
+
+
 CREATE TABLE handoffs (
     id               TEXT PRIMARY KEY,                  -- "HO-00001"
     session_id       TEXT NOT NULL REFERENCES sessions(session_id),
@@ -227,7 +253,7 @@ CREATE INDEX idx_handoffs_status ON handoffs(status, created_at);
 CREATE TABLE consents (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     merchant_id    TEXT NOT NULL REFERENCES merchants(merchant_id),
-    purpose        TEXT NOT NULL CHECK (purpose IN ('ai_assistance','loan_offer','device_offer')),
+    purpose        TEXT NOT NULL CHECK (purpose IN ('ai_assistance','loan_offer','insurance_offer','device_offer')),
     action         TEXT NOT NULL CHECK (action IN ('granted','withdrawn')),
     notice_version TEXT NOT NULL,                      -- which notice text the merchant saw (compliance/disclosure.py)
     channel        TEXT,                               -- chat / voice / agent_desk

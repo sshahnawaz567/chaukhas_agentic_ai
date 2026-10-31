@@ -153,7 +153,31 @@ def plan_device_issue(state: ConversationState, start_step_no: int) -> PlanResul
     assert ctx is not None
     num = _Numberer(start_step_no)
     issue = f"Device issue ({ctx.device or 'unknown device'}): {state.message_masked[:120]}"
-    return PlanResult(steps=[_ticket_step(num, ctx, None, issue, f"merchant reported again: {state.message_masked[:120]}")])
+    ticket = _ticket_step(num, ctx, None, issue, f"merchant reported again: {state.message_masked[:120]}")
+    # support first, sales after: once the device problem is actioned, see if an insurance fits (read-only)
+    check = num.step(ActionType.CHECK_INSURANCE, {"merchant_id": ctx.merchant_id},
+                     "device issue actioned; check which shop insurance fits (read-only)")
+    return PlanResult(steps=[ticket, check])
+
+
+def plan_insurance_inquiry(state: ConversationState, start_step_no: int) -> PlanResult:
+    ctx = state.merchant
+    assert ctx is not None
+    num = _Numberer(start_step_no)
+    return PlanResult(steps=[num.step(ActionType.CHECK_INSURANCE, {"merchant_id": ctx.merchant_id},
+                                      "merchant asked about insurance")])
+
+
+def followup_insurance_step(state: ConversationState, step_no: int) -> PlannedStep | None:
+    """Called after check_insurance succeeded: build the offer_insurance step from the recommendation the rules
+    produced (never from the merchant's words). Returns None when nothing fits. No amount: nothing is charged."""
+    ctx = state.merchant
+    if ctx is None or not ctx.insurance:
+        return None
+    return PlannedStep(step_no=step_no, action_type=ActionType.OFFER_INSURANCE.value,
+                       params={"merchant_id": ctx.merchant_id, "product_id": ctx.insurance["product_id"]},
+                       amount=None, reversible=True,
+                       rationale="a product fits this merchant: offer it (needs consent, records interest only)")
 
 
 def plan_device_upgrade(state: ConversationState, start_step_no: int) -> PlanResult:
@@ -199,6 +223,8 @@ def plan_for(state: ConversationState, start_step_no: int, proactive_settlement:
         return plan_device_issue(state, start_step_no)
     if intent == Intent.DEVICE_UPGRADE:
         return plan_device_upgrade(state, start_step_no)
+    if intent == Intent.INSURANCE_INQUIRY:
+        return plan_insurance_inquiry(state, start_step_no)
     if intent == Intent.REFUND_REQUEST:
         return PlanResult(handoff_reason=HandoffReason.OUT_OF_SCOPE.value, note="no refund tool, by design")
     if intent == Intent.HUMAN_REQUEST:
