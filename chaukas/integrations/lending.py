@@ -1,5 +1,6 @@
 """[MOCK] SIMULATED lender: check_eligibility -> {eligible, max_amount, reason_codes}
 (from cashflow_features + config/lender_sim.yaml), create_offer, withdraw_offer.
+Two products: `term_loan` (original) and `credit_line` (short-term, Postpaid-style; additive).
 
 In production the regulated lender decides this; Chaukas only consumes the result.
 Owner: Member 1 · Contract: CONTRACTS C3 / design B4.1
@@ -13,10 +14,12 @@ from chaukas.core.models import KFS, LenderDecision, Offer, RollbackResult
 from chaukas.integrations._common import deterministic_id, execution_by_token, load_config, stored_ref
 
 
-def check_eligibility(merchant_id: str) -> LenderDecision:
+def check_eligibility(merchant_id: str, product: str = "term_loan") -> LenderDecision:
+    if product == "credit_line":
+        return check_credit_line(merchant_id)
     cfg = load_config("lender_sim")
     rules, cap_cfg = cfg["eligibility"], cfg["max_amount"]
-    conn = db.connect()
+    conn = db.connect()  # cashflow features ONLY (fairness, FREE-AI; tests/test_fairness.py)
     try:
         f = conn.execute("SELECT * FROM cashflow_features WHERE merchant_id=?", (merchant_id,)).fetchone()
     finally:
@@ -40,8 +43,40 @@ def check_eligibility(merchant_id: str) -> LenderDecision:
     return LenderDecision(eligible=eligible and max_amount > 0, max_amount=max_amount, reason_codes=codes)
 
 
-def build_kfs(merchant_id: str, amount: int) -> KFS:
+def check_credit_line(merchant_id: str) -> LenderDecision:
+    """Short-term credit line: a limit the merchant can repay from ~`repay_days` of sales, smaller when the
+    inflow is volatile. All numbers from config/lender_sim.yaml `credit_line`; int rupees throughout."""
+    cfg = load_config("lender_sim")["credit_line"]
+    rules, lim = cfg["eligibility"], cfg["limit"]
+    conn = db.connect()  # cashflow features ONLY (fairness, FREE-AI; tests/test_fairness.py)
+    try:
+        f = conn.execute("SELECT * FROM cashflow_features WHERE merchant_id=?", (merchant_id,)).fetchone()
+    finally:
+        conn.close()
+    if not f:
+        return LenderDecision(eligible=False, max_amount=0, reason_codes=["NO_CASHFLOW_DATA"], product="credit_line")
+    checks = [
+        ("AVG_BALANCE_OK", "AVG_BALANCE_LOW", f["avg_balance"] >= rules["min_avg_balance"]),
+        ("ACCOUNT_AGE_OK", "ACCOUNT_TOO_NEW", f["account_age_months"] >= rules["min_account_age_months"]),
+        ("INFLOW_STEADY", "INFLOW_VOLATILE", f["inflow_cv"] <= rules["max_inflow_cv"]),
+        ("ACTIVE_DAYS_OK", "ACTIVE_DAYS_LOW", f["active_days_30d"] >= rules["min_active_days_30d"]),
+    ]
+    codes = [ok if passed else bad for ok, bad, passed in checks]
+    limit = 0
+    if all(p for _, _, p in checks):
+        stability = min(1.0, max(float(lim["min_stability"]), 1.0 - f["inflow_cv"]))
+        raw = int(f["inflow_30d"] * lim["repay_days"] * stability / 30)
+        limit = min(raw // lim["round_to"] * lim["round_to"], lim["cap_inr"])
+        if limit < lim["min_limit_inr"]:
+            codes.append("LIMIT_TOO_SMALL")
+            limit = 0
+    return LenderDecision(eligible=limit > 0, max_amount=limit, reason_codes=codes, product="credit_line")
+
+
+def build_kfs(merchant_id: str, amount: int, product: str = "term_loan") -> KFS:
     """Key Fact Statement (RBI Digital Lending). MOCK values from config/lender_sim.yaml."""
+    if product == "credit_line":
+        return build_credit_line_kfs(amount)
     cfg = load_config("lender_sim")
     k = cfg["kfs"]
     fee = round(amount * k["processing_fee_pct"] / 100)
@@ -49,6 +84,23 @@ def build_kfs(merchant_id: str, amount: int) -> KFS:
     return KFS(lender_name=cfg["lender_name"], apr_pct=k["apr_pct"], processing_fee_inr=fee,
                tenure_months=k["tenure_months"], total_repayable_inr=amount + interest + fee,
                grievance_contact=k["grievance_contact"])
+
+
+def build_credit_line_kfs(amount: int) -> KFS:
+    """KFS of a credit line: one billing cycle, nothing extra if repaid within the interest-free period."""
+    cfg = load_config("lender_sim")["credit_line"]
+    k = cfg["kfs"]
+    return KFS(lender_name=cfg["lender_name"], apr_pct=k["apr_pct"], processing_fee_inr=k["processing_fee_inr"],
+               tenure_months=max(1, round(k["billing_cycle_days"] / 30)),
+               total_repayable_inr=amount + k["processing_fee_inr"], grievance_contact=k["grievance_contact"],
+               product="credit_line", billing_cycle_days=k["billing_cycle_days"],
+               interest_free_days=k["interest_free_days"], late_fee_inr=k["late_fee_inr"])
+
+
+def wants_credit_line(text: str) -> bool:
+    """Did the merchant ask for a credit line in their own words? Keywords from config (no LLM)."""
+    low = (text or "").lower()
+    return any(k.lower() in low for k in load_config("lender_sim")["credit_line"].get("keywords") or [])
 
 
 def create_offer(merchant_id: str, amount: int, consent: bool, kfs: KFS, session_id: str,
@@ -83,14 +135,14 @@ def create_offer(merchant_id: str, amount: int, consent: bool, kfs: KFS, session
 
 
 def record_declined_offer(merchant_id: str, amount: int, session_id: str, trace_id: str | None,
-                          kfs_shown_at: str | None) -> str:
+                          kfs_shown_at: str | None, product: str = "term_loan") -> str:
     """Merchant said no to a presented offer: store it as 'declined' so the cooling-off window
     (guardrail OFFER_COOLING_OFF) starts. Not a guarded action: nothing is granted or moved."""
     conn = db.connect()
     try:
         offer_id = deterministic_id(conn, "OFF", f"declined:{session_id}:{amount}", "offers")
         now = db.now_iso()
-        kfs = build_kfs(merchant_id, amount)
+        kfs = build_kfs(merchant_id, amount, product)
         conn.execute(
             """INSERT INTO offers (id, merchant_id, session_id, trace_id, amount, consent, declined_at,
                    lender_name, kfs_json, kfs_shown_at, status) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",

@@ -131,3 +131,32 @@ def test_the_guardrail_gives_the_same_offer_decision_whoever_the_merchant_is(fdb
         for value in values:
             set_identity(fdb, mid, **{field: value})
             assert _offer_decision(fdb, make_state, make_step, mid) == baseline, f"{mid}: {field}={value!r}"
+
+
+# ------------------------------------------------------------------ the same three layers for the credit line
+
+def decide_credit(merchant_id) -> dict:
+    return lending.check_credit_line(merchant_id).model_dump()
+
+
+def test_the_credit_line_query_reads_only_the_cashflow_table():
+    src = inspect.getsource(lending.check_credit_line)
+    assert "FROM cashflow_features" in src
+    assert not re.search(r"\bmerchants\b", src.replace("merchant_id", ""))
+    for forbidden in ("name", "preferred_lang", "device", "phone", "vpa", "pan", "gender", "religion", "caste",
+                      "location", "city", "pincode", "kyc_status"):
+        assert not re.search(rf"\b{forbidden}\b", src), f"check_credit_line mentions {forbidden!r}"
+
+
+def test_the_credit_line_returns_only_cashflow_reason_codes(fdb):
+    for mid in IDS:
+        assert set(decide_credit(mid)["reason_codes"]) <= ALLOWED_REASON_CODES | {"LIMIT_TOO_SMALL"}
+
+
+@pytest.mark.parametrize("field,values", [("name", NAMES), ("preferred_lang", LANGS), ("device", DEVICES)])
+def test_changing_who_the_merchant_is_never_changes_the_credit_line(fdb, field, values):
+    for mid in IDS:
+        baseline = decide_credit(mid)
+        for value in values:
+            set_identity(fdb, mid, **{field: value})
+            assert decide_credit(mid) == baseline, f"{mid}: {field}={value!r}"

@@ -263,12 +263,22 @@ def check_offer_gating(ctx: Ctx) -> Outcome | None:                             
         return None
     if consent.is_withdrawn(ctx.conn, ctx.merchant_id, "loan_offer"):     # DPDP s.6: next turn respects it
         return _block(ReasonCode.CONSENT_WITHDRAWN, "the merchant withdrew consent for loan offers")
+    product = getattr(ctx.params, "product", "term_loan")
+    if product in (ctx.policy.get("disabled_offer_products") or []):   # per-product kill switch (FREE-AI R5)
+        return _block(ReasonCode.ACTION_DISABLED, f"{product} offers are switched off (kill switch)")
     merchant = ctx.state.merchant
-    lender = merchant.eligibility if merchant else None
-    if lender is None or not lender.eligible:           # no lender answer = fail closed
-        return _block(ReasonCode.OFFER_NOT_ELIGIBLE, "lender did not confirm eligibility")
+    # each product is capped by the lender's answer FOR THAT PRODUCT; a term-loan answer never caps a credit line
+    lender = (merchant.credit_line if product == "credit_line" else merchant.eligibility) if merchant else None
+    if lender is None or not lender.eligible or lender.product != product:   # no lender answer = fail closed
+        return _block(ReasonCode.OFFER_NOT_ELIGIBLE, f"lender did not confirm eligibility for {product}")
     if ctx.amount > lender.max_amount:
         return _block(ReasonCode.OFFER_NOT_ELIGIBLE, f"amount {ctx.amount} > lender max_amount {lender.max_amount}")
+    if product == "credit_line":                        # total exposure: no credit line on top of a fresh loan
+        days = int(ctx.policy.get("credit_line_after_loan_days", 30))
+        since = (ctx.now - timedelta(days=days)).strftime(_ISO)
+        if query_one(ctx.conn, "SELECT 1 FROM offers WHERE merchant_id = ? AND status = 'accepted' "
+                     "AND consent_at >= ?", (ctx.merchant_id, since)):
+            return _block(ReasonCode.OFFER_NOT_ELIGIBLE, f"a loan was accepted within the last {days} days")
 
     issue = _open_issue(ctx)
     if issue:

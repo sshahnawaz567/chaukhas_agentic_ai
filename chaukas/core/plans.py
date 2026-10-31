@@ -132,12 +132,20 @@ def plan_settlement_delay(state: ConversationState, start_step_no: int,
     return res
 
 
-def plan_loan_inquiry(state: ConversationState, start_step_no: int) -> PlanResult:
+def _product_params(params: dict, product: str) -> dict:
+    """`product` is written only for a credit line, so a term-loan step (and its audit row) stays exactly as before."""
+    return {**params, "product": product} if product == "credit_line" else params
+
+
+def plan_loan_inquiry(state: ConversationState, start_step_no: int, product: str = "term_loan") -> PlanResult:
+    """`product='credit_line'` only when the merchant asked for one in their own words (the orchestrator decides
+    that deterministically from the message); the lender then answers for THAT product."""
     ctx = state.merchant
     assert ctx is not None
     num = _Numberer(start_step_no)
-    return PlanResult(steps=[num.step(ActionType.CHECK_ELIGIBILITY, {"merchant_id": ctx.merchant_id},
-                                      "merchant asked about a loan")])
+    why = "merchant asked for a credit line (Postpaid-style)" if product == "credit_line" else "merchant asked about a loan"
+    return PlanResult(steps=[num.step(ActionType.CHECK_ELIGIBILITY,
+                                      _product_params({"merchant_id": ctx.merchant_id}, product), why)])
 
 
 def plan_device_issue(state: ConversationState, start_step_no: int) -> PlanResult:
@@ -172,25 +180,29 @@ def followup_insurance_step(state: ConversationState, step_no: int) -> PlannedSt
                        rationale="a product fits this merchant: offer it (needs consent, records interest only)")
 
 
-def followup_offer_step(state: ConversationState, step_no: int) -> PlannedStep | None:
+def followup_offer_step(state: ConversationState, step_no: int, product: str = "term_loan") -> PlannedStep | None:
     """Called after check_eligibility succeeded: build the create_offer step from the LENDER's max_amount
-    (never from the merchant's words). Returns None when not eligible."""
+    (never from the merchant's words) for the product that was checked. Returns None when not eligible."""
     ctx = state.merchant
-    if ctx is None or ctx.eligibility is None or not ctx.eligibility.eligible:
+    lender = None if ctx is None else (ctx.credit_line if product == "credit_line" else ctx.eligibility)
+    if lender is None or not lender.eligible:
         return None
-    amount = ctx.eligibility.max_amount
+    amount = lender.max_amount
+    what = "credit line limit" if product == "credit_line" else "max amount"
     return PlannedStep(step_no=step_no, action_type=ActionType.CREATE_OFFER.value,
-                       params={"merchant_id": ctx.merchant_id, "amount": amount}, amount=amount,
-                       reversible=True, rationale="eligible: offer the lender's max amount (needs consent)")
+                       params=_product_params({"merchant_id": ctx.merchant_id, "amount": amount}, product),
+                       amount=amount, reversible=True,
+                       rationale=f"eligible: offer the lender's {what} (needs consent)")
 
 
-def plan_for(state: ConversationState, start_step_no: int, proactive_settlement: str | None = None) -> PlanResult:
+def plan_for(state: ConversationState, start_step_no: int, proactive_settlement: str | None = None,
+             product: str = "term_loan") -> PlanResult:
     """Intent -> plan template. Intents that always hand off return a PlanResult with no steps."""
     intent = state.intent
     if intent == Intent.SETTLEMENT_DELAY:
         return plan_settlement_delay(state, start_step_no, proactive_settlement)
     if intent == Intent.LOAN_INQUIRY:
-        return plan_loan_inquiry(state, start_step_no)
+        return plan_loan_inquiry(state, start_step_no, product)
     if intent == Intent.DEVICE_ISSUE:
         return plan_device_issue(state, start_step_no)
     if intent == Intent.INSURANCE_INQUIRY:

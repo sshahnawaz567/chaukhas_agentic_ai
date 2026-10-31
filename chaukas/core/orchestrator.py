@@ -296,7 +296,10 @@ def _injection_flow(turn: _Turn, signals: list[str]) -> None:
 def _plan_and_execute(turn: _Turn, proactive_settlement: str | None = None) -> None:
     s = turn.state
     t = time.perf_counter()
-    plan = plans.plan_for(s, gw.next_step_no(s.session_id), proactive_settlement)
+    # credit line only when the merchant asked for it in their own words (deterministic keywords, no LLM)
+    product = ("credit_line" if s.intent == Intent.LOAN_INQUIRY and lending.wants_credit_line(s.message_masked)
+               else "term_loan")
+    plan = plans.plan_for(s, gw.next_step_no(s.session_id), proactive_settlement, product)
     s.plan = [_stamp(p, s.session_id) for p in plan.steps]
     if s.plan:
         gw.advance_step_no(s.session_id, max(p.step_no for p in s.plan))
@@ -368,14 +371,15 @@ def _run_allowed(turn: _Turn, step: PlannedStep, decision: Decision, queue: list
         return False
 
     if step.action_type == ActionType.CHECK_ELIGIBILITY.value:
-        offer = plans.followup_offer_step(s, gw.next_step_no(s.session_id))
+        product = step.params.get("product", "term_loan")
+        offer = plans.followup_offer_step(s, gw.next_step_no(s.session_id), product)
         if offer is not None:
             _stamp(offer, s.session_id)
             gw.advance_step_no(s.session_id, offer.step_no)
             s.plan.append(offer)
             queue.append(offer)
         else:
-            s.outcome_tags.append("loan_not_eligible")
+            s.outcome_tags.append("credit_line_not_eligible" if product == "credit_line" else "loan_not_eligible")
     if step.action_type == ActionType.CHECK_INSURANCE.value:
         offer = plans.followup_insurance_step(s, gw.next_step_no(s.session_id))
         if offer is not None:
@@ -432,7 +436,8 @@ def _resume(turn: _Turn, pending: tuple[PlannedStep, dict, int | None], *, appro
     if not approve:
         if kind == "consent" and step.action_type == ActionType.CREATE_OFFER.value:
             lending.record_declined_offer(step.params["merchant_id"], step.params["amount"], s.session_id,
-                                          s.trace_id, meta.get("kfs_shown_at"))
+                                          s.trace_id, meta.get("kfs_shown_at"),
+                                          step.params.get("product", "term_loan"))
             s.outcome_tags.append("offer_declined")
             s.status = TurnStatus.COMPLETED
         elif kind == "consent" and step.action_type == ActionType.OFFER_INSURANCE.value:
@@ -496,8 +501,10 @@ def _loan_brief(s: ConversationState, step: PlannedStep, decision: Decision) -> 
     if offer is None:
         return None
     kfs = offer["kfs"]
+    product = kfs.get("product") or "term_loan"
+    what = "short-term credit line" if product == "credit_line" else "business loan"
     return HandoffBrief(
-        asked=m2_shim.mask_text(f"Merchant accepted a ₹{offer['amount']:,} business loan offer"),
+        asked=m2_shim.mask_text(f"Merchant accepted a ₹{offer['amount']:,} {what} offer"),
         verified=["Key Fact Statement shown before consent",
                   f"Consent recorded (CONFIRMED_BY_MERCHANT, audit #{decision.audit_id})"],
         done=[f"Offer {offer['id']} accepted"],
@@ -510,7 +517,8 @@ def _loan_brief(s: ConversationState, step: PlannedStep, decision: Decision) -> 
             apr_pct=kfs["apr_pct"], processing_fee_inr=kfs["processing_fee_inr"],
             tenure_months=kfs["tenure_months"], total_repayable_inr=kfs["total_repayable_inr"],
             grievance_contact=kfs["grievance_contact"], kfs_shown_at=offer["kfs_shown_at"],
-            consent_at=offer["consent_at"], consent_audit_id=decision.audit_id),
+            consent_at=offer["consent_at"], consent_audit_id=decision.audit_id, product=product,
+            interest_free_days=kfs.get("interest_free_days"), late_fee_inr=kfs.get("late_fee_inr")),
     )
 
 
@@ -535,7 +543,12 @@ def _insurance_brief(s: ConversationState, step: PlannedStep, decision: Decision
 def _refresh_eligibility(s: ConversationState, step: PlannedStep) -> None:
     """A resume turn has no check_eligibility step, so the guardrail's offer gating (check 7) would see none."""
     if step.action_type == ActionType.CREATE_OFFER.value and s.merchant is not None:
-        s.merchant.eligibility = lending.check_eligibility(step.params["merchant_id"])
+        product = step.params.get("product", "term_loan")
+        decision = lending.check_eligibility(step.params["merchant_id"], product)
+        if product == "credit_line":
+            s.merchant.credit_line = decision
+        else:
+            s.merchant.eligibility = decision
 
 
 def _grant_consent(s: ConversationState, purpose: str, *, kfs_shown: bool = False) -> None:
@@ -634,7 +647,9 @@ def _finish(turn: _Turn) -> TurnResponse:
             # structured KFS for the offer card (RBI L1: shown BEFORE Haan/Nahi); same build_kfs() as the reply
             # text and the offers.kfs_json row, so all three always match
             p = s.pending_step.params
-            pending_confirmation["kfs"] = lending.build_kfs(p["merchant_id"], p["amount"]).model_dump()
+            pending_confirmation["product"] = p.get("product", "term_loan")
+            pending_confirmation["kfs"] = lending.build_kfs(p["merchant_id"], p["amount"],
+                                                            p.get("product", "term_loan")).model_dump()
         if (s.pending_meta or {}).get("kind") == "consent" and s.pending_step.action_type == ActionType.OFFER_INSURANCE.value:
             # structured insurance card (what the reply says, as data): same rules function as the guardrail
             card = insurance.recommend_for(s.pending_step.params["merchant_id"])

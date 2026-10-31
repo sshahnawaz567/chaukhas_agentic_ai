@@ -114,9 +114,13 @@ def _run_read_only(step: PlannedStep, state: ConversationState, t0: float) -> Ac
             if state.merchant is not None:       # None = nothing fits this merchant (the plan then offers nothing)
                 state.merchant.insurance = insurance.recommend_for(step.params["merchant_id"])
         else:
-            decision = lending.check_eligibility(step.params["merchant_id"])
-            if state.merchant is not None:
-                state.merchant.eligibility = decision
+            product = step.params.get("product", "term_loan")
+            decision = lending.check_eligibility(step.params["merchant_id"], product)
+            if state.merchant is not None:  # each product's answer in its own slot (guardrail check 7 reads it)
+                if product == "credit_line":
+                    state.merchant.credit_line = decision
+                else:
+                    state.merchant.eligibility = decision
         return ActionResult(step_no=step.step_no, action_type=step.action_type, status="success",
                             latency_ms=_ms(t0))
     except Exception as exc:
@@ -142,7 +146,7 @@ def _call_tool(step: PlannedStep, state: ConversationState, decision: Decision, 
     if step.action_type == ActionType.CREATE_OFFER.value:
         if decision.reason_code != ReasonCode.CONFIRMED_BY_MERCHANT:
             raise PermissionError("an offer needs the MERCHANT's own consent")  # a human cannot consent for them
-        kfs = lending.build_kfs(p["merchant_id"], p["amount"])
+        kfs = lending.build_kfs(p["merchant_id"], p["amount"], p.get("product", "term_loan"))
         return lending.create_offer(p["merchant_id"], p["amount"], True, kfs, state.session_id, key,
                                     kfs_shown_at=kfs_shown_at, trace_id=state.trace_id).offer_id
     if step.action_type == ActionType.OFFER_INSURANCE.value:
