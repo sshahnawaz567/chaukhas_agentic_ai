@@ -286,7 +286,7 @@ def run(path: Path | None = None, *, llm: str = "offline", write: bool = True, w
     started = time.perf_counter()
     cases = json.loads(Path(path or GOLDEN_PATH).read_text(encoding="utf-8"))["cases"]
 
-    saved_env = {k: os.environ.get(k) for k in ("CHAUKAS_DB_PATH", "CHAUKAS_REPLAY_MODE")}
+    saved_env = {k: os.environ.get(k) for k in ("CHAUKAS_DB_PATH", "CHAUKAS_REPLAY_MODE", "CHAUKAS_AGENT_LOG_DIR")}
     saved_emit = m2_shim.emit_span
     m2_shim.emit_span = lambda span: None        # spans are returned in each TurnResponse; do not litter traces/
     undo = _set_llm_mode(llm, mods)
@@ -295,6 +295,9 @@ def run(path: Path | None = None, *, llm: str = "offline", write: bool = True, w
         from data.seed import seed
         with tempfile.TemporaryDirectory() as tmp:
             workdir = Path(tmp)
+            # every case opens a session and the agents write a log folder per session: keep them out of the repo's
+            # logs/ (set CHAUKAS_AGENT_LOG_DIR yourself to keep the logs of an eval run)
+            os.environ.setdefault("CHAUKAS_AGENT_LOG_DIR", str(workdir / "logs"))
             template = workdir / "template.db"
             seed(template)
             scored = [score_case(c, _run_case(c, template, workdir, mods, otp)) for c in cases]

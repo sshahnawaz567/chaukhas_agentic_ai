@@ -30,6 +30,16 @@ def policy():
     return engine.load_policy()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def agent_logs_in_tmp(tmp_path_factory):
+    """Member 1's agents write logs/session_<id>/ for every session. Tests open hundreds of sessions, so point
+    the log folder at a temp dir for the whole run (session scope also covers module-scoped fixtures)."""
+    mp = pytest.MonkeyPatch()
+    mp.setenv("CHAUKAS_AGENT_LOG_DIR", str(tmp_path_factory.mktemp("agent_logs")))
+    yield
+    mp.undo()
+
+
 @pytest.fixture(autouse=True)
 def mock_otp(monkeypatch):
     """config/mock.yaml belongs to Member 1; tests pin the OTP so they do not depend on it."""
