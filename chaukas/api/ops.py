@@ -1,6 +1,7 @@
 """Observability/eval routes: GET /api/traces/{trace_id}, GET /api/audit,
 POST /api/redteam/check (guardrail only, never executes), GET /api/eval/latest, GET /api/eval/details.
-Compliance routes: GET /api/disclosure, GET|POST /api/merchants/{id}/consents (DPDP notice + consent).
+Compliance routes: GET /api/disclosure, GET|POST /api/merchants/{id}/consents (DPDP notice + consent),
+GET /api/merchants/{id}/data-summary and POST /api/merchants/{id}/erasure (DPDP access + erasure).
 
 Owner: Member 2 · Contract: CONTRACTS C5
 
@@ -18,7 +19,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from chaukas.agents import guardrail
-from chaukas.compliance import consent, disclosure
+from chaukas.compliance import consent, disclosure, retention
 from chaukas.core.models import (
     Channel, ConversationState, LenderDecision, MerchantContext, Mode, PlannedStep,
 )
@@ -184,3 +185,25 @@ def set_consent(merchant_id: str, req: ConsentRequest):
         except consent.ConsentError as e:
             return _error(400, "CONSENT_INVALID", str(e))
         return _consent_view(conn, merchant_id)
+
+
+# ------------------------------------------------------------------ compliance: access + erasure (DPDP s.11-12)
+
+@router.get("/merchants/{merchant_id}/data-summary")
+def get_data_summary(merchant_id: str):
+    """What we hold about this merchant, personal fields masked (the right to access)."""
+    with closing(connect()) as conn:
+        try:
+            return retention.data_summary(conn, merchant_id)
+        except retention.MerchantNotFound:
+            return _error(404, "MERCHANT_NOT_FOUND", "no merchant with that id")
+
+
+@router.post("/merchants/{merchant_id}/erasure")
+def request_erasure(merchant_id: str):
+    """Erase the merchant's personal data, keep only what the law requires. Returns a receipt."""
+    with closing(connect()) as conn:
+        try:
+            return retention.erase_merchant(conn, merchant_id)
+        except retention.MerchantNotFound:
+            return _error(404, "MERCHANT_NOT_FOUND", "no merchant with that id")
