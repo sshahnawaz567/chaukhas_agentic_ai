@@ -21,8 +21,10 @@ from chaukas.core.models import (
     Confirmation,
     ConversationState,
     Decision,
+    HandoffBrief,
     HandoffReason,
     Intent,
+    LoanFollowUp,
     MerchantContext,
     Mode,
     PlannedStep,
@@ -59,6 +61,7 @@ class _Turn:
     def __init__(self, state: ConversationState):
         self.state = state
         self.spans: list[dict[str, Any]] = []
+        self.loan_brief: HandoffBrief | None = None  # LOAN_ACCEPTED follow-up, attached in _finish() after the reply
         self.cost = 0.0
         self.t0 = time.perf_counter()
 
@@ -339,12 +342,39 @@ def _resume(turn: _Turn, pending: tuple[PlannedStep, dict, int | None], *, appro
             s.status = TurnStatus.COMPLETED
             if step.action_type == ActionType.CREATE_OFFER.value:
                 _grant_consent(s, "loan_offer", kfs_shown=True)  # KFS was shown when the offer was parked
+                turn.loan_brief = _loan_brief(s, step, decision)  # attached in _finish(), after the reply
     elif decision.verdict == Verdict.NEEDS_CONFIRMATION:  # e.g. wrong OTP or params changed since
         _park_for_confirmation(turn, step, decision)
     else:
         s.refused.append(RefusedStep(action_type=step.action_type, verdict=decision.verdict,
                                      reason_code=decision.reason_code, reason=decision.reason))
         s.status = TurnStatus.COMPLETED
+
+
+def _loan_brief(s: ConversationState, step: PlannedStep, decision: Decision) -> HandoffBrief | None:
+    """Deterministic follow-up brief for the loan team (no LLM). Every value comes from the offers row and the
+    guardrail decision, never from the merchant's message. Chaukas never moves loan money; the lender does."""
+    done = next((a for a in s.completed if a.step_no == step.step_no and a.status == "success"), None)
+    offer = lending.get_offer(done.ref_id) if done and done.ref_id else None
+    if offer is None:
+        return None
+    kfs = offer["kfs"]
+    return HandoffBrief(
+        asked=m2_shim.mask_text(f"Merchant accepted a ₹{offer['amount']:,} business loan offer"),
+        verified=["Key Fact Statement shown before consent",
+                  f"Consent recorded (CONFIRMED_BY_MERCHANT, audit #{decision.audit_id})"],
+        done=[f"Offer {offer['id']} accepted"],
+        refused=[], reason_code=HandoffReason.LOAN_ACCEPTED.value, confidence=1.0,
+        decision_needed=m2_shim.mask_text(
+            f"Follow up with the lender on {offer['id']} and confirm next steps with the merchant"),
+        suggested_step=None,
+        loan=LoanFollowUp(
+            offer_id=offer["id"], amount=offer["amount"], lender_name=offer["lender_name"],
+            apr_pct=kfs["apr_pct"], processing_fee_inr=kfs["processing_fee_inr"],
+            tenure_months=kfs["tenure_months"], total_repayable_inr=kfs["total_repayable_inr"],
+            grievance_contact=kfs["grievance_contact"], kfs_shown_at=offer["kfs_shown_at"],
+            consent_at=offer["consent_at"], consent_audit_id=decision.audit_id),
+    )
 
 
 def _refresh_eligibility(s: ConversationState, step: PlannedStep) -> None:
@@ -414,6 +444,15 @@ def _finish(turn: _Turn) -> TurnResponse:
     s.reply = text
     turn.span("reply", f"{s.intent.value if s.intent else '?'} in {s.lang}", f"via {source}: {len(text)} chars", t, llm=llm)
 
+    if turn.loan_brief is not None:
+        # attached only AFTER the reply: the reply (and its replay key) must not change. Status stays COMPLETED:
+        # the merchant's request is done, this brief is back-office follow-up for the loan team.
+        t = time.perf_counter()
+        s.handoff = turn.loan_brief
+        s.handoff_id = handoff.save(s, s.handoff)
+        turn.span("handoff", f"reason {HandoffReason.LOAN_ACCEPTED.value}",
+                  f"{s.handoff_id}: {s.handoff.decision_needed}", t)
+
     gw.record_turn(s.session_id, s.turn_no, s.trace_id, "merchant", s.message_masked, s.lang,
                    s.intent.value if s.intent else None)
     gw.record_turn(s.session_id, s.turn_no + 1, s.trace_id, "agent", text, s.lang)
@@ -430,6 +469,11 @@ def _finish(turn: _Turn) -> TurnResponse:
             "kind": (s.pending_meta or {}).get("kind"), "reason_code": (s.pending_meta or {}).get("reason_code"),
             "prompt": text,
         }
+        if (s.pending_meta or {}).get("kind") == "consent" and s.pending_step.action_type == ActionType.CREATE_OFFER.value:
+            # structured KFS for the offer card (RBI L1: shown BEFORE Haan/Nahi); same build_kfs() as the reply
+            # text and the offers.kfs_json row, so all three always match
+            p = s.pending_step.params
+            pending_confirmation["kfs"] = lending.build_kfs(p["merchant_id"], p["amount"]).model_dump()
     response = TurnResponse(
         session_id=s.session_id, turn_no=s.turn_no, trace_id=s.trace_id, status=s.status, lang=s.lang,
         intent=s.intent, reply=text, plan=s.plan,

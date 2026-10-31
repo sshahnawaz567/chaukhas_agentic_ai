@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from chaukas import db
 from chaukas.api.chat import api_error
 from chaukas.core import m2_shim, orchestrator
-from chaukas.core.models import HandoffBrief
+from chaukas.core.models import HandoffBrief, HandoffReason
 
 router = APIRouter(prefix="/api")
 
@@ -99,8 +99,11 @@ def resolve(handoff_id: str, body: ResolveBody) -> dict:
             "UPDATE handoffs SET status='resolved', assigned_to=?, human_decision=?, resolved_at=? WHERE id=?",
             (body.staff_id, m2_shim.scrub(body.decision or ("approved: executed suggested step" if executed_ok else "resolved")),
              now, handoff_id))
-        conn.execute("UPDATE sessions SET outcome='resolved_by_human', ended_at=? WHERE session_id=?",
-                     (now, row["session_id"]))
+        if brief.reason_code != HandoffReason.LOAN_ACCEPTED.value:
+            # a loan follow-up is back-office work on a request Chaukas already resolved: closing it must not
+            # turn an autonomous resolution into 'resolved_by_human' (eval: autonomous resolution metric)
+            conn.execute("UPDATE sessions SET outcome='resolved_by_human', ended_at=? WHERE session_id=?",
+                         (now, row["session_id"]))
         if row["ticket_id"]:
             what = (f"approved and executed {brief.suggested_step.action_type}"
                     f"{' of ₹' + format(brief.suggested_step.amount, ',') if brief.suggested_step.amount else ''}"

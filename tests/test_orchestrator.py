@@ -30,6 +30,7 @@ from data.seed import seed
 
 AUTO_LIMIT = 25000
 REAL_CHECK = m2_shim.guardrail_check  # captured before the autouse fixture swaps in fake_check
+REAL_LLM_CLIENT = __import__("chaukas.llm.client", fromlist=["_client"])._client  # before the env fixture
 
 
 # ------------------------------------------------------------------ fixtures
@@ -480,3 +481,96 @@ def test_desk_approve_that_crashes_is_still_logged(env, monkeypatch):
     last = events[-1]
     assert last["event"] == "human_resolve" and last["verdict"] == "ALLOW"
     assert "mock payout service down" in last["error"] and last["result"] is None
+
+
+# ------------------------------------------------------------------ loan accepted -> follow-up brief (Member 3 change 1)
+def _scene1_until_offer(client):
+    sid = client.post("/api/sessions", json={"merchant_id": "M001", "channel": "chat", "mode": "autonomous"}).json()["session_id"]
+    r1 = client.post(f"/api/sessions/{sid}/messages", json={"text": "पिछले हफ्ते का पैसा अभी तक नहीं आया।"}).json()
+    return sid, r1
+
+
+def test_offer_pending_confirmation_carries_structured_kfs(real_guardrail):
+    client = TestClient(__import__("chaukas.main", fromlist=["app"]).app)
+    _, r1 = _scene1_until_offer(client)
+    kfs = r1["pending_confirmation"]["kfs"]
+    assert kfs["total_repayable_inr"] == 59500 and kfs["lender_name"] and kfs["apr_pct"] == 18.0
+    # step-up (over-limit) confirmations carry no KFS
+    sid2 = client.post("/api/sessions", json={"merchant_id": "M002", "channel": "chat", "mode": "autonomous"}).json()["session_id"]
+    r2 = client.post(f"/api/sessions/{sid2}/messages", json={"text": "Bhai mera 32,500 ka settlement 2 din se nahi aaya, jaldi bhejo."}).json()
+    assert "kfs" not in r2["pending_confirmation"]
+
+
+def test_loan_accepted_creates_follow_up_brief_without_touching_reply_or_status(real_guardrail, monkeypatch):
+    from chaukas.agents import reply as reply_agent
+
+    seen = []
+    real_generate = reply_agent.generate
+
+    def spy(state):
+        seen.append(state.handoff)
+        return real_generate(state)
+
+    monkeypatch.setattr(reply_agent, "generate", spy)
+    client = TestClient(__import__("chaukas.main", fromlist=["app"]).app)
+    sid, _ = _scene1_until_offer(client)
+    r2 = client.post(f"/api/sessions/{sid}/messages", json={"text": "हाँ, भेज दो।"}).json()
+
+    assert r2["status"] == "completed" and r2["handoff"]["reason_code"] == "LOAN_ACCEPTED"
+    assert seen[-1] is None  # reply generated BEFORE the brief was attached -> same reply + replay key
+    offer_ref = next(a["ref_id"] for a in r2["actions"] if a["action_type"] == "create_offer")
+    queue = client.get("/api/handoffs?status=open").json()
+    loan = [h for h in queue if h["reason_code"] == "LOAN_ACCEPTED"]
+    assert len(loan) == 1
+    brief = client.get(f"/api/handoffs/{loan[0]['id']}").json()["brief"]
+    offer = rows("SELECT kfs_json FROM offers WHERE id=?", offer_ref)[0]
+    assert brief["loan"]["offer_id"] == offer_ref and brief["suggested_step"] is None
+    assert brief["loan"]["total_repayable_inr"] == json.loads(offer["kfs_json"])["total_repayable_inr"]
+    assert brief["loan"]["consent_audit_id"] == r2["decisions"][-1]["audit_id"]
+    assert rows("SELECT outcome FROM sessions WHERE session_id=?", sid)[0]["outcome"] == "resolved_autonomously"
+
+    # desk: "Mark followed up" executes nothing and keeps the autonomous outcome
+    before = rows("SELECT COUNT(*) AS n FROM executions")[0]["n"]
+    res = client.post(f"/api/handoffs/{loan[0]['id']}/resolve",
+                      json={"staff_id": "STAFF-042", "decision": f"loan follow-up done for {offer_ref}",
+                            "execute_suggested": False}).json()
+    assert res["handoff"]["status"] == "resolved" and res["action_result"] is None
+    assert rows("SELECT COUNT(*) AS n FROM executions")[0]["n"] == before
+    assert rows("SELECT outcome FROM sessions WHERE session_id=?", sid)[0]["outcome"] == "resolved_autonomously"
+
+
+def test_loan_declined_creates_no_handoff(real_guardrail):
+    client = TestClient(__import__("chaukas.main", fromlist=["app"]).app)
+    sid, _ = _scene1_until_offer(client)
+    r2 = client.post(f"/api/sessions/{sid}/messages", json={"text": "nahi"}).json()
+    assert r2["intent"] == "deny" and r2["handoff"] is None
+    assert not rows("SELECT id FROM handoffs WHERE session_id=?", sid)
+
+
+def test_scene2_payout_handoff_unaffected_by_loan_brief(real_guardrail):
+    client = TestClient(__import__("chaukas.main", fromlist=["app"]).app)
+    sid, _ = _scene1_until_offer(client)
+    client.post(f"/api/sessions/{sid}/messages", json={"text": "हाँ, भेज दो।"})
+    sid2 = client.post("/api/sessions", json={"merchant_id": "M002", "channel": "chat", "mode": "autonomous"}).json()["session_id"]
+    r = client.post(f"/api/sessions/{sid2}/messages", json={"text": "Bhai mera 32,500 ka settlement 2 din se nahi aaya, jaldi bhejo."}).json()
+    assert r["status"] == "handed_off" and r["handoff"]["reason_code"] == "OVER_AUTO_LIMIT" and r["handoff"]["loan"] is None
+    payout = next(h for h in client.get("/api/handoffs?status=open").json() if h["reason_code"] == "OVER_AUTO_LIMIT")
+    res = client.post(f"/api/handoffs/{payout['id']}/resolve",
+                      json={"staff_id": "staff_7", "decision": "approved", "execute_suggested": True}).json()
+    assert res["decision"]["reason_code"] == "APPROVED_BY_HUMAN" and res["action_result"]["status"] == "success"
+    assert rows("SELECT outcome FROM sessions WHERE session_id=?", sid2)[0]["outcome"] == "resolved_by_human"
+
+
+def test_no_api_key_and_no_openai_package_falls_back_instead_of_crashing(monkeypatch):
+    import builtins
+
+    real_import = builtins.__import__
+
+    def no_openai(name, *a, **k):
+        if name == "openai":
+            raise ModuleNotFoundError("No module named 'openai'")
+        return real_import(name, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", no_openai)
+    monkeypatch.setenv("SARVAM_API_KEY", "")
+    assert REAL_LLM_CLIENT({"api_key_env": "SARVAM_API_KEY"}) is None  # env fixture patched _client

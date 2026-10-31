@@ -92,6 +92,7 @@ class HandoffReason(str, Enum):  # handoffs.reason_code = a ReasonCode OR one of
     ACTION_FAILED = "ACTION_FAILED"
     MERCHANT_DECLINED_STEP_UP = "MERCHANT_DECLINED_STEP_UP"
     HUMAN_REQUESTED = "HUMAN_REQUESTED"  # merchant asked for a human
+    LOAN_ACCEPTED = "LOAN_ACCEPTED"  # ADDITIVE: merchant accepted an offer -> back-office follow-up, not an approval
 
 
 class TurnStatus(str, Enum):  # the state machine — see C1.4
@@ -207,6 +208,20 @@ class RefusedStep(BaseModel):
     reason: str
 
 
+class LoanFollowUp(BaseModel):  # ADDITIVE: what the loan team needs; values from the offers row, never the LLM
+    offer_id: str
+    amount: int
+    lender_name: str
+    apr_pct: float
+    processing_fee_inr: int
+    tenure_months: int
+    total_repayable_inr: int
+    grievance_contact: str
+    kfs_shown_at: str | None
+    consent_at: str | None
+    consent_audit_id: int | None  # the ALLOW CONFIRMED_BY_MERCHANT audit row
+
+
 class HandoffBrief(BaseModel):  # agent-desk renders THIS; never a transcript
     asked: str  # what the merchant wanted, 1 line, masked
     verified: list[str]  # facts checked fresh, e.g. "SET-51002 failed, IFSC_MISMATCH"
@@ -219,6 +234,7 @@ class HandoffBrief(BaseModel):  # agent-desk renders THIS; never a transcript
     # ADDITIVE: what the desk needs to resume the step through the guardrail (Confirmation).
     pending_audit_id: int | None = None
     confirmation_kind: Literal["consent", "step_up"] | None = None
+    loan: LoanFollowUp | None = None  # ADDITIVE: set only on a LOAN_ACCEPTED brief
 
 
 class SettlementView(BaseModel):
