@@ -38,7 +38,7 @@ from chaukas.core.models import (
     Verdict,
 )
 from chaukas.gateway import session as gw
-from chaukas.integrations import lending
+from chaukas.integrations import devices, lending
 from chaukas.integrations._common import load_config
 from chaukas.llm.client import LLMResult
 
@@ -72,7 +72,8 @@ class _Turn:
     def __init__(self, state: ConversationState):
         self.state = state
         self.spans: list[dict[str, Any]] = []
-        self.loan_brief: HandoffBrief | None = None  # LOAN_ACCEPTED follow-up, attached in _finish() after the reply
+        self.loan_brief: HandoffBrief | None = None  # LOAN_ACCEPTED / DEVICE_UPGRADE_REQUESTED follow-up, attached in _finish() after the reply
+        self.brief_ticket: str | None = None  # ticket to link to that follow-up brief (device upgrade request)
         # proactive flow (event watcher): the trigger, e.g. "settlement_failed:SET-99213"; None = merchant-initiated
         self.proactive_ref: str | None = None
         self.is_event = False  # this turn was started by an event, not a merchant message (no merchant turn row)
@@ -214,6 +215,45 @@ def handle_event(merchant_id: str, settlement_id: str) -> TurnResponse:
         return _finish(turn)
 
 
+def handle_device_event(merchant_id: str, to_device: str) -> TurnResponse:
+    """Proactive device-upgrade nudge (DEVICE_UPGRADE_PLAN.md §3A): the merchant's own transaction pattern crossed
+    a threshold. Same house: context, plan, guardrail and action are the reactive ones. Nothing is requested in
+    this turn: the guardrail parks the request for the merchant's yes (check 10, proactive), and _execute()
+    refuses to run one that it does not park."""
+    trigger_ref = f"device_upgrade:{merchant_id}:{to_device}"
+    created = gw.create_session(merchant_id, "chat", "autonomous", trigger_source="proactive",
+                                trigger_ref=trigger_ref)
+    session = gw.load_session(created["session_id"])
+    state = _new_state(session, f"[event] device_upgrade {to_device}")  # a marker, no PII
+    state.intent, state.intent_confidence = Intent.DEVICE_UPGRADE, 1.0
+    state.lang = session.get("lang")
+    state.track, state.urgency = Track.SALES, Urgency.LOW
+    turn = _Turn(state)
+    turn.proactive_ref, turn.is_event, turn.notify = trigger_ref, True, True
+    with create_logs.turn_scope(state.session_id, state.turn_no, state.trace_id):
+        try:
+            turn.span("gateway", f"watcher: {trigger_ref}", f"proactive session {state.session_id}",
+                      time.perf_counter())
+            _load_context(turn)
+            _plan_and_execute(turn)
+        except Exception as exc:
+            log.exception("proactive device event failed")
+            state.status = TurnStatus.FAILED
+            state.errors.append(m2_shim.mask_text(f"{type(exc).__name__}: {exc}")[:200])
+        return _finish(turn)
+
+
+def _sales_offer_in_session(session_id: str) -> bool:
+    """One sales offer per conversation (DEVICE_UPGRADE_PLAN.md §3): an accepted loan / credit line / device
+    request in this session means no second offer."""
+    conn = db.connect()
+    try:
+        return any(conn.execute(f"SELECT 1 FROM {t} WHERE session_id=? AND status='accepted' LIMIT 1",
+                                (session_id,)).fetchone() for t in ("offers", "device_offers"))
+    finally:
+        conn.close()
+
+
 # --------------------------------------------------------------------------
 # stages
 # --------------------------------------------------------------------------
@@ -299,6 +339,12 @@ def _plan_and_execute(turn: _Turn, proactive_settlement: str | None = None) -> N
     # credit line only when the merchant asked for it in their own words (deterministic keywords, no LLM)
     product = ("credit_line" if s.intent == Intent.LOAN_INQUIRY and lending.wants_credit_line(s.message_masked)
                else "term_loan")
+    if s.intent == Intent.DEVICE_UPGRADE and _sales_offer_in_session(s.session_id):
+        s.status = TurnStatus.COMPLETED  # one sales offer per conversation
+        s.outcome_tags.append("one_offer_per_session")
+        turn.span("planner", f"intent {s.intent.value}", "no steps (an offer was already accepted in this session)",
+                  time.perf_counter())
+        return
     plan = plans.plan_for(s, gw.next_step_no(s.session_id), proactive_settlement, product)
     s.plan = [_stamp(p, s.session_id) for p in plan.steps]
     if s.plan:
@@ -306,6 +352,8 @@ def _plan_and_execute(turn: _Turn, proactive_settlement: str | None = None) -> N
     s.status = TurnStatus.PLANNED
     turn.span("planner", f"intent {s.intent.value if s.intent else '?'}",
               " -> ".join(p.action_type for p in s.plan) or f"no steps ({plan.note or 'handoff'})", t)
+    if s.intent == Intent.DEVICE_UPGRADE and not s.plan:
+        s.outcome_tags.append("device_not_needed")
 
     _execute(turn, list(s.plan))
     if s.status in (TurnStatus.AWAITING_CONFIRMATION, TurnStatus.HANDED_OFF, TurnStatus.FAILED):
@@ -372,7 +420,8 @@ def _run_allowed(turn: _Turn, step: PlannedStep, decision: Decision, queue: list
 
     if step.action_type == ActionType.CHECK_ELIGIBILITY.value:
         product = step.params.get("product", "term_loan")
-        offer = plans.followup_offer_step(s, gw.next_step_no(s.session_id), product)
+        offer = (None if _sales_offer_in_session(s.session_id)  # one sales offer per conversation
+                 else plans.followup_offer_step(s, gw.next_step_no(s.session_id), product))
         if offer is not None:
             _stamp(offer, s.session_id)
             gw.advance_step_no(s.session_id, offer.step_no)
@@ -425,7 +474,13 @@ def _resume(turn: _Turn, pending: tuple[PlannedStep, dict, int | None], *, appro
     turn.proactive_ref = meta.get("proactive_ref")
 
     if not approve:
-        if kind == "consent" and step.action_type == ActionType.CREATE_OFFER.value:
+        if kind == "consent" and step.action_type == ActionType.REQUEST_DEVICE_UPGRADE.value:
+            p = step.params
+            devices.record_declined_device_offer(p["merchant_id"], p["from_device"], p["to_device"], s.session_id,
+                                                 s.trace_id, meta.get("kfs_shown_at"))
+            s.outcome_tags.append("device_declined")
+            s.status = TurnStatus.COMPLETED
+        elif kind == "consent" and step.action_type == ActionType.CREATE_OFFER.value:
             lending.record_declined_offer(step.params["merchant_id"], step.params["amount"], s.session_id,
                                           s.trace_id, meta.get("kfs_shown_at"),
                                           step.params.get("product", "term_loan"))
@@ -463,6 +518,9 @@ def _resume(turn: _Turn, pending: tuple[PlannedStep, dict, int | None], *, appro
             if step.action_type == ActionType.CREATE_OFFER.value:
                 _grant_consent(s, "loan_offer", kfs_shown=True)  # KFS was shown when the offer was parked
                 turn.loan_brief = _loan_brief(s, step, decision)  # attached in _finish(), after the reply
+            if step.action_type == ActionType.REQUEST_DEVICE_UPGRADE.value:
+                _grant_consent(s, "device_offer")
+                turn.loan_brief, turn.brief_ticket = _device_brief(s, step, decision)
             remaining = [PlannedStep.model_validate(x) for x in meta.get("remaining_steps") or []]
             if remaining:  # proactive: the yes covered THIS step only; the rest goes through the guardrail again
                 s.plan.extend(remaining)
@@ -504,6 +562,28 @@ def _loan_brief(s: ConversationState, step: PlannedStep, decision: Decision) -> 
             consent_at=offer["consent_at"], consent_audit_id=decision.audit_id, product=product,
             interest_free_days=kfs.get("interest_free_days"), late_fee_inr=kfs.get("late_fee_inr")),
     )
+
+
+def _device_brief(s: ConversationState, step: PlannedStep, decision: Decision) -> tuple[HandoffBrief | None, str | None]:
+    """Deterministic follow-up brief for the field team (no LLM). Values from the device_offers row + advisor."""
+    done = next((a for a in s.completed if a.step_no == step.step_no and a.status == "success"), None)
+    req = devices.get_request(done.ref_id) if done and done.ref_id else None
+    if req is None:
+        return None, None
+    frm = devices.DEVICE_LABEL.get(req["from_device"], req["from_device"])
+    to = devices.DEVICE_LABEL.get(req["to_device"], req["to_device"])
+    advice = s.merchant.device_advice if s.merchant else None
+    verified = [f"Consent recorded (CONFIRMED_BY_MERCHANT, audit #{decision.audit_id})"]
+    if advice is not None:
+        verified.insert(0, f"Device advisor: {', '.join(advice.reason_codes)}; avg bill \u20b9{advice.avg_bill_inr:,}, "
+                           f"{advice.txn_per_active_day} payments per active day")
+    brief = HandoffBrief(
+        asked=f"Merchant said yes to a device upgrade: {frm} -> {to}",
+        verified=verified, done=[f"Request {req['id']} recorded, field-team ticket {req['ticket_id']}"],
+        refused=[], reason_code=HandoffReason.DEVICE_UPGRADE_REQUESTED.value, confidence=1.0,
+        decision_needed=f"Field team: contact the merchant, quote the price and schedule the {to}",
+        suggested_step=None)
+    return brief, req["ticket_id"]
 
 
 def _refresh_eligibility(s: ConversationState, step: PlannedStep) -> None:
@@ -588,8 +668,8 @@ def _finish(turn: _Turn) -> TurnResponse:
         # the merchant's request is done, this brief is back-office follow-up for the loan team.
         t = time.perf_counter()
         s.handoff = turn.loan_brief
-        s.handoff_id = handoff.save(s, s.handoff)
-        turn.span("handoff", f"reason {HandoffReason.LOAN_ACCEPTED.value}",
+        s.handoff_id = handoff.save(s, s.handoff, ticket_id=turn.brief_ticket)
+        turn.span("handoff", f"reason {s.handoff.reason_code}",
                   f"{s.handoff_id}: {s.handoff.decision_needed}", t)
 
     if not turn.is_event:  # an event turn has no merchant message: Chaukas speaks first
@@ -616,6 +696,15 @@ def _finish(turn: _Turn) -> TurnResponse:
             pending_confirmation["product"] = p.get("product", "term_loan")
             pending_confirmation["kfs"] = lending.build_kfs(p["merchant_id"], p["amount"],
                                                             p.get("product", "term_loan")).model_dump()
+        if s.pending_step.action_type == ActionType.REQUEST_DEVICE_UPGRADE.value:
+            p = s.pending_step.params  # for the UI card: what, and why (numbers from the advisor, never an LLM)
+            advice = s.merchant.device_advice if s.merchant else None
+            pending_confirmation["device_offer"] = {
+                "from_device": p["from_device"], "to_device": p["to_device"],
+                "reason_codes": advice.reason_codes if advice else [],
+                "avg_bill_inr": advice.avg_bill_inr if advice else None,
+                "txn_per_active_day": advice.txn_per_active_day if advice else None,
+                "txn_count_30d": advice.txn_count_30d if advice else None}
     response = TurnResponse(
         session_id=s.session_id, turn_no=s.turn_no, trace_id=s.trace_id, status=s.status, lang=s.lang,
         intent=s.intent, reply=text, plan=s.plan,

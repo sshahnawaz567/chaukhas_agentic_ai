@@ -259,12 +259,50 @@ def check_offer_gating(ctx: Ctx) -> Outcome | None:                             
                  (ctx.merchant_id,)):
         return _block(ReasonCode.ISSUE_UNRESOLVED, "an open handoff exists for this merchant")
 
+    return _sales_cooling_off(ctx)
+
+
+def _sales_cooling_off(ctx: Ctx) -> Outcome | None:
+    """ONE cooling-off for every sales offer (team decision 31 Oct): a declined loan, credit line or device offer
+    blocks every sales offer for offer_cooling_off_days."""
     days = ctx.policy["offer_cooling_off_days"]
     cutoff = (ctx.now - timedelta(days=days)).strftime(_ISO)
-    if query_one(ctx.conn, "SELECT 1 FROM offers WHERE merchant_id = ? AND status = 'declined' AND declined_at >= ?",
-                 (ctx.merchant_id, cutoff)):
-        return _block(ReasonCode.OFFER_COOLING_OFF, f"an offer was declined within the last {days} days")
+    for table in ("offers", "device_offers"):
+        if query_one(ctx.conn, f"SELECT 1 FROM {table} WHERE merchant_id = ? AND status = 'declined' "
+                     "AND declined_at >= ?", (ctx.merchant_id, cutoff)):
+            return _block(ReasonCode.OFFER_COOLING_OFF, f"an offer was declined within the last {days} days")
     return None
+
+
+def check_device_gating(ctx: Ctx) -> Outcome | None:                                  # 7b
+    """request_device_upgrade (DEVICE_UPGRADE_PLAN.md §4): the advisor's answer, support first, cooling-off."""
+    if ctx.action != "request_device_upgrade":
+        return None
+    if consent.is_withdrawn(ctx.conn, ctx.merchant_id, "device_offer"):     # DPDP s.6
+        return _block(ReasonCode.CONSENT_WITHDRAWN, "the merchant withdrew consent for device offers")
+    p = ctx.params
+    m = query_one(ctx.conn, "SELECT device, kyc_status FROM merchants WHERE merchant_id = ?", (ctx.merchant_id,))
+    if m is None or m["device"] != p.from_device:
+        return _block(ReasonCode.INVALID_PARAMS, f"from_device {p.from_device} is not the merchant's device")
+    advice = ctx.state.merchant.device_advice if ctx.state.merchant else None
+    if (advice is None or not advice.recommended or advice.from_device != p.from_device
+            or advice.to_device != p.to_device):                            # no advisor answer = fail closed
+        return _block(ReasonCode.OFFER_NOT_ELIGIBLE, f"the device advisor does not recommend {p.to_device}")
+    if query_one(ctx.conn, "SELECT 1 FROM settlements WHERE merchant_id = ? AND status IN ('failed','pending')",
+                 (ctx.merchant_id,)):
+        return _block(ReasonCode.ISSUE_UNRESOLVED, "a settlement is still failed or pending")
+    if query_one(ctx.conn, "SELECT 1 FROM tickets WHERE merchant_id = ? AND status IN ('open','in_progress')",
+                 (ctx.merchant_id,)):
+        return _block(ReasonCode.ISSUE_UNRESOLVED, "an open support ticket exists for this merchant")
+    if m["kyc_status"] != "verified":
+        return _block(ReasonCode.ISSUE_UNRESOLVED, f"kyc_status is {m['kyc_status']}")
+    if query_one(ctx.conn, "SELECT 1 FROM handoffs WHERE merchant_id = ? AND status IN ('open','claimed')",
+                 (ctx.merchant_id,)):
+        return _block(ReasonCode.ISSUE_UNRESOLVED, "an open handoff exists for this merchant")
+    if query_one(ctx.conn, "SELECT 1 FROM device_offers WHERE merchant_id = ? AND to_device = ? AND status = 'accepted'",
+                 (ctx.merchant_id, p.to_device)):
+        return _block(ReasonCode.OFFER_NOT_ELIGIBLE, f"{p.to_device} was already requested")
+    return _sales_cooling_off(ctx)
 
 
 # ---------------------------------------------------------------- confirmation (can satisfy 8-10 only)
@@ -365,7 +403,7 @@ def check_consent(ctx: Ctx) -> Outcome | None:                                  
 
 LEGALITY: list[Callable[[Ctx], Outcome | None]] = [check_never_allowed, check_allow_list, check_params]
 FACTS: list[Callable[[Ctx], Outcome | None]] = [
-    check_idempotency, check_ledger, check_retriggerable, check_offer_gating,
+    check_idempotency, check_ledger, check_retriggerable, check_offer_gating, check_device_gating,
 ]
 CONFIRMATIONS: list[Callable[[Ctx], Outcome | None]] = [check_auto_limit, check_daily_limit, check_consent]
 

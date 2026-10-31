@@ -8,6 +8,8 @@
 #   kyc            KYC pending: never retriggered
 #   declined       merchant said "abhi nahi" to the payout
 #   generic        anything else (the settlement could not be actioned automatically)
+#   device.<to>    device-upgrade nudge (DEVICE_UPGRADE_PLAN.md): {txn_count} {avg_bill} {per_day} from the device
+#                  advisor; no price (the field team quotes it); waiting for the merchant's yes
 
 [hi-IN.retriggerable]
 नमस्ते! आपका ₹{amount} का settlement ({settlement_id}) fail हो गया था — {cause_text}। आपने बैंक डिटेल्स ठीक कर दी हैं। क्या मैं यह payment दोबारा भेज दूँ?
@@ -143,3 +145,33 @@ the bank was temporarily down
 
 [en-IN.cause.KYC_PENDING]
 your KYC is not complete
+
+[hi-IN.device.ai_soundbox]
+नमस्ते! पिछले 30 दिन में आपको {txn_count} payments मिले, ज़्यादातर ₹{avg_bill} के आसपास (रोज़ लगभग {per_day})। AI Soundbox हर payment पर बोलकर बताता है, बार-बार screen देखने की ज़रूरत नहीं। क्या मैं हमारी field team से आपके लिए AI Soundbox की request भेज दूँ? Price वही बताएँगे।
+
+[hi-IN.device.pos]
+नमस्ते! पिछले 30 दिन में आपका औसत बिल ₹{avg_bill} रहा ({txn_count} payments)। बड़े बिल पर कई ग्राहक card से pay करना चाहते हैं। क्या मैं हमारी field team से आपके लिए POS machine की request भेज दूँ? Price वही बताएँगे।
+
+[hi-Latn.device.ai_soundbox]
+Namaste! Pichhle 30 din mein aapko {txn_count} payments mile, zyaadatar ₹{avg_bill} ke aas-paas (roz lagbhag {per_day}). AI Soundbox har payment pe bolkar batata hai, baar-baar screen dekhne ki zaroorat nahi. Kya main hamari field team se aapke liye AI Soundbox ki request bhej doon? Price wahi batayenge.
+
+[hi-Latn.device.pos]
+Namaste! Pichhle 30 din mein aapka average bill ₹{avg_bill} raha ({txn_count} payments). Bade bill pe kai grahak card se pay karna chahte hain. Kya main hamari field team se aapke liye POS machine ki request bhej doon? Price wahi batayenge.
+
+[mr-IN.device.ai_soundbox]
+नमस्कार! मागील 30 दिवसांत तुम्हाला {txn_count} payments मिळाले, बहुतेक ₹{avg_bill} च्या आसपास (रोज सुमारे {per_day}). AI Soundbox प्रत्येक payment बोलून सांगतो, सतत screen पाहण्याची गरज नाही. मी आमच्या field team कडे तुमच्यासाठी AI Soundbox ची request पाठवू का? किंमत तेच सांगतील.
+
+[mr-IN.device.pos]
+नमस्कार! मागील 30 दिवसांत तुमचे सरासरी बिल ₹{avg_bill} होते ({txn_count} payments). मोठ्या बिलावर अनेक ग्राहक card ने pay करू इच्छितात. मी आमच्या field team कडे तुमच्यासाठी POS machine ची request पाठवू का? किंमत तेच सांगतील.
+
+[gu-IN.device.ai_soundbox]
+નમસ્તે! છેલ્લા 30 દિવસમાં તમને {txn_count} payments મળ્યા, મોટાભાગે ₹{avg_bill} ની આસપાસ (રોજ લગભગ {per_day}). AI Soundbox દરેક payment બોલીને જણાવે છે, વારંવાર screen જોવાની જરૂર નથી. શું હું અમારી field team ને તમારા માટે AI Soundbox ની request મોકલું? કિંમત તેઓ જ જણાવશે.
+
+[gu-IN.device.pos]
+નમસ્તે! છેલ્લા 30 દિવસમાં તમારું સરેરાશ બિલ ₹{avg_bill} રહ્યું ({txn_count} payments). મોટા બિલ પર ઘણા ગ્રાહકો card થી pay કરવા માંગે છે. શું હું અમારી field team ને તમારા માટે POS machine ની request મોકલું? કિંમત તેઓ જ જણાવશે.
+
+[en-IN.device.ai_soundbox]
+Hello! In the last 30 days you received {txn_count} payments, mostly around ₹{avg_bill} (about {per_day} a day). An AI Soundbox announces every payment aloud, so you do not have to keep checking the screen. Shall I send a request to our field team for an AI Soundbox? They will tell you the price.
+
+[en-IN.device.pos]
+Hello! In the last 30 days your average bill was ₹{avg_bill} ({txn_count} payments). On larger bills many customers prefer to pay by card. Shall I send a request to our field team for a POS machine? They will tell you the price.

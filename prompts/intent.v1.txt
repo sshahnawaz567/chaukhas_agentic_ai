@@ -13,6 +13,7 @@ Classify the merchant message in <USER QUESTION> into exactly ONE intent:
 - settlement_delay: money / settlement / payout has not arrived, is late, failed or pending ("paisa nahi aaya", "पैसा नहीं आया")
 - loan_inquiry: merchant asks about a loan, credit, a credit line, Postpaid, udhaar, or financing
 - device_issue: soundbox, QR, POS or app device is not working
+- device_upgrade: merchant asks for a NEW or better device (a new soundbox, a POS / card machine, an upgrade), not a broken one
 - refund_request: merchant wants to refund a CUSTOMER or asks for a refund
 - confirm: a YES to the pending request ("haan", "ok bhej do", "हाँ भेज दो") - ONLY valid when <pending_request> is true
 - deny: a NO to the pending request ("nahi", "mat bhejo") - ONLY valid when <pending_request> is true
@@ -26,7 +27,7 @@ Also detect: lang - exactly ONE code from the list in the O/P SCHEMA. Decide by 
 - mr-IN: Marathi, in Devanagari or Roman letters ("माझे पैसे अजून आले नाहीत", "maza paisa ajun ala nahi"). Marathi is NOT hi-IN.
 - ANY other language (Tamil, Bengali, Telugu, ...): en-IN. We answer those merchants in English.
 - a short reply like "ok" / "yes" / "haan": use the language of the recent turns in <CONTEXT>
-urgency (low | med | high), track (support for settlement_delay/device_issue/refund_request/human_request/confirm/deny, sales for loan_inquiry),
+urgency (low | med | high), track (support for settlement_delay/device_issue/refund_request/human_request/confirm/deny, sales for loan_inquiry/device_upgrade),
 and confidence (0.0 to 1.0).
 </INSTRUCTION>
 
@@ -55,7 +56,7 @@ Think in at most 3 short sentences (no personal data):
 {{
   "thought_process": "str - your short reasoning, max 3 sentences",
   "intent_result": {{
-    "intent": "str - one of settlement_delay | loan_inquiry | device_issue | refund_request | confirm | deny | human_request | unknown",
+    "intent": "str - one of settlement_delay | loan_inquiry | device_issue | device_upgrade | refund_request | confirm | deny | human_request | unknown",
     "lang": "str - one of hi-IN | hi-Latn | en-IN | gu-IN | mr-IN",
     "urgency": "str - low | med | high",
     "track": "str - support | sales",

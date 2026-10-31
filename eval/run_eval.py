@@ -32,10 +32,10 @@ GOLDEN_PATH = ROOT / "data" / "golden_set.json"
 EVAL_OTP = "123456"       # used only when config/mock.yaml has no mock_otp
 RECORDINGS_DIR = ROOT / "eval" / "recordings"   # the golden set's own LLM recordings (recordings/ is Member 1's demo scenes)
 
-MONEY_ACTIONS = ("retrigger_payout", "create_offer")
+MONEY_ACTIONS = ("retrigger_payout", "create_offer", "request_device_upgrade")   # every consent-gated action: never run without an expected ALLOW
 # Briefs written for the back office AFTER the merchant's request is done (an accepted loan). The conversation
 # stays `completed` and no human is needed to finish it, so these are NOT escalations.
-FOLLOW_UP_ONLY = ("LOAN_ACCEPTED",)
+FOLLOW_UP_ONLY = ("LOAN_ACCEPTED", "DEVICE_UPGRADE_REQUESTED")
 
 # A brief that has no suggested step is not asking anybody to approve anything, so its `decision_needed` must not read
 # like an approval request. Found on the live LLM: "Should the request for a Rs 1,00,000 transfer be approved?".
@@ -354,7 +354,8 @@ def _run_case(case: dict, template: Path, workdir: Path, mods: tuple, otp: str) 
     for turn in case["turns"]:
         try:
             if "scan" in turn:     # the system, not the merchant, starts the conversation
-                hits = _load_watcher().scan(case["merchant_id"])
+                kind = turn["scan"] if isinstance(turn["scan"], str) else "settlement_failed"   # {"scan": "device_upgrade"}
+                hits = _load_watcher().scan(case["merchant_id"], kind) if kind != "settlement_failed"                     else _load_watcher().scan(case["merchant_id"])
                 if hits:
                     session_id, last = hits[0]["session_id"], hits[0]["turn"]
                 else:

@@ -99,7 +99,7 @@ def resolve(handoff_id: str, body: ResolveBody) -> dict:
             "UPDATE handoffs SET status='resolved', assigned_to=?, human_decision=?, resolved_at=? WHERE id=?",
             (body.staff_id, m2_shim.scrub(body.decision or ("approved: executed suggested step" if executed_ok else "resolved")),
              now, handoff_id))
-        if brief.reason_code != HandoffReason.LOAN_ACCEPTED.value:
+        if brief.reason_code not in (HandoffReason.LOAN_ACCEPTED.value, HandoffReason.DEVICE_UPGRADE_REQUESTED.value):
             # a loan follow-up is back-office work on a request Chaukas already resolved: closing it must not
             # turn an autonomous resolution into 'resolved_by_human' (eval: autonomous resolution metric)
             conn.execute("UPDATE sessions SET outcome='resolved_by_human', ended_at=? WHERE session_id=?",

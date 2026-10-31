@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from chaukas.core.models import ActionType, ConversationState, HandoffReason, SettlementView
+from chaukas.core.models import ActionType, ConversationState, HandoffReason, Intent, SettlementView
 from chaukas.integrations._common import load_config
 from chaukas.llm.prompt import load_prompt
 
@@ -61,9 +61,21 @@ def variant(state: ConversationState) -> str:
     return "generic"
 
 
+def build_device(state: ConversationState, t: dict[str, str]) -> str:
+    """Device-upgrade nudge: the numbers are the merchant's own (device advisor), never a model's."""
+    pending = state.pending_step
+    advice = state.merchant.device_advice if state.merchant else None
+    if pending is None or pending.action_type != ActionType.REQUEST_DEVICE_UPGRADE.value or advice is None:
+        return t["declined"]  # nothing was parked: say nothing more (the watcher pre-filters, so this is rare)
+    return t[f"device.{pending.params['to_device']}"].format(
+        txn_count=advice.txn_count_30d, avg_bill=f"{advice.avg_bill_inr:,}", per_day=round(advice.txn_per_active_day))
+
+
 def build(state: ConversationState, settlement: SettlementView | None, which: str | None = None) -> str:
     """Notification text for this proactive turn (`which` overrides the variant, e.g. 'declined')."""
     t = _lang_templates(state.lang)
+    if state.intent == Intent.DEVICE_UPGRADE and which is None:
+        return build_device(state, t)
     which = which or variant(state)
     text = t.get(which) or t["generic"]
     cause = settlement.cause if settlement else None

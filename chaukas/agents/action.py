@@ -21,7 +21,7 @@ from chaukas.core.models import (
     ReasonCode,
     Verdict,
 )
-from chaukas.integrations import lending, payments, ticketing
+from chaukas.integrations import devices, lending, payments, ticketing
 
 _READ_ONLY = {ActionType.VERIFY_LEDGER.value, ActionType.CHECK_ELIGIBILITY.value}
 
@@ -30,6 +30,7 @@ _ROLLBACK = {
     ActionType.RAISE_TICKET.value: ticketing.void_ticket,
     ActionType.UPDATE_TICKET.value: ticketing.void_ticket,
     ActionType.CREATE_OFFER.value: lending.withdraw_offer,
+    ActionType.REQUEST_DEVICE_UPGRADE.value: devices.cancel_device_request,
 }
 
 
@@ -145,4 +146,11 @@ def _call_tool(step: PlannedStep, state: ConversationState, decision: Decision, 
         kfs = lending.build_kfs(p["merchant_id"], p["amount"], p.get("product", "term_loan"))
         return lending.create_offer(p["merchant_id"], p["amount"], True, kfs, state.session_id, key,
                                     kfs_shown_at=kfs_shown_at, trace_id=state.trace_id).offer_id
+    if step.action_type == ActionType.REQUEST_DEVICE_UPGRADE.value:
+        if decision.reason_code != ReasonCode.CONFIRMED_BY_MERCHANT:
+            raise PermissionError("a device upgrade needs the MERCHANT's own yes")  # a human cannot say yes for them
+        advice = state.merchant.device_advice if state.merchant else None
+        return devices.request_device_upgrade(
+            p["merchant_id"], p["from_device"], p["to_device"], advice.reason_codes if advice else [],
+            state.session_id, key, offer_shown_at=kfs_shown_at, trace_id=state.trace_id).request_id
     raise ValueError(f"unsupported action {step.action_type}")

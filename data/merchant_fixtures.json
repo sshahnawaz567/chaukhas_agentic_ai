@@ -1166,6 +1166,76 @@
           "ACTIVE_DAYS_OK"
         ]
       }
+    },
+    {
+      "merchant_id": "M021",
+      "scenario": "qr_upgrade_pos",
+      "demo_messages": {
+        "hi-Latn": [
+          {
+            "text": "Card machine chahiye, POS milega kya?",
+            "intent": "device_upgrade"
+          },
+          {
+            "text": "Mera pichhla settlement aa gaya kya?",
+            "intent": "settlement_delay"
+          }
+        ],
+        "en-IN": [
+          {
+            "text": "Can I get a card machine for my shop?",
+            "intent": "device_upgrade"
+          },
+          {
+            "text": "Has my last settlement arrived?",
+            "intent": "settlement_delay"
+          }
+        ]
+      },
+      "name": "Fernandes Electronics",
+      "gmv_30d": 120000,
+      "device": "qr",
+      "preferred_lang": "hi-Latn",
+      "kyc_status": "verified",
+      "bank_details_updated_days_ago": null,
+      "pii": {
+        "phone": "+919800000021",
+        "vpa": "fernandeselec@paytm",
+        "pan": "AFRPF4421K",
+        "account_no": "501021558830",
+        "ifsc": "HDFC0004417"
+      },
+      "settlements": [
+        {
+          "id": "SET-10221",
+          "amount": 9800,
+          "days_ago": 1,
+          "status": "success",
+          "cause": null
+        }
+      ],
+      "tickets": [],
+      "offers": [],
+      "cashflow": {
+        "txn_count_30d": 160,
+        "withdrawals_30d": 4,
+        "inflow_30d": 110000,
+        "outflow_30d": 100000,
+        "avg_balance": 30000,
+        "active_days_30d": 26,
+        "inflow_cv": 0.3,
+        "account_age_months": 15
+      },
+      "expected_loan_eligibility": {
+        "eligible": true,
+        "max_amount": 30000,
+        "reason_codes": [
+          "AVG_BALANCE_OK",
+          "ACCOUNT_AGE_OK",
+          "INFLOW_STEADY",
+          "ACTIVE_DAYS_OK"
+        ]
+      }
     }
   ]
 }
