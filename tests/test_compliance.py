@@ -35,7 +35,7 @@ def test_demo_scene_1_first_message_is_the_exact_line():
     assert d.message.startswith(d.ai_disclosure)
 
 
-@pytest.mark.parametrize("lang", ["hi-Latn", "hi-IN", "en-IN", "ta-IN"])
+@pytest.mark.parametrize("lang", ["hi-Latn", "hi-IN", "en-IN", "mr-IN", "gu-IN"])
 def test_notice_covers_what_why_rights_human_and_grievance(lang):
     d = disclosure.get_disclosure_details(lang)
     assert d.grievance_contact in d.notice and d.notice_url in d.notice       # D8 / L5
@@ -49,13 +49,13 @@ def test_english_notice_names_each_required_element():
 
 
 def test_languages_without_a_notice_fall_back_to_english_notice():
-    d = disclosure.get_disclosure_details("ta-IN")
+    d = disclosure.get_disclosure_details("mr-IN")
     assert d.notice == disclosure.get_disclosure_details("en-IN").notice
     assert d.ai_disclosure != disclosure.get_disclosure_details("en-IN").ai_disclosure
 
 
 @pytest.mark.parametrize("asked,expected", [
-    ("hi-IN", "hi-IN"), ("hi", "hi-IN"), ("ta", "ta-IN"), ("hi-Latn", "hi-Latn"),
+    ("hi-IN", "hi-IN"), ("hi", "hi-IN"), ("mr", "mr-IN"), ("ta", "hi-IN"), ("hi-Latn", "hi-Latn"),
     ("or-IN", CONFIG["fallback_lang"]), (None, CONFIG["fallback_lang"]), ("", CONFIG["fallback_lang"]),
 ])
 def test_language_resolution(asked, expected):
@@ -196,8 +196,8 @@ def client(tmp_path, monkeypatch):
 
 
 def test_api_disclosure(client):
-    body = client.get("/api/disclosure", params={"lang": "ta"}).json()
-    assert body["lang"] == "ta-IN" and body["notice_version"] == disclosure.notice_version()
+    body = client.get("/api/disclosure", params={"lang": "mr"}).json()
+    assert body["lang"] == "mr-IN" and body["notice_version"] == disclosure.notice_version()
     assert body["message"].startswith(body["ai_disclosure"])
     assert client.get("/api/disclosure").json()["lang"] == CONFIG["fallback_lang"]
 

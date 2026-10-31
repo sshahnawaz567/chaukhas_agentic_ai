@@ -24,7 +24,8 @@ FIXTURES = json.loads((lending.db.ROOT / "data" / "merchant_fixtures.json").read
 IDS = [m["merchant_id"] for m in FIXTURES]
 
 NAMES = ["Aarav Kumar", "Fatima Begum", "Lakshmi Iyer", "Gurpreet Singh", "Mary D'Souza", "Zoya Khan"]
-LANGS = ["hi-IN", "en-IN", "ta-IN", "te-IN", "mr-IN", "ml-IN", "gu-IN", "bn-IN", "pa-IN"]
+# the five final languages PLUS others: the lender must ignore ANY language value, supported or not
+LANGS = ["hi-IN", "en-IN", "hi-Latn", "mr-IN", "gu-IN", "ta-IN", "te-IN", "ml-IN", "bn-IN", "pa-IN"]
 DEVICES = ["soundbox", "pos", "qr", "app", None]
 FEATURE_COLUMNS = ["txn_count_30d", "withdrawals_30d", "inflow_30d", "outflow_30d", "avg_balance",
                    "active_days_30d", "inflow_cv", "account_age_months"]
@@ -93,7 +94,7 @@ def test_everything_about_the_person_changed_at_once_still_gives_the_same_answer
 
 
 def test_two_different_people_with_identical_cashflow_get_identical_decisions(fdb):
-    """Give an ineligible merchant (M003, ta-IN) the features of an eligible one (M001, hi-IN): the decision follows
+    """Give an ineligible merchant (M003, en-IN) the features of an eligible one (M001, hi-IN): the decision follows
     the features, not the person."""
     features = fdb.execute(f"SELECT {', '.join(FEATURE_COLUMNS)} FROM cashflow_features WHERE merchant_id = 'M001'").fetchone()
     assert decide("M003") != decide("M001")

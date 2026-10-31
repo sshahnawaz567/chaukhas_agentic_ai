@@ -1,11 +1,13 @@
-# AI disclosure + DPDP notice text — Owner: Member 2 · COMPLIANCE.md R1, D1, L5, D8
+# AI disclosure + DPDP notice text - Owner: Member 2 - COMPLIANCE.md R1, D1, L5, D8
 # Read by chaukas/compliance/disclosure.py. UTF-8. Never hardcode these strings in code.
 #
 # REVIEW STATUS (be honest on stage):
 #   hi-Latn (Hinglish), hi-IN, en-IN : full AI disclosure + notice.
-#   ta/te/mr/ml/gu/bn/pa-IN          : AI-disclosure line only; the notice falls back to en-IN.
+#   mr-IN, gu-IN                     : AI-disclosure line only; the notice falls back to en-IN.
 #                                      These lines are NOT yet reviewed by a native speaker.
-#   Do not claim "11 languages" for the notice until the other languages are translated and reviewed.
+#   Final languages: Hindi, English, Marathi, Hinglish, Gujarati. Tamil, Telugu, Malayalam, Bengali and Punjabi
+#   were REMOVED (unreviewed translations): those codes now fall back to fallback_lang (hi-IN), a full notice in one language.
+#   The mr-IN / gu-IN lines are NOT yet reviewed by a native speaker.
 #
 # Any edit to a text below automatically changes notice_version (it is a hash of this file's texts),
 # so consents.notice_version always identifies the exact wording the merchant saw.
@@ -47,17 +49,7 @@ messages:
       person, just say so. Grievances: {grievance_contact}. Full notice: {notice_url}
 
   # ---- AI-disclosure line only (notice falls back to en-IN). NOT native-speaker reviewed. ----
-  ta-IN:
-    ai_disclosure: "வணக்கம்! நான் சௌகஸ், Paytm-இன் AI உதவியாளர்."
-  te-IN:
-    ai_disclosure: "నమస్కారం! నేను చౌకస్, Paytm యొక్క AI అసిస్టెంట్."
   mr-IN:
     ai_disclosure: "नमस्कार! मी चौकस आहे, Paytm चा AI असिस्टंट."
-  ml-IN:
-    ai_disclosure: "നമസ്കാരം! ഞാൻ ചൗകസ്, Paytm-ന്റെ AI അസിസ്റ്റന്റ്."
   gu-IN:
     ai_disclosure: "નમસ્તે! હું ચૌકસ છું, Paytm નો AI આસિસ્ટન્ટ."
-  bn-IN:
-    ai_disclosure: "নমস্কার! আমি চৌকস, Paytm-এর AI সহকারী।"
-  pa-IN:
-    ai_disclosure: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਚੌਕਸ ਹਾਂ, Paytm ਦਾ AI ਸਹਾਇਕ।"
