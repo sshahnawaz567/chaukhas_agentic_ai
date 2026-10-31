@@ -10,8 +10,8 @@ no raw PII in logs (CLAUDE.md rule 5). The LLM's `thought_process` IS logged (it
 for debugging only: it is never shown to the merchant and never written to the DB. Logging must never
 break a turn.
 
-llm/prompt.py does not know the session, so the orchestrator binds the current session/turn with
-bind_turn() at the start of every turn (a contextvar, so concurrent requests do not mix).
+llm/prompt.py does not know the session, so every orchestrator entry point runs its turn inside
+`with turn_scope(...)` (a contextvar: concurrent requests do not mix, and the binding ends with the turn).
 
 Directory: env CHAUKAS_AGENT_LOG_DIR, default <repo>/logs (gitignored, like traces/).
 
@@ -25,9 +25,10 @@ import logging
 import os
 import re
 import threading
+from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from chaukas import db
 from chaukas.core import m2_shim
@@ -77,10 +78,15 @@ def _write(session_id: str, event: dict[str, Any], text: str, stem: str = "agent
         log.exception("agent log write failed (session %s)", session_id)
 
 
-@_never_raises
-def bind_turn(session_id: str, turn_no: int, trace_id: str) -> None:
-    """Tell the LLM-call logger which session/turn the next calls belong to."""
-    _current.set({"session_id": session_id, "turn_no": turn_no, "trace_id": trace_id})
+@contextmanager
+def turn_scope(session_id: str, turn_no: int, trace_id: str) -> Iterator[None]:
+    """LLM calls made inside this block are logged under this session/turn. The binding is undone on exit
+    (also on an exception), so a call outside any turn is never logged under a previous session."""
+    token = _current.set({"session_id": session_id, "turn_no": turn_no, "trace_id": trace_id})
+    try:
+        yield
+    finally:
+        _current.reset(token)
 
 
 def _split_output(raw: str) -> tuple[str | None, str]:
@@ -161,17 +167,21 @@ def log_turn(response: Any, message_masked: str, intent_confidence: float | None
 
 @_never_raises
 def log_human_resolve(session_id: str, staff_id: str, action_type: str, amount: int | None,
-                      decision: Any, result: Any | None) -> None:
-    """Agent-desk 'Approve & execute': who approved, what the guardrail said, what ran."""
+                      decision: Any | None, result: Any | None, error: str | None = None) -> None:
+    """Agent-desk 'Approve & execute': who approved, what the guardrail said, what ran.
+    Also called when the approve crashed (decision/result may be None, `error` set)."""
     event = {"event": "human_resolve", "staff_id": staff_id, "action_type": action_type, "amount": amount,
-             "verdict": decision.verdict.value, "reason_code": decision.reason_code.value,
-             "reason": decision.reason, "audit_id": decision.audit_id,
-             "result": result.model_dump(mode="json") if result is not None else None}
+             "verdict": decision.verdict.value if decision else None,
+             "reason_code": decision.reason_code.value if decision else None,
+             "reason": decision.reason if decision else None, "audit_id": decision.audit_id if decision else None,
+             "result": result.model_dump(mode="json") if result is not None else None, "error": error}
     text = (f"HUMAN RESOLVE  staff={staff_id}  {action_type}"
             + (f" ₹{amount:,}" if amount else "")
-            + f"\n  guardrail: {event['verdict']} {event['reason_code']} ({decision.reason})"
+            + (f"\n  guardrail: {event['verdict']} {event['reason_code']} ({decision.reason})" if decision else
+               "\n  guardrail: no decision")
             + (f"\n  action   : {result.status} {result.ref_id or ''}" if result is not None else
-               "\n  action   : not executed"))
+               "\n  action   : not executed")
+            + (f"\n  ERROR    : {error}" if error else ""))
     _write(session_id, event, text)
 
 

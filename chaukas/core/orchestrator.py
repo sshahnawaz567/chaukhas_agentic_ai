@@ -58,7 +58,6 @@ class _Turn:
 
     def __init__(self, state: ConversationState):
         self.state = state
-        create_logs.bind_turn(state.session_id, state.turn_no, state.trace_id)
         self.spans: list[dict[str, Any]] = []
         self.cost = 0.0
         self.t0 = time.perf_counter()
@@ -114,19 +113,20 @@ def handle_message(session_id: str, text: str) -> TurnResponse:
     state = _new_state(session, gw.mask_incoming(text))
     turn = _Turn(state)
     pending = gw.load_pending(session)
-    try:
-        _understand(turn, pending is not None)
-        if pending is not None and state.intent in (Intent.CONFIRM, Intent.DENY):
-            _load_context(turn)
-            _resume(turn, pending, approve=state.intent == Intent.CONFIRM, actor="merchant",
-                    actor_id=None, kind=None, otp=None)
-        else:
-            _fresh_flow(turn)
-    except Exception as exc:  # a turn must never crash the API; surface it as FAILED + handoff text
-        log.exception("turn failed")
-        state.status = TurnStatus.FAILED
-        state.errors.append(m2_shim.mask_text(f"{type(exc).__name__}: {exc}")[:200])
-    return _finish(turn)
+    with create_logs.turn_scope(state.session_id, state.turn_no, state.trace_id):
+        try:
+            _understand(turn, pending is not None)
+            if pending is not None and state.intent in (Intent.CONFIRM, Intent.DENY):
+                _load_context(turn)
+                _resume(turn, pending, approve=state.intent == Intent.CONFIRM, actor="merchant",
+                        actor_id=None, kind=None, otp=None)
+            else:
+                _fresh_flow(turn)
+        except Exception as exc:  # a turn must never crash the API; surface it as FAILED + handoff text
+            log.exception("turn failed")
+            state.status = TurnStatus.FAILED
+            state.errors.append(m2_shim.mask_text(f"{type(exc).__name__}: {exc}")[:200])
+        return _finish(turn)
 
 
 def handle_confirm(session_id: str, pending_audit_id: int | None, approve: bool, kind: str | None,
@@ -145,14 +145,15 @@ def handle_confirm(session_id: str, pending_audit_id: int | None, approve: bool,
     state.lang = session.get("lang")
     state.track, state.urgency = Track.SUPPORT, Urgency.LOW
     turn = _Turn(state)
-    try:
-        _load_context(turn)
-        _resume(turn, pending, approve=approve, actor=actor, actor_id=actor_id, kind=kind, otp=otp)
-    except Exception as exc:
-        log.exception("confirm failed")
-        state.status = TurnStatus.FAILED
-        state.errors.append(m2_shim.mask_text(f"{type(exc).__name__}: {exc}")[:200])
-    return _finish(turn)
+    with create_logs.turn_scope(state.session_id, state.turn_no, state.trace_id):
+        try:
+            _load_context(turn)
+            _resume(turn, pending, approve=approve, actor=actor, actor_id=actor_id, kind=kind, otp=otp)
+        except Exception as exc:
+            log.exception("confirm failed")
+            state.status = TurnStatus.FAILED
+            state.errors.append(m2_shim.mask_text(f"{type(exc).__name__}: {exc}")[:200])
+        return _finish(turn)
 
 
 # --------------------------------------------------------------------------
@@ -374,21 +375,30 @@ def resolve_by_human(session_id: str, merchant_id: str, step: PlannedStep, pendi
     state.plan = [step]
     step.session_id = session_id
     turn = _Turn(state)
-    confirmation = Confirmation(pending_audit_id=pending_audit_id, actor="human", actor_id=staff_id, kind=kind)
-    _refresh_eligibility(state, step)
-    t = time.perf_counter()
-    decision = m2_shim.guardrail_check(step, state, confirmation)
-    state.decisions[step.step_no] = decision
-    turn.span("guardrail", f"{step.action_type} + human approval by {staff_id}",
-              f"{decision.verdict.value} {decision.reason_code.value}: {decision.reason}", t, step_no=step.step_no)
-    result = None
-    if decision.verdict == Verdict.ALLOW:
-        t = time.perf_counter()
-        result = action.run(step, state, decision)
-        state.completed.append(result)
-        turn.span("action", step.action_type, f"{result.status} {result.ref_id or ''}".strip(), t,
-                  step_no=step.step_no)
-    create_logs.log_human_resolve(session_id, staff_id, step.action_type, step.amount, decision, result)
+    decision, result, error = None, None, None
+    with create_logs.turn_scope(state.session_id, state.turn_no, state.trace_id):
+        try:
+            confirmation = Confirmation(pending_audit_id=pending_audit_id, actor="human", actor_id=staff_id,
+                                        kind=kind)
+            _refresh_eligibility(state, step)
+            t = time.perf_counter()
+            decision = m2_shim.guardrail_check(step, state, confirmation)
+            state.decisions[step.step_no] = decision
+            turn.span("guardrail", f"{step.action_type} + human approval by {staff_id}",
+                      f"{decision.verdict.value} {decision.reason_code.value}: {decision.reason}", t,
+                      step_no=step.step_no)
+            if decision.verdict == Verdict.ALLOW:
+                t = time.perf_counter()
+                result = action.run(step, state, decision)
+                state.completed.append(result)
+                turn.span("action", step.action_type, f"{result.status} {result.ref_id or ''}".strip(), t,
+                          step_no=step.step_no)
+        except Exception as exc:  # still logged below; the API keeps its existing error behaviour
+            error = f"{type(exc).__name__}: {exc}"
+            raise
+        finally:
+            create_logs.log_human_resolve(session_id, staff_id, step.action_type, step.amount, decision, result,
+                                          error=error)
     return decision, result, state
 
 

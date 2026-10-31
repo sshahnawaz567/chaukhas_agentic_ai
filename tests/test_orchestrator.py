@@ -441,3 +441,42 @@ def test_log_turn_does_not_touch_the_response(env):
     before = r.model_dump(mode="json")
     create_logs.log_turn(r, "again", 0.5)
     assert r.model_dump(mode="json") == before
+
+
+def test_llm_call_after_a_turn_is_not_logged_under_that_session(env, monkeypatch):
+    from chaukas.agents.schemas import IntentOutput
+    from chaukas.llm import prompt as llm_prompt
+    from chaukas.llm.client import LLMResult
+
+    out = {"thought_process": "t", "intent_result": {"intent": "unknown", "lang": "en-IN", "urgency": "low",
+                                                     "track": "support", "confidence": 0.1}}
+    monkeypatch.setattr(llm_prompt, "complete",
+                        lambda agent, p, replay_key=None: LLMResult(text=json.dumps(out), model="m", source="live"))
+    sid = new_session("M001")
+    orchestrator.handle_message(sid, "paisa nahi aaya")
+    log_file = env.parent / "logs" / f"session_{sid}" / "llm_calls.jsonl"
+    before = log_file.read_text(encoding="utf-8")
+
+    # outside any turn (eval scoring, a CLI, a direct agent test): must not land in the last session's log
+    llm_prompt.run_validated("intent", "intent.v1.txt", {"context": "", "user_question": "x"}, IntentOutput)
+    assert log_file.read_text(encoding="utf-8") == before
+
+
+def test_desk_approve_that_crashes_is_still_logged(env, monkeypatch):
+    sid = new_session("M002")
+    orchestrator.handle_message(sid, "Bhai mera 32,500 ka settlement 2 din se nahi aaya, jaldi bhejo.")
+    brief = json.loads(rows("SELECT brief_json FROM handoffs")[0]["brief_json"])
+    step = PlannedStep.model_validate(brief["suggested_step"])
+
+    def broken_run(*a, **k):
+        raise RuntimeError("mock payout service down")
+
+    monkeypatch.setattr(action, "run", broken_run)
+    with pytest.raises(RuntimeError):
+        orchestrator.resolve_by_human(sid, "M002", step, brief["pending_audit_id"], "step_up", "staff_7")
+
+    events = [json.loads(x) for x in
+              (env.parent / "logs" / f"session_{sid}" / "agent.jsonl").read_text(encoding="utf-8").splitlines()]
+    last = events[-1]
+    assert last["event"] == "human_resolve" and last["verdict"] == "ALLOW"
+    assert "mock payout service down" in last["error"] and last["result"] is None
