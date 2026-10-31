@@ -450,3 +450,85 @@ def test_withdrawn_consent_block_is_final_even_with_human_approval(db, run):
     c = Confirmation(pending_audit_id=pending.audit_id, actor="human", actor_id="STAFF-7", kind="consent")
     d = run("M010", "create_offer", offer, step_no=1, eligible=(True, 175000), confirmation=c)
     assert (d.verdict, d.reason_code) == (B, ReasonCode.CONSENT_WITHDRAWN)
+
+
+# ------------------------------------------------------------------ proactive sessions (PROACTIVE_FEATURE_CHANGES.md)
+
+def _session(db, session_id, merchant, trigger):
+    db.execute("INSERT INTO sessions (session_id, merchant_id, channel, mode, trigger_source) "
+               "VALUES (?, ?, 'chat', 'autonomous', ?)", (session_id, merchant, trigger))
+    db.commit()
+
+
+def test_proactive_payout_under_limit_needs_consent(run, db):
+    _session(db, "SP", "M001", "proactive")
+    d = run("M001", "retrigger_payout", payout("SET-99213", 18400), session="SP", amount=18400)
+    assert (d.verdict, d.reason_code, d.confirmation_kind) == (N, ReasonCode.CONSENT_REQUIRED, "consent")
+
+
+def test_same_payout_in_a_merchant_session_is_still_allowed(run, db):
+    """Scene 1 (reactive) must not change."""
+    _session(db, "SR", "M001", "merchant")
+    d = run("M001", "retrigger_payout", payout("SET-99213", 18400), session="SR", amount=18400)
+    assert (d.verdict, d.reason_code) == (A, ReasonCode.WITHIN_POLICY)
+
+
+def test_proactive_yes_allows_the_same_step_once(run, db):
+    _session(db, "SP", "M001", "proactive")
+    p = run("M001", "retrigger_payout", payout("SET-99213", 18400), session="SP", amount=18400)
+    c = Confirmation(pending_audit_id=p.audit_id, actor="merchant", kind="consent")
+    d = run("M001", "retrigger_payout", payout("SET-99213", 18400), session="SP", amount=18400, confirmation=c)
+    assert (d.verdict, d.reason_code) == (A, ReasonCode.CONFIRMED_BY_MERCHANT)
+    assert audit_row(db, d.audit_id)["confirms_audit_id"] == p.audit_id
+
+
+def test_spoofed_state_cannot_turn_proactive_into_reactive(db, make_state, make_step):
+    """The guardrail reads sessions.trigger_source from the DB. A state that lies must not skip consent."""
+    _session(db, "SP", "M001", "proactive")
+    state = make_state("M001", "SP")
+    state.__dict__["trigger_source"] = "merchant"
+    step = make_step("retrigger_payout", payout("SET-99213", 18400), 1, 18400, True)
+    d = guardrail.check(step, state, conn=db)
+    assert (d.verdict, d.reason_code) == (N, ReasonCode.CONSENT_REQUIRED)
+
+
+def test_proactive_yes_for_payout_is_not_a_yes_for_the_offer(run, db):
+    _session(db, "SP", "M001", "proactive")
+    p = run("M001", "retrigger_payout", payout("SET-99213", 18400), session="SP", amount=18400)
+    c = Confirmation(pending_audit_id=p.audit_id, actor="merchant", kind="consent")
+    db.execute("UPDATE settlements SET status='retriggered' WHERE id='SET-99213'")
+    d = run("M001", "create_offer", {"merchant_id": "M001", "amount": 50000}, step_no=2, session="SP",
+            eligible=(True, 50000), amount=50000, confirmation=c)
+    assert d.verdict is N and d.reason_code is ReasonCode.CONSENT_REQUIRED
+
+
+def test_proactive_never_unlocks_a_block(run, db):
+    _session(db, "SP", "M006", "proactive")
+    d = run("M006", "retrigger_payout", payout("SET-80120", 2400), session="SP", amount=2400)
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.NOT_RETRIGGERABLE)
+
+
+def test_proactive_over_limit_still_asks_for_step_up_first(run, db):
+    _session(db, "SP", "M002", "proactive")
+    d = run("M002", "retrigger_payout", payout("SET-51002", 32500), session="SP", amount=32500)
+    assert (d.verdict, d.reason_code, d.confirmation_kind) == (N, ReasonCode.OVER_AUTO_LIMIT, "step_up")
+
+
+def test_proactive_read_only_and_tickets_are_not_gated(run, db):
+    _session(db, "SP", "M001", "proactive")
+    assert run("M001", "verify_ledger", {"settlement_id": "SET-99213"}, session="SP").verdict is A
+    d = run("M001", "raise_ticket", {"merchant_id": "M001", "issue": "x", "settlement_id": "SET-99213"},
+            session="SP", step_no=2)
+    assert d.verdict is A
+
+
+def test_policy_without_proactive_key_fails_safe(run, db, policy):
+    _session(db, "SP", "M001", "proactive")
+    p = {k: v for k, v in policy.items() if k != "proactive_consent_required"}
+    d = run("M001", "retrigger_payout", payout("SET-99213", 18400), session="SP", amount=18400, policy=p)
+    assert d.verdict is N
+
+
+def test_trigger_source_column_only_accepts_known_values(db):
+    with pytest.raises(sqlite3.IntegrityError):
+        _session(db, "SX", "M001", "robot")

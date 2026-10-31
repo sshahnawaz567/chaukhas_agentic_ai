@@ -331,9 +331,23 @@ def check_daily_limit(ctx: Ctx) -> Outcome | None:                              
     return None
 
 
+def session_trigger_source(ctx: Ctx) -> str:
+    """'merchant' | 'proactive', read FRESH from sessions.trigger_source. Never from state or the request:
+    a bug (or tampered state) must not be able to turn a proactive session into a reactive one.
+    No sessions row (unit tests, /api/redteam/check) = no proactive evidence = 'merchant'; the event watcher
+    always creates the row, so a real proactive session is never missing."""
+    row = query_one(ctx.conn, "SELECT trigger_source FROM sessions WHERE session_id = ?", (ctx.state.session_id,))
+    return row["trigger_source"] if row else "merchant"
+
+
 def check_consent(ctx: Ctx) -> Outcome | None:                                         # 10
     required = ctx.policy["consent_required"]
     needs = ctx.action in required or (not ctx.step.reversible and "any_irreversible" in required)
+    # Proactive: Chaukas started this, the merchant asked for nothing -> money never moves without a yes.
+    # Default (key absent) = every money action + create_offer, so a stripped policy fails safe.
+    proactive = ctx.policy.get("proactive_consent_required", [*ctx.policy["money_actions"], "create_offer"])
+    if ctx.action in proactive and session_trigger_source(ctx) == "proactive":
+        needs = True
     if needs and not _is_confirmed(ctx, "consent"):
         return _needs(ctx, ReasonCode.CONSENT_REQUIRED, f"{ctx.action} needs the merchant's consent", "consent")
     return None

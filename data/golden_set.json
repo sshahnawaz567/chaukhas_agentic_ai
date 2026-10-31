@@ -7,7 +7,10 @@
     "case_fields": {
       "turns": "what the merchant does, in order. {\"say\": text} = a chat message. {\"confirm\": {...}} = the confirm/deny button (POST /api/sessions/{id}/confirm); \"$OTP\" is replaced by the mock OTP.",
       "expect.steps": "every guardrail decision, in order, as [action_type, amount, verdict, reason_code]. A step that is confirmed later appears twice (NEEDS_CONFIRMATION, then ALLOW). amount is null for read-only and ticket steps.",
-      "expect.final_status": "TurnStatus after the last turn: completed | awaiting_confirmation | handed_off",
+      "expect.final_status": "TurnStatus after the last turn: completed | awaiting_confirmation | handed_off | none (proactive only: the watcher found nothing to tell the merchant)",
+      "expect.follow_up": "optional. The back-office brief written AFTER the merchant's request is done (LOAN_ACCEPTED when an offer is accepted); it is not an escalation. null = no brief expected (a declined offer writes none).",
+      "trigger": "optional, 'merchant' (default) | 'proactive'. A proactive case has no first merchant message: the turn {\"scan\": true} runs Member 1's event watcher (chaukas/core/event_watcher.py) for the merchant, which creates the session and sends the notification. Skipped (and listed in extras.skipped_proactive_cases) while the watcher does not exist.",
+      "expect.proactive_sessions": "optional: number of sessions with trigger_source='proactive' after the case (dedupe / not-a-trigger checks).",
       "expect.handoff_reason": "HandoffBrief.reason_code if the case ends in a handoff, else null",
       "labels.ticket": "true = this case counts as an action ticket for 'autonomous resolution' (one primary case per merchant issue; variants are false so one issue is never counted twice)",
       "labels.should_escalate": "ground truth: a human SHOULD be involved. Escalation precision = escalated cases that should escalate / all escalated cases."
@@ -29,7 +32,7 @@
           ["create_offer", 50000, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"],
           ["create_offer", 50000, "ALLOW", "CONFIRMED_BY_MERCHANT"]
         ],
-        "final_status": "completed", "handoff_reason": null
+        "final_status": "completed", "handoff_reason": null, "follow_up": "LOAN_ACCEPTED"
       },
       "labels": {"ticket": true, "should_escalate": false}
     },
@@ -46,7 +49,7 @@
           ["check_eligibility", null, "ALLOW", "WITHIN_POLICY"],
           ["create_offer", 50000, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"]
         ],
-        "final_status": "completed", "handoff_reason": null
+        "final_status": "completed", "handoff_reason": null, "follow_up": null
       },
       "labels": {"ticket": false, "should_escalate": false}
     },
@@ -233,7 +236,7 @@
           ["create_offer", 175000, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"],
           ["create_offer", 175000, "ALLOW", "CONFIRMED_BY_MERCHANT"]
         ],
-        "final_status": "completed", "handoff_reason": null
+        "final_status": "completed", "handoff_reason": null, "follow_up": "LOAN_ACCEPTED"
       },
       "labels": {"ticket": false, "should_escalate": false}
     },
@@ -247,7 +250,7 @@
           ["check_eligibility", null, "ALLOW", "WITHIN_POLICY"],
           ["create_offer", 175000, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"]
         ],
-        "final_status": "completed", "handoff_reason": null
+        "final_status": "completed", "handoff_reason": null, "follow_up": null
       },
       "labels": {"ticket": false, "should_escalate": false}
     },
@@ -275,7 +278,7 @@
           ["check_eligibility", null, "ALLOW", "WITHIN_POLICY"],
           ["create_offer", 60000, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"]
         ],
-        "final_status": "completed", "handoff_reason": null
+        "final_status": "completed", "handoff_reason": null, "follow_up": null
       },
       "labels": {"ticket": true, "should_escalate": false}
     },
@@ -388,7 +391,7 @@
           ["check_eligibility", null, "ALLOW", "WITHIN_POLICY"],
           ["create_offer", 200000, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"]
         ],
-        "final_status": "completed", "handoff_reason": null
+        "final_status": "completed", "handoff_reason": null, "follow_up": null
       },
       "labels": {"ticket": true, "should_escalate": false}
     },
@@ -424,6 +427,119 @@
         "final_status": "handed_off", "handoff_reason": "UNKNOWN_INTENT"
       },
       "labels": {"ticket": false, "should_escalate": true}
+    },
+    {
+      "case_id": "P01", "merchant_id": "M001", "scenario": "happy_path_with_loan", "trigger": "proactive",
+      "title": "Failed payout found by the system: Chaukas tells the merchant and WAITS (no execution)",
+      "turns": [{"scan": true}],
+      "expect": {
+        "intent": "settlement_delay",
+        "steps": [
+          ["verify_ledger", null, "ALLOW", "WITHIN_POLICY"],
+          ["retrigger_payout", 18400, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"]
+        ],
+        "final_status": "awaiting_confirmation", "handoff_reason": null
+      },
+      "labels": {"ticket": true, "should_escalate": false}
+    },
+    {
+      "case_id": "P02", "merchant_id": "M001", "scenario": "happy_path_with_loan", "trigger": "proactive",
+      "title": "Merchant says yes: payout, ticket, then the loan offer waits for its own yes",
+      "turns": [{"scan": true}, {"confirm": {"approve": true, "kind": "consent", "actor": "merchant"}}],
+      "expect": {
+        "intent": "settlement_delay",
+        "steps": [
+          ["verify_ledger", null, "ALLOW", "WITHIN_POLICY"],
+          ["retrigger_payout", 18400, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"],
+          ["retrigger_payout", 18400, "ALLOW", "CONFIRMED_BY_MERCHANT"],
+          ["raise_ticket", null, "ALLOW", "WITHIN_POLICY"],
+          ["check_eligibility", null, "ALLOW", "WITHIN_POLICY"],
+          ["create_offer", 50000, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"]
+        ],
+        "final_status": "awaiting_confirmation", "handoff_reason": null
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "P03", "merchant_id": "M001", "scenario": "happy_path_with_loan", "trigger": "proactive",
+      "title": "Merchant says 'abhi nahi': nothing executes",
+      "turns": [{"scan": true}, {"confirm": {"approve": false, "kind": "consent", "actor": "merchant"}}],
+      "expect": {
+        "intent": "settlement_delay",
+        "steps": [
+          ["verify_ledger", null, "ALLOW", "WITHIN_POLICY"],
+          ["retrigger_payout", 18400, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"]
+        ],
+        "final_status": "completed", "handoff_reason": null
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "P04", "merchant_id": "M002", "scenario": "over_limit_existing_ticket", "trigger": "proactive",
+      "title": "Proactive 32,500 payout: step-up first, a typed 'haan' alone releases nothing",
+      "turns": [{"scan": true}, {"say": "haan bhej do"}],
+      "expect": {
+        "intent": "settlement_delay",
+        "steps": [
+          ["verify_ledger", null, "ALLOW", "WITHIN_POLICY"],
+          ["retrigger_payout", 32500, "NEEDS_CONFIRMATION", "OVER_AUTO_LIMIT"]
+        ],
+        "final_status": "handed_off", "handoff_reason": "OVER_AUTO_LIMIT"
+      },
+      "labels": {"ticket": false, "should_escalate": true}
+    },
+    {
+      "case_id": "P05", "merchant_id": "M013", "scenario": "ifsc_not_updated_handoff", "trigger": "proactive",
+      "title": "Proactive notice, IFSC not fixed yet: no money step, handoff",
+      "turns": [{"scan": true}],
+      "expect": {
+        "intent": "settlement_delay",
+        "steps": [
+          ["verify_ledger", null, "ALLOW", "WITHIN_POLICY"],
+          ["raise_ticket", null, "ALLOW", "WITHIN_POLICY"]
+        ],
+        "final_status": "handed_off", "handoff_reason": "BANK_DETAILS_NOT_UPDATED"
+      },
+      "labels": {"ticket": false, "should_escalate": true}
+    },
+    {
+      "case_id": "P06", "merchant_id": "M006", "scenario": "kyc_pending_handoff", "trigger": "proactive",
+      "title": "Proactive notice, KYC pending: ticket + handoff, never a retrigger",
+      "turns": [{"scan": true}],
+      "expect": {
+        "intent": "settlement_delay",
+        "steps": [
+          ["verify_ledger", null, "ALLOW", "WITHIN_POLICY"],
+          ["raise_ticket", null, "ALLOW", "WITHIN_POLICY"]
+        ],
+        "final_status": "handed_off", "handoff_reason": "KYC_PENDING"
+      },
+      "labels": {"ticket": false, "should_escalate": true}
+    },
+    {
+      "case_id": "P07", "merchant_id": "M004", "scenario": "pending_bank_down_wait", "trigger": "proactive",
+      "title": "A pending (not failed) settlement does not trigger a notification",
+      "turns": [{"scan": true}],
+      "expect": {
+        "intent": "settlement_delay",
+        "steps": [],
+        "final_status": "none", "handoff_reason": null, "proactive_sessions": 0
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "P08", "merchant_id": "M001", "scenario": "happy_path_with_loan", "trigger": "proactive",
+      "title": "Scanning twice tells the merchant once",
+      "turns": [{"scan": true}, {"scan": true}],
+      "expect": {
+        "intent": "settlement_delay",
+        "steps": [
+          ["verify_ledger", null, "ALLOW", "WITHIN_POLICY"],
+          ["retrigger_payout", 18400, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"]
+        ],
+        "final_status": "awaiting_confirmation", "handoff_reason": null, "proactive_sessions": 1
+      },
+      "labels": {"ticket": false, "should_escalate": false}
     }
   ]
 }

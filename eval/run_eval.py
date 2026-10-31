@@ -134,6 +134,8 @@ def score_case(case: dict, run: dict) -> dict:
     }
     if "follow_up" in exp:          # optional: golden cases may state the back-office brief they expect
         checks["follow_up"] = run.get("follow_up") == exp["follow_up"]
+    if "proactive_sessions" in exp:    # dedupe: scanning twice must not notify the merchant twice
+        checks["proactive_sessions"] = run.get("proactive_sessions") == exp["proactive_sessions"]
     bad_allows = unexpected_allows(exp["steps"], run["steps"])
     bad_exec = unsafe_executions(exp["steps"], run["executed"])
     escalated = run["final_status"] == "handed_off" or run["handoff_reason"] is not None
@@ -240,13 +242,35 @@ def _executed(db_file: Path) -> list[tuple]:
     return [(r["action_type"], r["amount"]) for r in rows]
 
 
+def _load_watcher():
+    """Member 1's event watcher (PROACTIVE_FEATURE_CHANGES.md section 4), or None while it is not built yet."""
+    try:
+        from chaukas.core import event_watcher
+    except ImportError:
+        return None
+    return event_watcher if hasattr(event_watcher, "scan") else None
+
+
+def _proactive_sessions(db_file: Path) -> int:
+    import sqlite3
+    conn = sqlite3.connect(db_file)
+    try:
+        return conn.execute("SELECT COUNT(*) FROM sessions WHERE trigger_source = 'proactive'").fetchone()[0]
+    except sqlite3.OperationalError:     # schema without the proactive columns
+        return 0
+    finally:
+        conn.close()
+
+
 def _run_case(case: dict, template: Path, workdir: Path, mods: tuple, otp: str) -> dict:
     m2_shim, orchestrator, gw, _, _ = mods
     db_file = workdir / f"{case['case_id']}.db"
     shutil.copy(template, db_file)
     os.environ["CHAUKAS_DB_PATH"] = str(db_file)
 
-    session_id = gw.create_session(case["merchant_id"], "chat", "autonomous")["session_id"]
+    proactive = case.get("trigger") == "proactive"
+    # a proactive case has no session yet: the event watcher creates it when it finds the failed settlement
+    session_id = None if proactive else gw.create_session(case["merchant_id"], "chat", "autonomous")["session_id"]
     amount_of: dict[int, int | None] = {}
     steps: list[list] = []
     latencies: list[int] = []
@@ -262,7 +286,13 @@ def _run_case(case: dict, template: Path, workdir: Path, mods: tuple, otp: str) 
 
     for turn in case["turns"]:
         try:
-            if "say" in turn:
+            if "scan" in turn:     # the system, not the merchant, starts the conversation
+                hits = _load_watcher().scan(case["merchant_id"])
+                if hits:
+                    session_id, last = hits[0]["session_id"], hits[0]["turn"]
+                else:
+                    continue   # nothing to tell the merchant (e.g. only a pending settlement)
+            elif "say" in turn:
                 last = orchestrator.handle_message(session_id, turn["say"])
             else:
                 c = dict(turn["confirm"])
@@ -294,7 +324,8 @@ def _run_case(case: dict, template: Path, workdir: Path, mods: tuple, otp: str) 
     return {
         "intent": first_intent,
         "steps": steps,
-        "final_status": last.status.value if last else "failed",
+        "final_status": last.status.value if last else ("none" if proactive and not errors else "failed"),
+        "proactive_sessions": _proactive_sessions(db_file) if proactive else None,
         "handoff_reason": handoff_reason,
         "follow_up": follow_up,
         "executed": _executed(db_file),
@@ -327,6 +358,10 @@ def run(path: Path | None = None, *, llm: str = "offline", write: bool = True, w
     m2_shim = mods[0]
     started = time.perf_counter()
     cases = json.loads(Path(path or GOLDEN_PATH).read_text(encoding="utf-8"))["cases"]
+    skipped = []
+    if _load_watcher() is None:      # proactive cases need Member 1's watcher: say so, never count them as passed
+        skipped = [c["case_id"] for c in cases if c.get("trigger") == "proactive"]
+        cases = [c for c in cases if c.get("trigger") != "proactive"]
 
     saved_env = {k: os.environ.get(k) for k in ("CHAUKAS_DB_PATH", "CHAUKAS_REPLAY_MODE", "CHAUKAS_AGENT_LOG_DIR")}
     saved_emit = m2_shim.emit_span
@@ -388,6 +423,7 @@ def run(path: Path | None = None, *, llm: str = "offline", write: bool = True, w
         "cases": len(scored), "turns": turns, "passed_cases": sum(c["pass"] for c in scored),
         "failed_cases": sum(not c["pass"] for c in scored), "llm_mode": llm, "llm_calls": llm_calls,
         "replay_misses": misses,
+        "skipped_proactive_cases": skipped,     # not run: chaukas/core/event_watcher.py does not exist yet
         "intent_accuracy_pct": _pct(sum(c["checks"]["intent"] for c in scored), len(scored)),
         "ran_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "duration_s": round(time.perf_counter() - started, 2),
