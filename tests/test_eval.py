@@ -50,7 +50,8 @@ def test_golden_uses_only_contract_names():
     handoffs = {h.value for h in HandoffReason} | {r.value for r in ReasonCode}   # step-up handoffs use a ReasonCode
     for c in GOLDEN:
         exp = c["expect"]
-        assert exp["intent"] in intents, c["case_id"]
+        # a proactive case where the watcher notifies nobody runs no turn, so it has no intent
+        assert exp["intent"] in intents or (exp["intent"] is None and c.get("trigger") == "proactive"), c["case_id"]
         allowed = FINAL_STATUS | ({"none"} if c.get("trigger") == "proactive" else set())   # "none": nothing to notify
         assert exp["final_status"] in allowed, c["case_id"]
         assert exp["handoff_reason"] is None or exp["handoff_reason"] in handoffs, c["case_id"]

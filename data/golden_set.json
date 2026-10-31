@@ -440,7 +440,7 @@
         ],
         "final_status": "awaiting_confirmation", "handoff_reason": null
       },
-      "labels": {"ticket": true, "should_escalate": false}
+      "labels": {"ticket": false, "should_escalate": false}
     },
     {
       "case_id": "P02", "merchant_id": "M001", "scenario": "happy_path_with_loan", "trigger": "proactive",
@@ -496,7 +496,7 @@
         "intent": "settlement_delay",
         "steps": [
           ["verify_ledger", null, "ALLOW", "WITHIN_POLICY"],
-          ["raise_ticket", null, "ALLOW", "WITHIN_POLICY"]
+          ["update_ticket", null, "ALLOW", "WITHIN_POLICY"]
         ],
         "final_status": "handed_off", "handoff_reason": "BANK_DETAILS_NOT_UPDATED"
       },
@@ -510,7 +510,7 @@
         "intent": "settlement_delay",
         "steps": [
           ["verify_ledger", null, "ALLOW", "WITHIN_POLICY"],
-          ["raise_ticket", null, "ALLOW", "WITHIN_POLICY"]
+          ["update_ticket", null, "ALLOW", "WITHIN_POLICY"]
         ],
         "final_status": "handed_off", "handoff_reason": "KYC_PENDING"
       },
@@ -521,7 +521,7 @@
       "title": "A pending (not failed) settlement does not trigger a notification",
       "turns": [{"scan": true}],
       "expect": {
-        "intent": "settlement_delay",
+        "intent": null,
         "steps": [],
         "final_status": "none", "handoff_reason": null, "proactive_sessions": 0
       },
