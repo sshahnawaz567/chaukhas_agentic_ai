@@ -158,7 +158,8 @@ def get_disclosure(lang: str | None = None):
     """AI disclosure + DPDP notice in the merchant's language (falls back; see config/disclosure.yaml)."""
     d = disclosure.get_disclosure_details(lang)
     return {"lang": d.lang, "ai_disclosure": d.ai_disclosure, "notice": d.notice, "message": d.message,
-            "grievance_contact": d.grievance_contact, "notice_url": d.notice_url, "notice_version": d.notice_version}
+            "grievance_contact": d.grievance_contact, "notice_url": d.notice_url, "notice_version": d.notice_version,
+            "reviewed": d.reviewed}
 
 
 class ConsentRequest(BaseModel):
@@ -209,7 +210,10 @@ def get_data_summary(merchant_id: str):
 
 @router.post("/merchants/{merchant_id}/erasure")
 def request_erasure(merchant_id: str):
-    """Erase the merchant's personal data, keep only what the law requires. Returns a receipt."""
+    """Erase the merchant's personal data, keep only what the law requires. Returns a receipt.
+    Switched off when CHAUKAS_PUBLIC_DEMO=1: a public demo URL has no login, and anybody could wipe the demo merchants."""
+    if os.environ.get("CHAUKAS_PUBLIC_DEMO") == "1":
+        return _error(403, "DISABLED_IN_PUBLIC_DEMO", "erasure is switched off on the public demo")
     with closing(connect()) as conn:
         try:
             return retention.erase_merchant(conn, merchant_id)
