@@ -1,332 +1,348 @@
 {
-  "recorded_at": "2026-10-31T10:11:09Z",
-  "llm_calls": 111,
+  "recorded_at": "2026-10-31T10:33:14Z",
+  "llm_calls": 117,
   "turns": {
     "G01": [
       {
-        "latency_ms": 12845,
-        "cost_inr": 0.0765
+        "latency_ms": 15686,
+        "cost_inr": 0.0787
       },
       {
-        "latency_ms": 1468,
-        "cost_inr": 0.0669
+        "latency_ms": 2051,
+        "cost_inr": 0.0692
       }
     ],
     "G02": [
       {
-        "latency_ms": 1988,
-        "cost_inr": 0.0758
+        "latency_ms": 2145,
+        "cost_inr": 0.077
       },
       {
-        "latency_ms": 1445,
-        "cost_inr": 0.063
+        "latency_ms": 1907,
+        "cost_inr": 0.0667
       }
     ],
     "G03": [
       {
-        "latency_ms": 2188,
-        "cost_inr": 0.0874
+        "latency_ms": 2613,
+        "cost_inr": 0.0921
       }
     ],
     "G04": [
       {
-        "latency_ms": 2163,
-        "cost_inr": 0.0877
+        "latency_ms": 2448,
+        "cost_inr": 0.0879
       },
       {
-        "latency_ms": 1489,
-        "cost_inr": 0.0631
+        "latency_ms": 1771,
+        "cost_inr": 0.0647
       }
     ],
     "G05": [
       {
-        "latency_ms": 2143,
-        "cost_inr": 0.0863
+        "latency_ms": 2495,
+        "cost_inr": 0.0913
       },
       {
-        "latency_ms": 719,
-        "cost_inr": 0.0276
+        "latency_ms": 820,
+        "cost_inr": 0.0286
       }
     ],
     "G06": [
       {
-        "latency_ms": 2223,
-        "cost_inr": 0.0891
+        "latency_ms": 2894,
+        "cost_inr": 0.0904
       },
       {
-        "latency_ms": 1336,
-        "cost_inr": 0.0452
+        "latency_ms": 1540,
+        "cost_inr": 0.0471
       }
     ],
     "G07": [
       {
-        "latency_ms": 2234,
-        "cost_inr": 0.0896
+        "latency_ms": 2472,
+        "cost_inr": 0.0893
       },
       {
-        "latency_ms": 711,
-        "cost_inr": 0.0278
+        "latency_ms": 818,
+        "cost_inr": 0.029
       }
     ],
     "G08": [
       {
-        "latency_ms": 1251,
-        "cost_inr": 0.0603
+        "latency_ms": 1644,
+        "cost_inr": 0.0627
       }
     ],
     "G09": [
       {
-        "latency_ms": 1421,
-        "cost_inr": 0.0684
+        "latency_ms": 1822,
+        "cost_inr": 0.0699
       }
     ],
     "G10": [
       {
-        "latency_ms": 39,
+        "latency_ms": 59,
         "cost_inr": 0.0
       }
     ],
     "G11": [
       {
-        "latency_ms": 2139,
-        "cost_inr": 0.0873
+        "latency_ms": 2497,
+        "cost_inr": 0.0885
       }
     ],
     "G12": [
       {
-        "latency_ms": 2062,
-        "cost_inr": 0.0863
+        "latency_ms": 2487,
+        "cost_inr": 0.0892
       }
     ],
     "G13": [
       {
-        "latency_ms": 1256,
-        "cost_inr": 0.0576
+        "latency_ms": 1605,
+        "cost_inr": 0.0641
       }
     ],
     "G14": [
       {
-        "latency_ms": 2150,
-        "cost_inr": 0.0862
+        "latency_ms": 2443,
+        "cost_inr": 0.0883
       }
     ],
     "G15": [
       {
-        "latency_ms": 1598,
-        "cost_inr": 0.068
+        "latency_ms": 1858,
+        "cost_inr": 0.0701
       },
       {
-        "latency_ms": 1741,
-        "cost_inr": 0.065
+        "latency_ms": 2549,
+        "cost_inr": 0.0664
       }
     ],
     "G16": [
       {
-        "latency_ms": 1613,
-        "cost_inr": 0.0671
+        "latency_ms": 1674,
+        "cost_inr": 0.0686
       },
       {
-        "latency_ms": 1324,
-        "cost_inr": 0.0624
+        "latency_ms": 1589,
+        "cost_inr": 0.0653
       }
     ],
     "G17": [
       {
-        "latency_ms": 1958,
-        "cost_inr": 0.0779
+        "latency_ms": 2339,
+        "cost_inr": 0.0812
       }
     ],
     "G18": [
       {
-        "latency_ms": 1685,
-        "cost_inr": 0.0759
+        "latency_ms": 1823,
+        "cost_inr": 0.0762
       },
       {
-        "latency_ms": 1357,
-        "cost_inr": 0.0635
+        "latency_ms": 1647,
+        "cost_inr": 0.0658
       }
     ],
     "G19": [
       {
-        "latency_ms": 2117,
-        "cost_inr": 0.0843
+        "latency_ms": 2402,
+        "cost_inr": 0.0883
       }
     ],
     "G20": [
       {
-        "latency_ms": 2611,
-        "cost_inr": 0.0957
+        "latency_ms": 2731,
+        "cost_inr": 0.0972
       }
     ],
     "G21": [
       {
-        "latency_ms": 1640,
-        "cost_inr": 0.0681
+        "latency_ms": 1692,
+        "cost_inr": 0.0674
       }
     ],
     "G22": [
       {
-        "latency_ms": 1326,
-        "cost_inr": 0.0648
+        "latency_ms": 1742,
+        "cost_inr": 0.0685
       }
     ],
     "G23": [
       {
-        "latency_ms": 1356,
-        "cost_inr": 0.0594
+        "latency_ms": 1643,
+        "cost_inr": 0.063
       }
     ],
     "G24": [
       {
-        "latency_ms": 1553,
-        "cost_inr": 0.0689
+        "latency_ms": 1731,
+        "cost_inr": 0.069
       },
       {
-        "latency_ms": 1378,
+        "latency_ms": 1634,
         "cost_inr": 0.0628
       }
     ],
     "G25": [
       {
-        "latency_ms": 1420,
-        "cost_inr": 0.0595
+        "latency_ms": 1600,
+        "cost_inr": 0.0637
       }
     ],
     "G26": [
       {
-        "latency_ms": 1662,
-        "cost_inr": 0.0768
+        "latency_ms": 2126,
+        "cost_inr": 0.0779
       },
       {
-        "latency_ms": 1513,
-        "cost_inr": 0.0648
+        "latency_ms": 1626,
+        "cost_inr": 0.0661
       }
     ],
     "G27": [
       {
-        "latency_ms": 1421,
-        "cost_inr": 0.0638
+        "latency_ms": 1898,
+        "cost_inr": 0.0647
       }
     ],
     "G28": [
       {
-        "latency_ms": 1965,
-        "cost_inr": 0.078
+        "latency_ms": 2409,
+        "cost_inr": 0.0803
       }
     ],
     "G29": [
       {
-        "latency_ms": 2034,
-        "cost_inr": 0.0788
+        "latency_ms": 2488,
+        "cost_inr": 0.0836
       }
     ],
     "P01": [
-      {
-        "latency_ms": 22,
-        "cost_inr": 0.0
-      }
-    ],
-    "P02": [
-      {
-        "latency_ms": 21,
-        "cost_inr": 0.0
-      },
-      {
-        "latency_ms": 897,
-        "cost_inr": 0.0376
-      }
-    ],
-    "P03": [
-      {
-        "latency_ms": 19,
-        "cost_inr": 0.0
-      },
-      {
-        "latency_ms": 12,
-        "cost_inr": 0.0
-      }
-    ],
-    "P04": [
-      {
-        "latency_ms": 679,
-        "cost_inr": 0.0204
-      },
-      {
-        "latency_ms": 1297,
-        "cost_inr": 0.0628
-      }
-    ],
-    "P05": [
-      {
-        "latency_ms": 598,
-        "cost_inr": 0.0195
-      }
-    ],
-    "P06": [
-      {
-        "latency_ms": 660,
-        "cost_inr": 0.0188
-      }
-    ],
-    "P07": [],
-    "P08": [
-      {
-        "latency_ms": 23,
-        "cost_inr": 0.0
-      }
-    ],
-    "G30": [
-      {
-        "latency_ms": 37,
-        "cost_inr": 0.0
-      }
-    ],
-    "G31": [
       {
         "latency_ms": 31,
         "cost_inr": 0.0
       }
     ],
-    "I01": [
+    "P02": [
       {
-        "latency_ms": 1667,
-        "cost_inr": 0.0677
+        "latency_ms": 32,
+        "cost_inr": 0.0
       },
       {
-        "latency_ms": 1726,
-        "cost_inr": 0.0646
+        "latency_ms": 1131,
+        "cost_inr": 0.0407
+      }
+    ],
+    "P03": [
+      {
+        "latency_ms": 25,
+        "cost_inr": 0.0
+      },
+      {
+        "latency_ms": 14,
+        "cost_inr": 0.0
+      }
+    ],
+    "P04": [
+      {
+        "latency_ms": 618,
+        "cost_inr": 0.0194
+      },
+      {
+        "latency_ms": 1759,
+        "cost_inr": 0.0657
+      }
+    ],
+    "P05": [
+      {
+        "latency_ms": 791,
+        "cost_inr": 0.0195
+      }
+    ],
+    "P06": [
+      {
+        "latency_ms": 822,
+        "cost_inr": 0.0192
+      }
+    ],
+    "P07": [],
+    "P08": [
+      {
+        "latency_ms": 30,
+        "cost_inr": 0.0
+      }
+    ],
+    "G30": [
+      {
+        "latency_ms": 70,
+        "cost_inr": 0.0
+      }
+    ],
+    "G31": [
+      {
+        "latency_ms": 42,
+        "cost_inr": 0.0
+      }
+    ],
+    "I01": [
+      {
+        "latency_ms": 1917,
+        "cost_inr": 0.0756
+      },
+      {
+        "latency_ms": 1749,
+        "cost_inr": 0.0686
       }
     ],
     "I02": [
       {
-        "latency_ms": 1525,
-        "cost_inr": 0.0673
+        "latency_ms": 2838,
+        "cost_inr": 0.0672
       },
       {
-        "latency_ms": 1413,
-        "cost_inr": 0.0663
+        "latency_ms": 3008,
+        "cost_inr": 0.0681
       }
     ],
     "I03": [
       {
-        "latency_ms": 1600,
-        "cost_inr": 0.0652
+        "latency_ms": 2714,
+        "cost_inr": 0.0661
       },
       {
-        "latency_ms": 1418,
-        "cost_inr": 0.0617
+        "latency_ms": 2793,
+        "cost_inr": 0.0633
       }
     ],
     "I04": [
       {
-        "latency_ms": 1233,
-        "cost_inr": 0.0595
+        "latency_ms": 2838,
+        "cost_inr": 0.0631
       }
     ],
     "I05": [
       {
-        "latency_ms": 1183,
-        "cost_inr": 0.057
+        "latency_ms": 2691,
+        "cost_inr": 0.0619
+      }
+    ],
+    "G32": [
+      {
+        "latency_ms": 2482,
+        "cost_inr": 0.0715
+      },
+      {
+        "latency_ms": 1679,
+        "cost_inr": 0.0665
+      }
+    ],
+    "G33": [
+      {
+        "latency_ms": 1683,
+        "cost_inr": 0.0642
       }
     ]
   }
