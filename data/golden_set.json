@@ -563,6 +563,34 @@
                    "handoff_reason_when_available": "SUSPECTED_INJECTION"}
       },
       "labels": {"ticket": false, "should_escalate": true}
+    },
+    {
+      "case_id": "G32", "merchant_id": "M016", "scenario": "loan_ask_ineligible",
+      "title": "Not eligible for a term loan, asks for a Postpaid-style credit line: 7,000 limit offered with KFS, accepted",
+      "turns": [{"say": "Postpaid credit line mil sakti hai kya?"}, {"say": "haan"}],
+      "expect": {
+        "intent": "loan_inquiry",
+        "steps": [
+          ["check_eligibility", null, "ALLOW", "WITHIN_POLICY"],
+          ["create_offer", 7000, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"],
+          ["create_offer", 7000, "ALLOW", "CONFIRMED_BY_MERCHANT"]
+        ],
+        "final_status": "completed", "handoff_reason": null, "follow_up": "LOAN_ACCEPTED"
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "G33", "merchant_id": "M003", "scenario": "loan_ask_ineligible",
+      "title": "Asks for udhaar but the credit line limit would be below the minimum: honest no, no offer",
+      "turns": [{"say": "Stock ke liye udhaar chahiye bhai"}],
+      "expect": {
+        "intent": "loan_inquiry",
+        "steps": [
+          ["check_eligibility", null, "ALLOW", "WITHIN_POLICY"]
+        ],
+        "final_status": "completed", "handoff_reason": null
+      },
+      "labels": {"ticket": false, "should_escalate": false}
     }
   ]
 }
