@@ -100,8 +100,10 @@ class RetriggerPayoutParams(BaseModel):  settlement_id: str; amount: PositiveInt
                                          # resolves it from merchant_id via detokenise()
 class RaiseTicketParams(BaseModel):      merchant_id: str; issue: str; settlement_id: str | None = None
 class UpdateTicketParams(BaseModel):     ticket_id: str; note: str; status: Literal["open","in_progress","resolved"] | None = None
-class CheckEligibilityParams(BaseModel): merchant_id: str
-class CreateOfferParams(BaseModel):      merchant_id: str; amount: PositiveInt
+class CheckEligibilityParams(BaseModel): merchant_id: str; product: OfferProduct = "term_loan"            # product: ADDITIVE
+class CreateOfferParams(BaseModel):      merchant_id: str; amount: PositiveInt; product: OfferProduct = "term_loan"
+# OfferProduct = Literal["term_loan", "credit_line"]  (ADDITIVE, 31 Oct). `product` is written into params ONLY for a
+# credit line, so every term-loan step and its audit row are exactly as before.
 
 PARAMS_BY_ACTION: dict[ActionType, type[BaseModel]] = {...}   # single lookup used by guardrail
 ```
@@ -261,7 +263,7 @@ def check(step: PlannedStep, state: ConversationState,
 | 4 | idempotency key not already executed | BLOCK `DUPLICATE_ACTION` (orchestrator returns the earlier `ActionResult` with `replayed=True`) |
 | 5 | `retrigger_payout`: settlement exists, belongs to merchant, `amount == ledger amount` | BLOCK `LEDGER_MISMATCH` |
 | 6 | `retrigger_payout`: status `failed` AND cause allows retrigger | BLOCK `NOT_RETRIGGERABLE` |
-| 7 | `create_offer`: offer gating 1–4 (system design B4.1), `amount <= lender max_amount`; first of all, the latest `loan_offer` row in `consents` must not be `withdrawn` | BLOCK `CONSENT_WITHDRAWN` / `OFFER_NOT_ELIGIBLE` / `ISSUE_UNRESOLVED` / `OFFER_COOLING_OFF` |
+| 7 | `create_offer`: offer gating 1–4 (system design B4.1), `amount <= lender max_amount`; first of all, the latest `loan_offer` row in `consents` must not be `withdrawn`. **Per product (ADDITIVE):** the cap is the lender answer for `params.product` (`merchant.eligibility` for `term_loan`, `merchant.credit_line` for `credit_line`; missing or mislabelled answer = BLOCK); `policy.yaml disabled_offer_products` is a per-product kill switch (BLOCK `ACTION_DISABLED`); a credit line is BLOCKed within `credit_line_after_loan_days` of an accepted offer | BLOCK `CONSENT_WITHDRAWN` / `OFFER_NOT_ELIGIBLE` / `ISSUE_UNRESOLVED` / `OFFER_COOLING_OFF` / `ACTION_DISABLED` |
 | 8 | `amount <= auto_limit_inr` | NEEDS_CONFIRMATION `OVER_AUTO_LIMIT` (kind = `step_up`) |
 | 9 | `today_total + amount <= daily_auto_limit_inr` | NEEDS_CONFIRMATION `OVER_DAILY_LIMIT` (kind = `step_up`) |
 | 10 | `create_offer` or `reversible == False`, **or** the session is proactive (`sessions.trigger_source = 'proactive'`, read from the DB) and the action is in `policy.yaml → proactive_consent_required` | NEEDS_CONFIRMATION `CONSENT_REQUIRED` (kind = `consent`) |
@@ -305,9 +307,12 @@ def update_ticket(ticket_id: str, note: str, status: str | None,
 def void_ticket(rollback_token: str) -> RollbackResult
 
 # integrations/lending.py   (SIMULATED lender — config/lender_sim.yaml)
-def check_eligibility(merchant_id: str) -> LenderDecision          # {eligible, max_amount, reason_codes}
-def build_kfs(merchant_id: str, amount: int) -> KFS                  # KFS{lender_name, apr_pct, processing_fee_inr, tenure_months,
-                                                                     #     total_repayable_inr, grievance_contact} — mock values from lender_sim.yaml
+def check_eligibility(merchant_id: str, product: str = "term_loan") -> LenderDecision   # {eligible, max_amount, reason_codes, product}
+def check_credit_line(merchant_id: str) -> LenderDecision            # ADDITIVE: short-term credit line (lender_sim.yaml credit_line)
+    # limit = floor_to(round_to, min(cap, inflow_30d/30 * repay_days * clamp(1 - inflow_cv, min_stability, 1))); < min_limit -> not eligible
+def build_kfs(merchant_id: str, amount: int, product: str = "term_loan") -> KFS
+    # KFS{lender_name, apr_pct, processing_fee_inr, tenure_months, total_repayable_inr, grievance_contact,
+    #     product, billing_cycle_days?, interest_free_days?, late_fee_inr?} — mock values from lender_sim.yaml
 def create_offer(merchant_id: str, amount: int, consent: bool, kfs: KFS,
                  session_id: str, idempotency_key: str) -> Offer     # Offer{offer_id, status}; consent=False -> raises
     # Flow (RBI digital lending): offer presented WITH KFS -> offers.kfs_shown_at set -> merchant consents -> accepted.

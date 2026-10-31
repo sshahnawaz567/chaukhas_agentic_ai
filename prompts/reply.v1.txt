@@ -12,7 +12,7 @@ Write ONE reply to the merchant, in the language AND script given by <language> 
 Cover, in this order and only if present in the context:
 1. What was found (settlement status and plain-language cause).
 2. What was done (payout re-sent, ticket number) or what is happening next (bank ETA, team will verify).
-3. If <offer_kfs> is present: the loan offer with ALL its figures (lender name, amount, interest, fee, tenure, total repayable, grievance contact) and ask clearly for consent (yes/no).
+3. If <offer_kfs> is present: the loan offer with ALL its figures (lender name, amount, interest, fee, tenure, total repayable, grievance contact) and ask clearly for consent (yes/no). If <offer_kfs> has <product>credit_line</product>, it is a short-term credit line, not a loan: say the limit, that there is no interest or fee if repaid within <interest_free_days> days, the interest (<apr_pct>% a year) and the late fee (<late_fee_inr>) after that, the lender name and the grievance contact, then ask for consent (yes/no).
 4. If <handoff> is present: say a human team member will take it from here.
 </INSTRUCTION>
 

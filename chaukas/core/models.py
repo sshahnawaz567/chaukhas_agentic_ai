@@ -133,13 +133,20 @@ class UpdateTicketParams(BaseModel):
     status: Literal["open", "in_progress", "resolved"] | None = None
 
 
+# ADDITIVE (credit line): which lending product a check / offer is for. Default = the original term loan,
+# so every step written before this field existed validates and audits exactly as before.
+OfferProduct = Literal["term_loan", "credit_line"]
+
+
 class CheckEligibilityParams(BaseModel):
     merchant_id: str
+    product: OfferProduct = "term_loan"  # ADDITIVE
 
 
 class CreateOfferParams(BaseModel):
     merchant_id: str
     amount: PositiveInt
+    product: OfferProduct = "term_loan"  # ADDITIVE: the guardrail caps the amount by THIS product's lender answer
 
 
 PARAMS_BY_ACTION: dict[ActionType, type[BaseModel]] = {
@@ -221,6 +228,10 @@ class LoanFollowUp(BaseModel):  # ADDITIVE: what the loan team needs; values fro
     kfs_shown_at: str | None
     consent_at: str | None
     consent_audit_id: int | None  # the ALLOW CONFIRMED_BY_MERCHANT audit row
+    # ADDITIVE (credit line)
+    product: OfferProduct = "term_loan"
+    interest_free_days: int | None = None
+    late_fee_inr: int | None = None
 
 
 class HandoffBrief(BaseModel):  # agent-desk renders THIS; never a transcript
@@ -251,6 +262,7 @@ class LenderDecision(BaseModel):  # output of the SIMULATED lender
     eligible: bool
     max_amount: int
     reason_codes: list[str]
+    product: OfferProduct = "term_loan"  # ADDITIVE
 
 
 class MerchantContext(BaseModel):  # what Context Agent puts in state — tokens, not raw PII
@@ -267,6 +279,7 @@ class MerchantContext(BaseModel):  # what Context Agent puts in state — tokens
     has_open_handoff: bool
     declined_offer_recently: bool  # within offer_cooling_off_days
     eligibility: LenderDecision | None = None  # filled by check_eligibility step
+    credit_line: LenderDecision | None = None  # ADDITIVE: filled by check_eligibility(product=credit_line)
 
 
 class TurnRecord(BaseModel):  # history entry (mirrors `turns` table)
@@ -345,6 +358,12 @@ class KFS(BaseModel):  # Key Fact Statement — MOCK values from config/lender_s
     tenure_months: int
     total_repayable_inr: int
     grievance_contact: str
+    # ADDITIVE (credit line). For a credit line: tenure_months = one billing cycle, total_repayable_inr = the
+    # amount if repaid within the interest-free period; APR and late fee apply after the due date.
+    product: OfferProduct = "term_loan"
+    billing_cycle_days: int | None = None
+    interest_free_days: int | None = None
+    late_fee_inr: int | None = None
 
 
 class Offer(BaseModel):

@@ -532,3 +532,89 @@ def test_policy_without_proactive_key_fails_safe(run, db, policy):
 def test_trigger_source_column_only_accepts_known_values(db):
     with pytest.raises(sqlite3.IntegrityError):
         _session(db, "SX", "M001", "robot")
+
+
+# ------------------------------------------------------------------ check 7 per product: short-term credit line
+
+def _credit_state(make_state, merchant="M016", session="S1", term=(False, 0), credit=(True, 7000),
+                  credit_product="credit_line"):
+    """state.merchant.eligibility = the term-loan answer; state.merchant.credit_line = the credit-line answer."""
+    from chaukas.core.models import LenderDecision
+    st = make_state(merchant, session, term)
+    st.merchant.credit_line = (LenderDecision(eligible=credit[0], max_amount=credit[1], reason_codes=[],
+                                              product=credit_product) if credit else None)
+    return st
+
+
+def _cl(merchant="M016", amount=7000):
+    return {"merchant_id": merchant, "amount": amount, "product": "credit_line"}
+
+
+def _check(db, make_step, state, params, step_no=1, confirmation=None, policy=None):
+    return guardrail.check(make_step("create_offer", params, step_no), state, confirmation, conn=db, policy=policy)
+
+
+def test_7_credit_line_within_its_own_limit_asks_for_consent(db, make_state, make_step):
+    d = _check(db, make_step, _credit_state(make_state), _cl())
+    assert (d.verdict, d.reason_code) == (N, ReasonCode.CONSENT_REQUIRED)
+    assert '"product": "credit_line"' in audit_row(db, d.audit_id)["params_masked"]   # audited with its product
+
+
+def test_7_credit_line_above_its_limit_is_blocked(db, make_state, make_step):
+    d = _check(db, make_step, _credit_state(make_state), _cl(amount=7001))
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.OFFER_NOT_ELIGIBLE)
+
+
+def test_7_a_term_loan_answer_never_caps_a_credit_line(db, make_state, make_step):
+    d = _check(db, make_step, _credit_state(make_state, merchant="M010", term=(True, 175000), credit=None), _cl("M010"))
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.OFFER_NOT_ELIGIBLE)
+
+
+def test_7_a_credit_line_answer_never_caps_a_term_loan(db, make_state, make_step):
+    d = _check(db, make_step, _credit_state(make_state), {"merchant_id": "M016", "amount": 7000})
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.OFFER_NOT_ELIGIBLE)
+
+
+def test_7_a_mislabelled_lender_answer_fails_closed(db, make_state, make_step):
+    d = _check(db, make_step, _credit_state(make_state, credit_product="term_loan"), _cl())
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.OFFER_NOT_ELIGIBLE)
+
+
+def test_3_unknown_offer_product_is_invalid(db, make_state, make_step):
+    d = _check(db, make_step, _credit_state(make_state), {**_cl(), "product": "gold_loan"})
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.INVALID_PARAMS)
+
+
+def test_7_credit_line_kill_switch_leaves_the_term_loan_alone(db, make_state, make_step, policy):
+    off = {**policy, "disabled_offer_products": ["credit_line"]}
+    d = _check(db, make_step, _credit_state(make_state), _cl(), policy=off)
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.ACTION_DISABLED)
+    loan = guardrail.check(make_step("create_offer", {"merchant_id": "M010", "amount": 50000}),
+                           make_state("M010", "S2", (True, 175000)), None, conn=db, policy=off)
+    assert loan.reason_code is ReasonCode.CONSENT_REQUIRED
+
+
+def test_7_no_credit_line_on_top_of_a_freshly_accepted_loan(db, make_state, make_step):
+    db.execute("INSERT INTO offers (id, merchant_id, amount, consent, consent_at, lender_name, kfs_json, "
+               "kfs_shown_at, status) VALUES ('OFF-90001', 'M016', 20000, 1, strftime('%Y-%m-%dT%H:%M:%SZ','now'), "
+               "'L', '{}', strftime('%Y-%m-%dT%H:%M:%SZ','now'), 'accepted')")
+    db.commit()
+    d = _check(db, make_step, _credit_state(make_state), _cl())
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.OFFER_NOT_ELIGIBLE) and "accepted" in d.reason
+
+
+def test_credit_line_consent_allows_it_once(db, make_state, make_step):
+    state = _credit_state(make_state)
+    pending = _check(db, make_step, state, _cl())
+    c = Confirmation(pending_audit_id=pending.audit_id, actor="merchant", kind="consent")
+    d = _check(db, make_step, state, _cl(), confirmation=c)
+    assert (d.verdict, d.reason_code) == (A, ReasonCode.CONFIRMED_BY_MERCHANT)
+
+
+def test_consent_for_a_credit_line_is_not_consent_for_a_term_loan(db, make_state, make_step):
+    """Bait-and-switch on the product: same merchant, same amount, different product -> the yes does not carry."""
+    state = _credit_state(make_state, term=(True, 7000))
+    pending = _check(db, make_step, state, _cl())
+    c = Confirmation(pending_audit_id=pending.audit_id, actor="merchant", kind="consent")
+    d = _check(db, make_step, state, {"merchant_id": "M016", "amount": 7000}, confirmation=c)
+    assert d.verdict is not A and "differs" in d.reason

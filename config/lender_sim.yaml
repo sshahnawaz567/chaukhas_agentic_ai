@@ -17,3 +17,30 @@ kfs:
   tenure_months: 12
   grievance_contact: "grievance@demo-lender.example (mock)"
 offer_expiry_days: 7
+
+# SIMULATED short-term credit line ("Postpaid-style"): small revolving limit for stock purchases, repaid within
+# one billing cycle. Offered ONLY when the merchant asks for it (keywords below), never pushed after a support fix.
+#   limit = floor_to(round_to, min(cap, inflow_30d / 30 * repay_days * clamp(1 - inflow_cv, min_stability, 1)))
+#   limit < min_limit_inr -> not eligible
+credit_line:
+  lender_name: "Demo NBFC Partner (simulated)"
+  eligibility:
+    min_avg_balance: 5000
+    min_account_age_months: 6
+    max_inflow_cv: 0.60
+    min_active_days_30d: 20
+  limit:
+    repay_days: 5            # the limit is about 5 days of sales: repayable within one cycle
+    min_stability: 0.5
+    round_to: 1000
+    cap_inr: 50000
+    min_limit_inr: 5000
+  kfs:
+    billing_cycle_days: 30
+    interest_free_days: 30
+    apr_pct: 24.0            # charged only on an amount not repaid by the due date
+    processing_fee_inr: 0
+    late_fee_inr: 250
+    grievance_contact: "grievance@demo-lender.example (mock)"
+  # the merchant's own words that mean "credit line", matched on the MASKED message (deterministic, no LLM)
+  keywords: ['postpaid', 'post paid', 'credit line', 'credit limit', 'udhaar', 'udhar', 'udhari', 'उधार', 'उधारी', 'क्रेडिट लाइन', 'पोस्टपेड', 'ઉધાર', 'ક્રેડિટ લાઇન']

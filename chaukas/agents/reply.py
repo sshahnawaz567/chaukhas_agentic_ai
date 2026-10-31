@@ -105,8 +105,11 @@ def build_facts(state: ConversationState) -> dict[str, Any]:
 
     if state.pending_step and state.pending_step.action_type == ActionType.CREATE_OFFER.value:
         p = state.pending_step.params
-        kfs = build_kfs(p["merchant_id"], p["amount"])
-        facts["offer_kfs"] = {"amount": p["amount"], **kfs.model_dump()}
+        kfs = build_kfs(p["merchant_id"], p["amount"], p.get("product", "term_loan"))
+        dumped = kfs.model_dump(exclude_none=True)
+        if dumped.get("product") == "term_loan":  # a term-loan offer reads exactly as before
+            dumped.pop("product")
+        facts["offer_kfs"] = {"amount": p["amount"], **dumped}
     if state.handoff is not None:
         facts["handoff"] = True
     facts["outcome"] = _outcome(state, facts, done) or None
@@ -140,6 +143,8 @@ def _outcome(state: ConversationState, facts: dict, done: list[dict]) -> list[st
         out.append("The failed payout was re-sent.")
     if "loan_not_eligible" in state.outcome_tags:
         out.append("The merchant is not eligible for a loan right now.")
+    if "credit_line_not_eligible" in state.outcome_tags:
+        out.append("The merchant is not eligible for a credit line right now. No credit line was offered.")
     if "offer_declined" in state.outcome_tags:
         out.append("The merchant declined the loan offer; nothing was sent.")
     if "nothing_pending" in state.outcome_tags:
@@ -259,20 +264,30 @@ def fallback_reply(state: ConversationState, facts: dict) -> str:
         parts.append(t["over_limit"])
     if facts.get("action_failed"):
         parts.append(t["action_failed"])
+    offer_step = next((p for p in state.plan if p.action_type == "create_offer"), None)
+    credit_line = bool(offer_step and offer_step.params.get("product") == "credit_line")
     if "offer_accepted" in done:
-        amount = next((p.amount for p in state.plan if p.action_type == "create_offer"), None)
-        parts.append(t["offer_accepted"].format(offer_id=done["offer_accepted"]["ref"], amount=f"{amount:,}" if amount else ""))
+        amount = offer_step.amount if offer_step else None
+        key = "credit_line_accepted" if credit_line else "offer_accepted"
+        parts.append(t[key].format(offer_id=done["offer_accepted"]["ref"], amount=f"{amount:,}" if amount else ""))
     if "offer_kfs" in facts:
         k = facts["offer_kfs"]
-        parts.append(t["offer"].format(amount=f"{k['amount']:,}", lender_name=k["lender_name"], apr_pct=k["apr_pct"],
-                                       fee=f"{k['processing_fee_inr']:,}", tenure=k["tenure_months"],
-                                       total=f"{k['total_repayable_inr']:,}", grievance=k["grievance_contact"]))
+        if k.get("product") == "credit_line":
+            parts.append(t["credit_line_offer"].format(
+                amount=f"{k['amount']:,}", lender_name=k["lender_name"], free_days=k["interest_free_days"],
+                apr_pct=k["apr_pct"], late_fee=f"{k['late_fee_inr']:,}", grievance=k["grievance_contact"]))
+        else:
+            parts.append(t["offer"].format(amount=f"{k['amount']:,}", lender_name=k["lender_name"], apr_pct=k["apr_pct"],
+                                           fee=f"{k['processing_fee_inr']:,}", tenure=k["tenure_months"],
+                                           total=f"{k['total_repayable_inr']:,}", grievance=k["grievance_contact"]))
     if ReasonCode.OFFER_NOT_ELIGIBLE in refused_codes:
-        parts.append(t["offer_not_eligible"])
+        parts.append(t["credit_line_not_eligible" if credit_line else "offer_not_eligible"])
     elif refused_codes & {ReasonCode.OFFER_COOLING_OFF, ReasonCode.ISSUE_UNRESOLVED}:
         parts.append(t["offer_later"])
     if "loan_not_eligible" in tags:
         parts.append(t["offer_not_eligible"])
+    if "credit_line_not_eligible" in tags:
+        parts.append(t["credit_line_not_eligible"])
     if state.handoff and not parts:
         parts.append(t["handoff"])
     return " ".join(parts) or t["handoff"]

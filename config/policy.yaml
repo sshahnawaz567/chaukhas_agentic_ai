@@ -4,7 +4,9 @@
 
 auto_limit_inr: 25000          # single payout above this -> NEEDS_CONFIRMATION (OVER_AUTO_LIMIT)
 daily_auto_limit_inr: 25000    # per merchant per day, executed + pending payouts (stops split attacks)
-offer_cooling_off_days: 7      # no new offer within N days of a declined one (placeholder)
+offer_cooling_off_days: 7      # no new offer within N days of a declined one (placeholder; covers both products)
+credit_line_after_loan_days: 30    # no credit line offer within N days of an accepted offer (total exposure)
+disabled_offer_products: []        # kill switch per product: [credit_line] stops credit line offers only
 intent_confidence_threshold: 0.7   # below this the orchestrator hands off (M1 reads it)
 retention_days: 90             # turns retention window (P2, compliance/retention.py)
 
