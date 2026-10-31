@@ -7,6 +7,7 @@ daily_auto_limit_inr: 25000    # per merchant per day, executed + pending payout
 offer_cooling_off_days: 7      # no new offer within N days of a declined one (placeholder; covers both products)
 credit_line_after_loan_days: 30    # no credit line offer within N days of an accepted offer (total exposure)
 disabled_offer_products: []        # kill switch per product: [credit_line] stops credit line offers only
+device_nudge_every_days: 30        # at most one proactive device-upgrade nudge per merchant in N days
 intent_confidence_threshold: 0.7   # below this the orchestrator hands off (M1 reads it)
 retention_days: 90             # turns retention window (P2, compliance/retention.py)
 
@@ -18,6 +19,7 @@ allow_list:
   - raise_ticket
   - update_ticket
   - create_offer          # sales, always needs consent
+  - request_device_upgrade   # sales: field-team request for a better device, always needs consent
   - check_insurance       # read-only: which shop insurance fits (additive)
   - offer_insurance       # sales, always needs consent; records interest, never charges (additive)
 
@@ -32,6 +34,7 @@ disabled_actions: []
 # "any_irreversible" = any step with reversible == False.
 consent_required:
   - create_offer
+  - request_device_upgrade
   - offer_insurance
   - any_irreversible
 
@@ -40,6 +43,7 @@ consent_required:
 proactive_consent_required:
   - retrigger_payout
   - create_offer
+  - request_device_upgrade
 
 # Read-only actions: pass checks 1-3, are traced, but are NOT written to audit_log.
 read_only_actions:

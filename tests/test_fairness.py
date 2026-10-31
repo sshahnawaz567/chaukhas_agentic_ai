@@ -160,3 +160,26 @@ def test_changing_who_the_merchant_is_never_changes_the_credit_line(fdb, field, 
         for value in values:
             set_identity(fdb, mid, **{field: value})
             assert decide_credit(mid) == baseline, f"{mid}: {field}={value!r}"
+
+
+# ------------------------------------------------------------------ the device advisor (DEVICE_UPGRADE_PLAN.md)
+# Its inputs are the cashflow features, gmv_30d and the CURRENT device (the thing being upgraded). Never who the
+# merchant is: name, language, location. KYC is a guardrail gating rule, not an advisor input.
+
+def test_the_device_advisor_reads_only_allowed_inputs():
+    from chaukas.integrations import devices
+    src = inspect.getsource(devices.advise)
+    assert "FROM cashflow_features" in src and "SELECT gmv_30d, device FROM merchants" in src
+    for forbidden in ("name", "preferred_lang", "phone", "vpa", "pan", "gender", "religion", "caste",
+                      "location", "city", "pincode", "kyc_status"):
+        assert not re.search(rf"\b{forbidden}\b", src), f"advise mentions {forbidden!r}"
+
+
+@pytest.mark.parametrize("field,values", [("name", NAMES), ("preferred_lang", LANGS)])
+def test_changing_who_the_merchant_is_never_changes_the_device_advice(fdb, field, values):
+    from chaukas.integrations import devices
+    for mid in IDS:
+        baseline = devices.advise(mid)
+        for value in values:
+            set_identity(fdb, mid, **{field: value})
+            assert devices.advise(mid) == baseline, f"{mid}: {field}={value!r}"

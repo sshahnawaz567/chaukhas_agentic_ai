@@ -178,6 +178,27 @@ CREATE TABLE offers (
 );
 CREATE INDEX idx_offers_merchant ON offers(merchant_id, status);
 
+-- Device upgrade requests = the second "sales" outcome (ADDITIVE, DEVICE_UPGRADE_PLAN.md).
+-- No price is shown in the prototype: the field team quotes it. A yes is only valid after the offer was shown.
+CREATE TABLE device_offers (
+    id             TEXT PRIMARY KEY,                    -- "DEV-10001"
+    merchant_id    TEXT NOT NULL REFERENCES merchants(merchant_id),
+    session_id     TEXT,
+    trace_id       TEXT,
+    from_device    TEXT NOT NULL CHECK (from_device IN ('qr','soundbox','pos')),
+    to_device      TEXT NOT NULL CHECK (to_device IN ('ai_soundbox','pos')),
+    reason_codes   TEXT,                                -- JSON list from the device advisor
+    offer_shown_at TEXT,                                -- when the merchant saw the offer
+    consent_at     TEXT,
+    declined_at    TEXT,                                -- drives OFFER_COOLING_OFF (shared with loan offers)
+    ticket_id      TEXT REFERENCES tickets(id),         -- the field-team request
+    status         TEXT NOT NULL CHECK (status IN ('accepted','declined','cancelled')),
+    created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    CHECK (status <> 'accepted' OR (consent_at IS NOT NULL AND offer_shown_at IS NOT NULL)),
+    CHECK (status <> 'declined' OR declined_at IS NOT NULL)
+);
+CREATE INDEX idx_device_offers_merchant ON device_offers(merchant_id, status);
+
 -- Human-in-the-loop queue. Agent-desk (Mode 2) reads THIS table.
 -- A structured decision brief — never a transcript.
 -- Insurance interest = the "sales" outcome for shop insurance, next to loan offers.
@@ -232,7 +253,7 @@ CREATE INDEX idx_handoffs_status ON handoffs(status, created_at);
 CREATE TABLE consents (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     merchant_id    TEXT NOT NULL REFERENCES merchants(merchant_id),
-    purpose        TEXT NOT NULL CHECK (purpose IN ('ai_assistance','loan_offer','insurance_offer')),
+    purpose        TEXT NOT NULL CHECK (purpose IN ('ai_assistance','loan_offer','insurance_offer','device_offer')),
     action         TEXT NOT NULL CHECK (action IN ('granted','withdrawn')),
     notice_version TEXT NOT NULL,                      -- which notice text the merchant saw (compliance/disclosure.py)
     channel        TEXT,                               -- chat / voice / agent_desk

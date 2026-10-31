@@ -18,9 +18,9 @@ def _golden():
 
 def test_every_proactive_golden_case_starts_with_a_scan_and_has_no_merchant_message_first():
     cases = [c for c in _golden() if c.get("trigger") == "proactive"]
-    assert {c["case_id"] for c in cases} == {f"P0{i}" for i in range(1, 9)}
-    for c in cases:
-        assert c["turns"][0] == {"scan": True}, c["case_id"]
+    assert {c["case_id"] for c in cases} == {f"P{i:02d}" for i in range(1, 13)}
+    for c in cases:   # P01-P08: settlement failures; P09-P12: device-upgrade nudges (DEVICE_UPGRADE_PLAN.md)
+        assert c["turns"][0] in ({"scan": True}, {"scan": "device_upgrade"}), c["case_id"]
 
 
 def test_no_proactive_case_expects_money_to_move_before_a_yes():

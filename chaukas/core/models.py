@@ -25,6 +25,7 @@ class Intent(str, Enum):
     HUMAN_REQUEST = "human_request"         # "insaan se baat karao" / grievance -> ALWAYS handoff
     INSURANCE_INQUIRY = "insurance_inquiry"  # sales: "insurance milega kya?" (ADDITIVE)
     UNKNOWN = "unknown"                     # low confidence / anything else -> handoff
+    DEVICE_UPGRADE = "device_upgrade"       # ADDITIVE, sales: "naya soundbox / POS chahiye" -> device advisor
 
 
 class Track(str, Enum):
@@ -56,6 +57,7 @@ class ActionType(str, Enum):  # == policy.yaml allow_list (+ never_allowed for r
     RAISE_TICKET = "raise_ticket"
     UPDATE_TICKET = "update_ticket"
     CREATE_OFFER = "create_offer"            # sales, always needs consent
+    REQUEST_DEVICE_UPGRADE = "request_device_upgrade"  # ADDITIVE, sales: field-team request, always needs consent
     CHECK_INSURANCE = "check_insurance"      # read-only: which shop insurance fits this merchant (ADDITIVE)
     OFFER_INSURANCE = "offer_insurance"      # sales, always needs consent; records interest, never charges (ADDITIVE)
 
@@ -97,6 +99,7 @@ class HandoffReason(str, Enum):  # handoffs.reason_code = a ReasonCode OR one of
     HUMAN_REQUESTED = "HUMAN_REQUESTED"  # merchant asked for a human
     LOAN_ACCEPTED = "LOAN_ACCEPTED"  # ADDITIVE: merchant accepted an offer -> back-office follow-up, not an approval
     SUSPECTED_INJECTION = "SUSPECTED_INJECTION"  # ADDITIVE: message carries instructions aimed at the AI -> fraud review
+    DEVICE_UPGRADE_REQUESTED = "DEVICE_UPGRADE_REQUESTED"  # ADDITIVE: merchant said yes to a device upgrade -> field-team follow-up, not an approval
     INSURANCE_INTEREST = "INSURANCE_INTEREST"  # ADDITIVE: merchant said yes to an insurance offer -> insurer follow-up
 
 
@@ -153,6 +156,14 @@ class CreateOfferParams(BaseModel):
     product: OfferProduct = "term_loan"  # ADDITIVE: the guardrail caps the amount by THIS product's lender answer
 
 
+DeviceType = Literal["qr", "soundbox", "pos"]      # ADDITIVE: merchants.device
+UpgradeDevice = Literal["ai_soundbox", "pos"]     # ADDITIVE: what the device advisor can recommend
+
+
+class RequestDeviceUpgradeParams(BaseModel):  # ADDITIVE
+    merchant_id: str
+    from_device: DeviceType   # must equal the merchant's current device (guardrail reads it fresh)
+    to_device: UpgradeDevice  # must equal what the device advisor recommends
 class CheckInsuranceParams(BaseModel):  # ADDITIVE
     merchant_id: str
 
@@ -169,6 +180,7 @@ PARAMS_BY_ACTION: dict[ActionType, type[BaseModel]] = {
     ActionType.RAISE_TICKET: RaiseTicketParams,
     ActionType.UPDATE_TICKET: UpdateTicketParams,
     ActionType.CREATE_OFFER: CreateOfferParams,
+    ActionType.REQUEST_DEVICE_UPGRADE: RequestDeviceUpgradeParams,
     ActionType.CHECK_INSURANCE: CheckInsuranceParams,
     ActionType.OFFER_INSURANCE: OfferInsuranceParams,
 }
@@ -280,6 +292,16 @@ class LenderDecision(BaseModel):  # output of the SIMULATED lender
     product: OfferProduct = "term_loan"  # ADDITIVE
 
 
+class DeviceAdvice(BaseModel):  # ADDITIVE: output of the SIMULATED device advisor (config/device_advisor.yaml)
+    recommended: bool
+    from_device: str
+    to_device: str | None = None
+    reason_codes: list[str]
+    avg_bill_inr: int            # gmv_30d // txn_count_30d (whole rupees)
+    txn_per_active_day: float
+    txn_count_30d: int
+
+
 class MerchantContext(BaseModel):  # what Context Agent puts in state — tokens, not raw PII
     merchant_id: str
     name_masked: str  # "Sh****"
@@ -296,6 +318,7 @@ class MerchantContext(BaseModel):  # what Context Agent puts in state — tokens
     eligibility: LenderDecision | None = None  # filled by check_eligibility step
     insurance: dict | None = None  # ADDITIVE: filled by check_insurance (the recommendation, or None = nothing fits)
     credit_line: LenderDecision | None = None  # ADDITIVE: filled by check_eligibility(product=credit_line)
+    device_advice: DeviceAdvice | None = None  # ADDITIVE: filled by the Context agent (deterministic, DB only)
 
 
 class TurnRecord(BaseModel):  # history entry (mirrors `turns` table)

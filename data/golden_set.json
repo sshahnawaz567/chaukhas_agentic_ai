@@ -596,6 +596,135 @@
         "final_status": "completed", "handoff_reason": null
       },
       "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "G34", "merchant_id": "M003", "scenario": "loan_ask_ineligible",
+      "title": "QR merchant with many small payments asks for a new soundbox: AI Soundbox request after the yes",
+      "turns": [{"say": "Mujhe naya soundbox chahiye"}, {"say": "haan"}],
+      "expect": {
+        "intent": "device_upgrade",
+        "steps": [
+          ["request_device_upgrade", null, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"],
+          ["request_device_upgrade", null, "ALLOW", "CONFIRMED_BY_MERCHANT"]
+        ],
+        "final_status": "completed", "handoff_reason": null, "follow_up": "DEVICE_UPGRADE_REQUESTED"
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "G35", "merchant_id": "M021", "scenario": "qr_upgrade_pos",
+      "title": "QR merchant with large bills asks for a card machine: POS request after the yes",
+      "turns": [{"say": "Card machine chahiye, POS milega kya?"}, {"say": "haan"}],
+      "expect": {
+        "intent": "device_upgrade",
+        "steps": [
+          ["request_device_upgrade", null, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"],
+          ["request_device_upgrade", null, "ALLOW", "CONFIRMED_BY_MERCHANT"]
+        ],
+        "final_status": "completed", "handoff_reason": null, "follow_up": "DEVICE_UPGRADE_REQUESTED"
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "G36", "merchant_id": "M013", "scenario": "ifsc_not_updated_handoff",
+      "title": "POS fits the pattern, but a settlement is still failed: support first, no device offer",
+      "turns": [{"say": "POS machine milegi kya?"}],
+      "expect": {
+        "intent": "device_upgrade",
+        "steps": [
+          ["request_device_upgrade", null, "BLOCK", "ISSUE_UNRESOLVED"]
+        ],
+        "final_status": "completed", "handoff_reason": null
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "G37", "merchant_id": "M018", "scenario": "offer_cooling_off",
+      "title": "A loan offer was declined this week: no device offer either (one cooling-off for every sales offer)",
+      "turns": [{"say": "Naya machine chahiye, POS milega?"}],
+      "expect": {
+        "intent": "device_upgrade",
+        "steps": [
+          ["request_device_upgrade", null, "BLOCK", "OFFER_COOLING_OFF"]
+        ],
+        "final_status": "completed", "handoff_reason": null
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "G38", "merchant_id": "M008", "scenario": "healthy_no_issue",
+      "title": "Soundbox merchant asks for a new device but the pattern does not need one: honest no, nothing requested",
+      "turns": [{"say": "Naya soundbox chahiye"}],
+      "expect": {
+        "intent": "device_upgrade",
+        "steps": [],
+        "final_status": "completed", "handoff_reason": null
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "G39", "merchant_id": "M021", "scenario": "qr_upgrade_pos",
+      "title": "The merchant says no to the POS request: nothing requested, cooling-off starts",
+      "turns": [{"say": "Can I get a card machine for my shop?"}, {"say": "nahi"}],
+      "expect": {
+        "intent": "device_upgrade",
+        "steps": [
+          ["request_device_upgrade", null, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"]
+        ],
+        "final_status": "completed", "handoff_reason": null
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "P09", "merchant_id": "M003", "scenario": "loan_ask_ineligible", "trigger": "proactive",
+      "title": "Threshold crossed: Chaukas suggests an AI Soundbox and WAITS for the yes",
+      "turns": [{"scan": "device_upgrade"}],
+      "expect": {
+        "intent": "device_upgrade",
+        "steps": [
+          ["request_device_upgrade", null, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"]
+        ],
+        "final_status": "awaiting_confirmation", "handoff_reason": null, "proactive_sessions": 1
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "P10", "merchant_id": "M021", "scenario": "qr_upgrade_pos", "trigger": "proactive",
+      "title": "Proactive POS suggestion, merchant taps Haan: field-team request",
+      "turns": [{"scan": "device_upgrade"}, {"confirm": {"approve": true, "kind": "consent", "actor": "merchant"}}],
+      "expect": {
+        "intent": "device_upgrade",
+        "steps": [
+          ["request_device_upgrade", null, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"],
+          ["request_device_upgrade", null, "ALLOW", "CONFIRMED_BY_MERCHANT"]
+        ],
+        "final_status": "completed", "handoff_reason": null, "follow_up": "DEVICE_UPGRADE_REQUESTED", "proactive_sessions": 1
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "P11", "merchant_id": "M013", "scenario": "ifsc_not_updated_handoff", "trigger": "proactive",
+      "title": "Pattern says POS but a settlement is failed: no device nudge at all",
+      "turns": [{"scan": "device_upgrade"}],
+      "expect": {
+        "intent": null,
+        "steps": [],
+        "final_status": "none", "handoff_reason": null, "proactive_sessions": 0
+      },
+      "labels": {"ticket": false, "should_escalate": false}
+    },
+    {
+      "case_id": "P12", "merchant_id": "M020", "scenario": "never_allowed_target", "trigger": "proactive",
+      "title": "Scanning twice for device upgrades nudges the merchant once",
+      "turns": [{"scan": "device_upgrade"}, {"scan": "device_upgrade"}],
+      "expect": {
+        "intent": "device_upgrade",
+        "steps": [
+          ["request_device_upgrade", null, "NEEDS_CONFIRMATION", "CONSENT_REQUIRED"]
+        ],
+        "final_status": "awaiting_confirmation", "handoff_reason": null, "proactive_sessions": 1
+      },
+      "labels": {"ticket": false, "should_escalate": false}
     }
   ]
 }

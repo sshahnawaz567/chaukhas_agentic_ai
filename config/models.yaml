@@ -19,7 +19,6 @@ providers:
 
 # Order tried per call. The fallback only ever receives masked/tokenised text (COMPLIANCE P1).
 route: [sarvam, gemini]
-
 call:
   timeout_s: 12
   temperature: 0.1

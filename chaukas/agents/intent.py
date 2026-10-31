@@ -9,6 +9,7 @@ import re
 
 from chaukas.agents.schemas import IntentOutput, IntentResult
 from chaukas.core.models import ConversationState, Intent, Track, Urgency
+from chaukas.integrations import devices
 from chaukas.integrations._common import load_config
 from chaukas.llm.client import LLMResult, LLMUnavailable
 from chaukas.llm.prompt import LLMOutputError, esc, run_validated, to_xml
@@ -58,6 +59,9 @@ def keyword_classify(text: str, pending: bool) -> IntentResult:
             return IntentResult(intent=Intent.CONFIRM, lang=lang, urgency=Urgency.LOW, track=Track.SUPPORT, confidence=0.8)
 
     urgency = Urgency.HIGH if _URGENT.search(text) else Urgency.MED
+    if devices.wants_device_upgrade(text) and not _HUMAN.search(text):  # "naya soundbox chahiye" before device_issue
+        return IntentResult(intent=Intent.DEVICE_UPGRADE, lang=lang, urgency=Urgency.LOW, track=Track.SALES,
+                            confidence=0.75)
     for rx, intent, track in (
         (_HUMAN, Intent.HUMAN_REQUEST, Track.SUPPORT),
         (_REFUND, Intent.REFUND_REQUEST, Track.SUPPORT),

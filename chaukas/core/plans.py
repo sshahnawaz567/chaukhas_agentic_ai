@@ -180,6 +180,22 @@ def followup_insurance_step(state: ConversationState, step_no: int) -> PlannedSt
                        rationale="a product fits this merchant: offer it (needs consent, records interest only)")
 
 
+def plan_device_upgrade(state: ConversationState, start_step_no: int) -> PlanResult:
+    """Device upgrade (DEVICE_UPGRADE_PLAN.md): one consent-gated field-team request for the device the ADVISOR
+    recommends (never the device the merchant named). Nothing recommended -> no step, an honest answer."""
+    ctx = state.merchant
+    assert ctx is not None
+    advice = ctx.device_advice
+    if advice is None or not advice.recommended:
+        return PlanResult(note="device advisor: no upgrade needed")
+    num = _Numberer(start_step_no)
+    return PlanResult(steps=[num.step(
+        ActionType.REQUEST_DEVICE_UPGRADE,
+        {"merchant_id": ctx.merchant_id, "from_device": advice.from_device, "to_device": advice.to_device},
+        f"device advisor: {', '.join(advice.reason_codes)} (avg bill {advice.avg_bill_inr}, "
+        f"{advice.txn_per_active_day} payments/day) -> {advice.to_device} (needs consent)")])
+
+
 def followup_offer_step(state: ConversationState, step_no: int, product: str = "term_loan") -> PlannedStep | None:
     """Called after check_eligibility succeeded: build the create_offer step from the LENDER's max_amount
     (never from the merchant's words) for the product that was checked. Returns None when not eligible."""
@@ -205,6 +221,8 @@ def plan_for(state: ConversationState, start_step_no: int, proactive_settlement:
         return plan_loan_inquiry(state, start_step_no, product)
     if intent == Intent.DEVICE_ISSUE:
         return plan_device_issue(state, start_step_no)
+    if intent == Intent.DEVICE_UPGRADE:
+        return plan_device_upgrade(state, start_step_no)
     if intent == Intent.INSURANCE_INQUIRY:
         return plan_insurance_inquiry(state, start_step_no)
     if intent == Intent.REFUND_REQUEST:

@@ -221,8 +221,8 @@ def test_erasure_keeps_every_record_the_law_requires(db):
 def test_erasure_withdraws_both_consents_so_no_offer_is_made_again(db, make_state, make_step):
     consent.grant(db, "M001", "ai_assistance")
     receipt = retention.erase_merchant(db, "M001", now=NOW)
-    assert set(receipt["consents_withdrawn_now"]) == {"ai_assistance", "loan_offer", "insurance_offer"}
-    for purpose in ("ai_assistance", "loan_offer", "insurance_offer"):
+    assert set(receipt["consents_withdrawn_now"]) == {"ai_assistance", "loan_offer", "insurance_offer", "device_offer"}
+    for purpose in ("ai_assistance", "loan_offer", "insurance_offer", "device_offer"):
         assert consent.is_withdrawn(db, "M001", purpose), purpose
     d = guardrail.check(make_step("create_offer", {"merchant_id": "M001", "amount": 50000}, amount=50000),
                         make_state("M001", eligible=(True, 50000)), None, conn=db, policy=engine.load_policy())

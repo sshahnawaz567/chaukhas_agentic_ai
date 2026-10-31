@@ -618,3 +618,102 @@ def test_consent_for_a_credit_line_is_not_consent_for_a_term_loan(db, make_state
     c = Confirmation(pending_audit_id=pending.audit_id, actor="merchant", kind="consent")
     d = _check(db, make_step, state, {"merchant_id": "M016", "amount": 7000}, confirmation=c)
     assert d.verdict is not A and "differs" in d.reason
+
+
+# ------------------------------------------------------------------ check 7b: request_device_upgrade (DEVICE_UPGRADE_PLAN.md §4)
+
+def _device_state(make_state, merchant="M003", session="S1", to="ai_soundbox", recommended=True, frm="qr"):
+    from chaukas.core.models import DeviceAdvice
+    st = make_state(merchant, session, (False, 0))
+    st.merchant.device_advice = DeviceAdvice(recommended=recommended, from_device=frm, to_device=to,
+                                             reason_codes=["MANY_SMALL_PAYMENTS"], avg_bill_inr=150,
+                                             txn_per_active_day=10.4, txn_count_30d=280)
+    return st
+
+
+def _dev(merchant="M003", frm="qr", to="ai_soundbox"):
+    return {"merchant_id": merchant, "from_device": frm, "to_device": to}
+
+
+def _dcheck(db, make_step, state, params, confirmation=None, policy=None, step_no=1):
+    return guardrail.check(make_step("request_device_upgrade", params, step_no), state, confirmation,
+                           conn=db, policy=policy)
+
+
+def test_7b_device_request_always_asks_for_consent(db, make_state, make_step):
+    d = _dcheck(db, make_step, _device_state(make_state), _dev())
+    assert (d.verdict, d.reason_code) == (N, ReasonCode.CONSENT_REQUIRED)
+
+
+def test_7b_consent_then_allow_once(db, make_state, make_step):
+    state = _device_state(make_state)
+    pending = _dcheck(db, make_step, state, _dev())
+    c = Confirmation(pending_audit_id=pending.audit_id, actor="merchant", kind="consent")
+    assert _dcheck(db, make_step, state, _dev(), confirmation=c).reason_code is ReasonCode.CONFIRMED_BY_MERCHANT
+
+
+def test_7b_from_device_must_be_the_merchants_device(db, make_state, make_step):
+    d = _dcheck(db, make_step, _device_state(make_state, frm="soundbox"), _dev(frm="soundbox"))
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.INVALID_PARAMS)
+
+
+@pytest.mark.parametrize("to,recommended", [("pos", True), ("ai_soundbox", False)])
+def test_7b_only_what_the_advisor_recommends(db, make_state, make_step, to, recommended):
+    """The plan asks for a device the advisor did not recommend (or it recommends nothing) -> BLOCK."""
+    d = _dcheck(db, make_step, _device_state(make_state, to="ai_soundbox", recommended=recommended), _dev(to=to))
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.OFFER_NOT_ELIGIBLE)
+
+
+def test_7b_no_advisor_answer_fails_closed(db, make_state, make_step):
+    d = guardrail.check(make_step("request_device_upgrade", _dev()), make_state("M003", "S1", (False, 0)), None, conn=db)
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.OFFER_NOT_ELIGIBLE)
+
+
+def test_7b_support_first_open_ticket_blocks(db, make_state, make_step):
+    d = _dcheck(db, make_step, _device_state(make_state, merchant="M017", to="ai_soundbox"), _dev("M017"))
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.ISSUE_UNRESOLVED)
+
+
+def test_7b_unknown_device_is_invalid(db, make_state, make_step):
+    d = _dcheck(db, make_step, _device_state(make_state), _dev(to="iphone"))
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.INVALID_PARAMS)
+
+
+def test_7b_another_merchants_request_is_invalid(db, make_state, make_step):
+    d = _dcheck(db, make_step, _device_state(make_state), _dev(merchant="M016"))
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.INVALID_PARAMS)
+
+
+def test_one_cooling_off_for_every_sales_offer(db, make_state, make_step):
+    """A declined device offer blocks a loan offer, and a declined loan offer blocks a device offer."""
+    db.execute("INSERT INTO device_offers (id, merchant_id, from_device, to_device, declined_at, status) VALUES "
+               "('DEV-90001', 'M010', 'pos', 'pos', strftime('%Y-%m-%dT%H:%M:%SZ','now'), 'declined')")
+    db.commit()
+    loan = guardrail.check(make_step("create_offer", {"merchant_id": "M010", "amount": 50000}),
+                           make_state("M010", "S1", (True, 175000)), None, conn=db)
+    assert (loan.verdict, loan.reason_code) == (B, ReasonCode.OFFER_COOLING_OFF)
+    d = _dcheck(db, make_step, _device_state(make_state, merchant="M018", frm="soundbox", to="pos"),
+                _dev("M018", "soundbox", "pos"))                      # M018 declined a loan offer (fixtures)
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.OFFER_COOLING_OFF)
+
+
+def test_7b_withdrawn_device_consent_is_final(db, make_state, make_step):
+    from chaukas.compliance import consent
+    consent.withdraw(db, "M003", "device_offer")
+    d = _dcheck(db, make_step, _device_state(make_state), _dev())
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.CONSENT_WITHDRAWN)
+
+
+def test_7b_kill_switch(db, make_state, make_step, policy):
+    off = {**policy, "disabled_actions": ["request_device_upgrade"]}
+    d = _dcheck(db, make_step, _device_state(make_state), _dev(), policy=off)
+    assert (d.verdict, d.reason_code) == (B, ReasonCode.ACTION_DISABLED)
+
+
+def test_7b_consent_for_one_device_is_not_consent_for_another(db, make_state, make_step):
+    state = _device_state(make_state)
+    pending = _dcheck(db, make_step, state, _dev())
+    c = Confirmation(pending_audit_id=pending.audit_id, actor="merchant", kind="consent")
+    state_pos = _device_state(make_state, to="pos")
+    d = _dcheck(db, make_step, state_pos, _dev(to="pos"), confirmation=c)
+    assert d.verdict is not A and "differs" in d.reason

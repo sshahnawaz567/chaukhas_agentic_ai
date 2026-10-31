@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from chaukas import db
 from chaukas.core import m2_shim
 from chaukas.core.models import MerchantContext, SettlementView
+from chaukas.integrations import devices
 from chaukas.integrations._common import load_config
 
 _ISO = "%Y-%m-%dT%H:%M:%SZ"
@@ -71,6 +72,7 @@ def load(merchant_id: str) -> MerchantContext:
         gmv_30d=m["gmv_30d"], bank_details_updated_at=m["bank_details_updated_at"],
         settlements=settlements, open_tickets=tickets, has_open_handoff=has_open_handoff,
         declined_offer_recently=declined_recently,
+        device_advice=devices.advise(merchant_id),  # deterministic, fresh every turn (DEVICE_UPGRADE_PLAN.md)
     )
 
 

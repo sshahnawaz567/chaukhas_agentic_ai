@@ -13,11 +13,12 @@ from typing import Any
 
 import yaml
 
+from chaukas.agents import notify
 from chaukas.agents.schemas import ReplyOutput
 from chaukas.core.models import ActionType, ConversationState, Intent, ReasonCode, Verdict
 from chaukas.db import ROOT
 from chaukas.integrations._common import load_config
-from chaukas.integrations import insurance
+from chaukas.integrations import devices, insurance
 from chaukas.integrations.lending import build_kfs
 from chaukas.llm.client import LLMResult, LLMUnavailable
 from chaukas.llm.prompt import LLMOutputError, esc, run_validated, to_xml
@@ -115,8 +116,14 @@ def build_facts(state: ConversationState) -> dict[str, Any]:
         step = next((p for p in state.plan if p.step_no == r.step_no), None)
         label = {"retrigger_payout": "payout_resent", "raise_ticket": "ticket_created",
                  "update_ticket": "ticket_updated", "create_offer": "offer_accepted",
+                 "request_device_upgrade": "device_requested",
                  "offer_insurance": "insurance_interest_recorded"}.get(r.action_type, r.action_type)
-        done.append({"what": label, "ref": r.ref_id, "amount": step.amount if step else None})
+        item = {"what": label, "ref": r.ref_id, "amount": step.amount if step else None}
+        if label == "device_requested":  # the field-team ticket and the device, from the device_offers row
+            req = devices.get_request(r.ref_id) or {}
+            item.update(ticket=req.get("ticket_id"),
+                        device=devices.DEVICE_LABEL.get(req.get("to_device", ""), req.get("to_device")))
+        done.append(item)
     facts["done"] = done or None
 
     failed = [r for r in state.completed if r.status in ("failed", "rolled_back")]
@@ -144,6 +151,14 @@ def build_facts(state: ConversationState) -> dict[str, Any]:
         if dumped.get("product") == "term_loan":  # a term-loan offer reads exactly as before
             dumped.pop("product")
         facts["offer_kfs"] = {"amount": p["amount"], **dumped}
+    if state.pending_step and state.pending_step.action_type == ActionType.REQUEST_DEVICE_UPGRADE.value:
+        advice = ctx.device_advice if ctx else None
+        to = state.pending_step.params["to_device"]
+        facts["device_offer"] = {
+            "device": devices.DEVICE_LABEL.get(to, to), "payments_30d": advice.txn_count_30d if advice else None,
+            "avg_bill": advice.avg_bill_inr if advice else None,
+            "payments_per_day": advice.txn_per_active_day if advice else None,
+            "price": "not shown: the field team will tell the price"}
     if state.handoff is not None:
         facts["handoff"] = True
     facts["outcome"] = _outcome(state, facts, done) or None
@@ -183,6 +198,18 @@ def _outcome(state: ConversationState, facts: dict, done: list[dict]) -> list[st
         out.append("The merchant declined the loan offer; nothing was sent.")
     if "nothing_pending" in state.outcome_tags:
         out.append("There is no pending request to confirm.")
+    for d in done:
+        if d["what"] == "device_requested":
+            out.append(f"A request for a {d.get('device')} was sent to the field team (ticket {d.get('ticket')}). "
+                       "They will contact the merchant and tell the price. Nothing was bought or charged.")
+    if facts.get("device_offer"):
+        out.append("No device request was sent yet: it waits for the merchant's yes. Ask clearly for yes/no.")
+    if "device_declined" in state.outcome_tags:
+        out.append("The merchant said no to the device upgrade; no request was sent.")
+    if "device_not_needed" in state.outcome_tags:
+        out.append("Based on the merchant's own payments, the current device is the right one now. No request was sent.")
+    if "one_offer_per_session" in state.outcome_tags:
+        out.append("An offer was already accepted in this conversation; no further offer is made now.")
     if "insurance_declined" in state.outcome_tags:
         out.append("The merchant declined the insurance offer; nothing was recorded.")
     if "insurance_none" in state.outcome_tags:
@@ -196,12 +223,13 @@ def _outcome(state: ConversationState, facts: dict, done: list[dict]) -> list[st
 _PAYOUT_CLAIM = re.compile(
     r"(भेज\s*दिया|भेजा\s*गया|भेज\s*दी|भेजा\s*जाएगा|भेज\s*देंगे|दोबारा\s*भेज|फिर\s*से\s*भेज|"
     r"re-?sent|re-?sending|re-?triggered|has\s+been\s+sent|have\s+sent|will\s+be\s+(?:re-?)?sent|sent\s+again)", re.I)
-_IDS = re.compile(r"\b(?:TKT|PAY|OFF|SET|HO|INS)-\d+(?:-\d+)?\b")
+_IDS = re.compile(r"\b(?:TKT|PAY|OFF|SET|HO|DEV|INS)-\d+(?:-\d+)?\b")
 
 
 def _grounded(reply: str, state: ConversationState, facts: dict) -> bool:
     """Deterministic check on the LLM's reply: no invented ids, no claim of a payout that did not happen."""
     known = {d["ref"] for d in (facts.get("done") or []) if d.get("ref")}
+    known |= {d["ticket"] for d in (facts.get("done") or []) if d.get("ticket")}
     known |= {s["id"] for s in facts.get("settlements") or []}
     known |= {t["id"] for t in (state.merchant.open_tickets if state.merchant else [])}
     if any(i not in known for i in _IDS.findall(reply)):
@@ -280,6 +308,12 @@ def fallback_reply(state: ConversationState, facts: dict) -> str:
         return _line(facts["lang"], "insurance_declined")
     if "offer_declined" in tags:
         return t["offer_declined"]
+    if "device_declined" in tags:
+        return t["device_declined"]
+    if "device_not_needed" in tags:
+        return t["device_not_needed"]
+    if "one_offer_per_session" in tags:
+        return t["offer_later"]
     if state.intent == Intent.HUMAN_REQUEST:
         return t["human"]
     if state.intent == Intent.REFUND_REQUEST:
@@ -335,7 +369,15 @@ def fallback_reply(state: ConversationState, facts: dict) -> str:
             parts.append(t["offer"].format(amount=f"{k['amount']:,}", lender_name=k["lender_name"], apr_pct=k["apr_pct"],
                                            fee=f"{k['processing_fee_inr']:,}", tenure=k["tenure_months"],
                                            total=f"{k['total_repayable_inr']:,}", grievance=k["grievance_contact"]))
-    if ReasonCode.OFFER_NOT_ELIGIBLE in refused_codes:
+    if "device_requested" in done:
+        d = done["device_requested"]
+        parts.append(t["device_requested"].format(device=d.get("device") or "", ticket_id=d.get("ticket") or ""))
+    if facts.get("device_offer"):  # the same deterministic text as the proactive nudge (numbers from the advisor)
+        parts.append(notify.build_device(state, notify._lang_templates(facts["lang"])))
+    device_refused = any(x.action_type == ActionType.REQUEST_DEVICE_UPGRADE.value for x in state.refused)
+    if device_refused:
+        parts.append(t["device_later"])
+    elif ReasonCode.OFFER_NOT_ELIGIBLE in refused_codes:
         parts.append(t["credit_line_not_eligible" if credit_line else "offer_not_eligible"])
     elif refused_codes & {ReasonCode.OFFER_COOLING_OFF, ReasonCode.ISSUE_UNRESOLVED}:
         parts.append(t["offer_later"])

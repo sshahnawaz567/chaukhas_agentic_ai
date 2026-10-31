@@ -176,7 +176,7 @@ def build(state: ConversationState, reason_code: str,
     return brief, llm
 
 
-def save(state: ConversationState, brief: HandoffBrief) -> str:
+def save(state: ConversationState, brief: HandoffBrief, ticket_id: str | None = None) -> str:
     """Insert the handoffs row (brief scrubbed). Reuses an open handoff of the same session+reason."""
     conn = db.connect()
     try:
@@ -190,8 +190,9 @@ def save(state: ConversationState, brief: HandoffBrief) -> str:
         while conn.execute("SELECT 1 FROM handoffs WHERE id=?", (handoff_id,)).fetchone():
             n += 1
             handoff_id = f"HO-{n:05d}"
-        ticket_id = next((r.ref_id for r in state.completed
-                          if r.status == "success" and r.action_type in ("raise_ticket", "update_ticket")), None)
+        ticket_id = ticket_id or next((r.ref_id for r in state.completed
+                                       if r.status == "success" and r.action_type in ("raise_ticket", "update_ticket")),
+                                      None)
         conn.execute(
             """INSERT INTO handoffs (id, session_id, merchant_id, ticket_id, trace_id, reason_code,
                    brief_json, confidence, decision_needed) VALUES (?,?,?,?,?,?,?,?,?)""",

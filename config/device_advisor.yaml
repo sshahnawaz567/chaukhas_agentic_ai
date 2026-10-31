@@ -1,0 +1,26 @@
+# SIMULATED device advisor (placeholders, calibration pending) — Owner: Member 1 · DEVICE_UPGRADE_PLAN.md §1
+# Deterministic, no LLM. Inputs: cashflow_features + merchants.gmv_30d + the CURRENT device only
+# (never name, language, location or KYC; KYC is a guardrail gating rule, not an advisor input).
+#   avg_bill_inr       = gmv_30d // txn_count_30d
+#   txn_per_active_day = txn_count_30d / active_days_30d
+# First matching path wins. The soundbox rule ends at 400 and the POS rule starts at 500: never both.
+# Limitation: the data has no card vs UPI split, so "large bills -> POS" is a proxy from the pattern.
+upgrade_paths:
+  qr:
+    - to: ai_soundbox        # many small UPI payments -> a spoken confirmation for every payment
+      reason: MANY_SMALL_PAYMENTS
+      when: {min_txn_per_active_day: 7, max_avg_bill_inr: 400, min_active_days_30d: 20}
+    - to: pos                # large bills -> card machine
+      reason: LARGE_BILLS
+      when: {min_avg_bill_inr: 500, min_gmv_30d: 75000, min_active_days_30d: 20}
+  soundbox:
+    - to: pos
+      reason: LARGE_BILLS
+      when: {min_avg_bill_inr: 500, min_gmv_30d: 150000, min_active_days_30d: 20}
+
+# The merchant's own words that ask for a new device (matched on the MASKED message, deterministic).
+# Checked BEFORE device_issue, so "QR scan nahi ho raha" stays a support ticket.
+upgrade_keywords: ['upgrade', 'naya soundbox', 'naya machine', 'nayi machine', 'new device', 'new machine',
+                   'soundbox chahiye', 'soundbox milega', 'pos chahiye', 'pos machine milegi', 'pos milega',
+                   'card machine', 'swipe machine', 'नया साउंडबॉक्स', 'नई मशीन', 'कार्ड मशीन', 'नवीन मशीन',
+                   'નવું સાઉન્ડબોક્સ', 'નવું મશીન']

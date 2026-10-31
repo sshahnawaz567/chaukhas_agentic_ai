@@ -115,6 +115,7 @@ def get_session(session_id: str) -> dict:
 
 class ScanBody(BaseModel):
     merchant_id: str | None = None  # the demo scans one merchant; empty = every merchant
+    kind: Literal["settlement_failed", "device_upgrade"] = "settlement_failed"  # ADDITIVE
 
 
 @router.post("/events/scan")
@@ -122,8 +123,10 @@ def events_scan(body: ScanBody | None = None) -> list[dict]:
     """Proactive trigger (on demand for the prototype): start a session for every failed settlement nobody
     was told about yet. trigger_source is set here, server side, never taken from the request."""
     try:
-        hits = event_watcher.scan(body.merchant_id if body else None)
+        hits = event_watcher.scan(body.merchant_id if body else None, body.kind if body else "settlement_failed")
     except gw.ProactiveSchemaMissing as exc:
         raise api_error(503, "PROACTIVE_NOT_READY", str(exc))
-    return [{"merchant_id": h["merchant_id"], "settlement_id": h["settlement_id"], "session_id": h["session_id"],
-             "trigger_source": "proactive", "turn": h["turn"].model_dump(mode="json")} for h in hits]
+    return [{"merchant_id": h["merchant_id"], "settlement_id": h.get("settlement_id"),
+             "to_device": h.get("to_device"), "kind": body.kind if body else "settlement_failed",
+             "session_id": h["session_id"], "trigger_source": "proactive",
+             "turn": h["turn"].model_dump(mode="json")} for h in hits]
