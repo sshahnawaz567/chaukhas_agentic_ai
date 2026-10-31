@@ -12,6 +12,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -32,6 +33,12 @@ async def _lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Chaukas", version="0.1", lifespan=_lifespan)
+
+# CORS: the web frontend (e.g. on Vercel) is a different origin from this API. CHAUKAS_CORS_ORIGINS is a comma list
+# of allowed origins; default "*" is fine for the prototype because there are no cookies or credentials.
+_origins = [o.strip() for o in os.environ.get("CHAUKAS_CORS_ORIGINS", "*").split(",") if o.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=_origins, allow_methods=["*"], allow_headers=["*"],
+                   allow_credentials=False)
 
 
 @app.exception_handler(HTTPException)

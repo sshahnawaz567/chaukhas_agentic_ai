@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chaukas — AI teammate for Paytm merchants</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2300b9f1'/%3E%3Cpath d='M9 16l5 5 9-10' stroke='%23fff' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f7fb; --panel:#ffffff; --ink:#0f1f3a; --muted:#5b6b86; --line:#dfe6f1;
+  --brand:#002e6e; --accent:#00b9f1; --accent-ink:#00587a;
+  --allow:#0e9f6e; --allow-bg:#e3f6ee; --need:#b7791f; --need-bg:#fdf3dc; --block:#d14343; --block-bg:#fbe5e5;
+  --bubble-agent:#eaf1fb; --bubble-me:#dff4ff; --alert:#fff7e6; --alert-line:#f5b942;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0b1426; --panel:#121e36; --ink:#e8eefb; --muted:#97a6c4; --line:#243455; --brand:#7cc8ff; --accent-ink:#7fdcff;
+    --allow:#3ddc97; --allow-bg:#10382b; --need:#f0b84a; --need-bg:#3a2d10; --block:#ff7b7b; --block-bg:#3d1a1a;
+    --bubble-agent:#182a4a; --bubble-me:#0f3a52; --alert:#3a2d10; --alert-line:#b8892a}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,"Noto Sans Devanagari",system-ui,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;color:var(--brand)}
+.logo small{display:block;font-weight:500;font-size:13px;color:var(--muted)}
+.logo i{width:34px;height:34px;border-radius:9px;background:var(--accent);display:grid;place-items:center;color:#fff;font-style:normal}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--bg);color:var(--muted)}
+.chip.ok{color:var(--allow);border-color:var(--allow)} .chip.bad{color:var(--block);border-color:var(--block)}
+.v{display:inline-block;padding:2px 10px;border-radius:6px;font-size:13px;font-weight:700;letter-spacing:.2px}
+.v.ALLOW{background:var(--allow-bg);color:var(--allow)} .v.NEEDS_CONFIRMATION{background:var(--need-bg);color:var(--need)} .v.BLOCK{background:var(--block-bg);color:var(--block)}
+main{display:grid;grid-template-columns:minmax(340px,5fr) 7fr;gap:16px;padding:16px 20px;max-width:1500px;margin:0 auto}
+@media(max-width:980px){main{grid-template-columns:1fr;padding:12px 16px}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:0}
+.card h2{margin:0;padding:12px 16px;font-size:16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
+select,input,button{font:inherit;color:var(--ink)}
+select,input{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);min-width:0}
+button{padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-weight:600}
+button:hover{border-color:var(--accent)} button:disabled{opacity:.5;cursor:default}
+button.primary{background:var(--brand);border-color:var(--brand);color:#fff} button.primary:hover{filter:brightness(1.15)}
+@media(prefers-color-scheme:dark){button.primary{color:#04172e}}
+button.go{background:var(--allow);border-color:var(--allow);color:#fff} button.no{background:var(--panel);color:var(--block);border-color:var(--block)}
+button.event{background:var(--alert);border-color:var(--alert-line);color:var(--ink)}
+#chat{flex:1;min-height:360px;max-height:62vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:92%;padding:10px 14px;border-radius:14px;white-space:pre-wrap;word-break:break-word}
+.msg.agent{background:var(--bubble-agent);align-self:flex-start;border-top-left-radius:4px}
+.msg.me{background:var(--bubble-me);align-self:flex-end;border-top-right-radius:4px}
+.msg .who{font-size:12px;font-weight:700;color:var(--accent-ink);margin-bottom:2px;display:flex;gap:6px;align-items:center}
+.msg .who b{background:var(--accent);color:#fff;border-radius:4px;padding:0 5px;font-size:11px}
+.msg.proactive{background:var(--alert);border:2px solid var(--alert-line);border-top-left-radius:14px;animation:pop .6s ease-out,glow 1.6s ease-out 2}
+.msg.proactive .who{color:var(--need);font-size:14px}
+@keyframes pop{from{transform:translateY(14px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+@keyframes glow{0%,100%{box-shadow:0 0 0 0 transparent}40%{box-shadow:0 0 0 8px rgba(245,185,66,.35)}}
+@media(prefers-reduced-motion:reduce){.msg.proactive{animation:none}}
+.sys{align-self:center;font-size:13px;color:var(--muted);text-align:center}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.acts input{width:120px}
+.mini{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.send{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)} .send input{flex:1}
+.hints{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 10px} .hints button{font-weight:500;font-size:14px;padding:4px 10px}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;padding:8px 12px 0;border-bottom:1px solid var(--line)}
+.tab{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:8px 12px;color:var(--muted)}
+.tab[aria-selected=true]{color:var(--brand);border-bottom-color:var(--accent)}
+.pane{padding:16px;overflow:auto;max-height:72vh;display:none} .pane.on{display:block}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);align-items:start}
+.row .ag{font-weight:700;color:var(--accent-ink);min-width:78px} .row small{color:var(--muted)} .num{white-space:nowrap;color:var(--muted);font-size:13px}
+table{border-collapse:collapse;width:100%;font-size:14px} th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top} th{color:var(--muted);font-weight:600}
+.big{font-size:22px;font-weight:700;padding:14px 16px;border-radius:12px;margin:12px 0}
+.big.ALLOW{background:var(--allow-bg);color:var(--allow)} .big.NEEDS_CONFIRMATION{background:var(--need-bg);color:var(--need)} .big.BLOCK{background:var(--block-bg);color:var(--block)}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;margin:8px 0} .kv dt{color:var(--muted)} .kv dd{margin:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.metric{border:1px solid var(--line);border-radius:12px;padding:14px} .metric .val{font-size:30px;font-weight:700}
+.metric.pass{border-left:6px solid var(--allow)} .metric.miss{border-left:6px solid var(--block)}
+.empty{color:var(--muted);padding:20px 0;text-align:center}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--brand);color:#fff;padding:10px 16px;border-radius:10px;max-width:90vw;display:none;z-index:9}
+@media(prefers-color-scheme:dark){.toast{color:#04172e}}
+footer{max-width:1500px;margin:0 auto;padding:6px 20px 24px;color:var(--muted);font-size:13px}
+.spin{display:none;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:r .8s linear infinite} .busy .spin{display:inline-block}
+@keyframes r{to{transform:rotate(360deg)}}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><i>✓</i><div>Chaukas · चौकस<small>AI teammate for Paytm merchants · Enver AI · Track 3</small></div></div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <span class="chip" id="srv">server: checking…</span><span class="spin" id="spin"></span>
+    <button id="cfg" title="Change backend URL">⚙ API</button>
+  </div>
+</header>
+
+<main>
+  <section class="card" aria-label="Merchant chat">
+    <h2>Merchant chat <span class="chip">AI assistant</span></h2>
+    <div class="bar">
+      <select id="merchant" aria-label="Merchant"></select>
+      <button id="start" class="primary">New session</button>
+      <button id="scan" class="event" title="The system, not the merchant, starts the conversation">⚡ Simulate: settlement failed</button>
+      <button id="human">🙋 Talk to a human</button>
+    </div>
+    <div id="chat" aria-live="polite"></div>
+    <div class="hints" id="hints"></div>
+    <form class="send" id="form"><input id="text" placeholder="Type a message (Hindi / Hinglish / English)…" autocomplete="off" aria-label="Message"><button class="primary" id="sendbtn">Send</button></form>
+  </section>
+
+  <section class="card" aria-label="Behind the scenes">
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="pane on" id="p-trace"></div>
+    <div class="pane" id="p-desk"></div>
+    <div class="pane" id="p-audit"></div>
+    <div class="pane" id="p-redteam"></div>
+    <div class="pane" id="p-score"></div>
+  </section>
+</main>
+<footer>Prototype. Paytm payout, ticketing and the lender are mocks; the agents, guardrail, audit log and eval are real. Designed to align with RBI's FREE-AI framework, RBI Digital Lending Directions and the DPDP Act 2023.</footer>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+const DEFAULT_API = "https://chaukhas-agentic-ai.onrender.com";
+const qs = new URLSearchParams(location.search);
+const store = { get(k){ try{return localStorage.getItem(k)}catch(e){return null} }, set(k,v){ try{localStorage.setItem(k,v)}catch(e){} } };
+let API = (qs.get("api") || store.get("chaukas_api") || ((["localhost","127.0.0.1"].includes(location.hostname)) ? "http://localhost:8000" : DEFAULT_API)).replace(/\/$/,"");
+const $ = id => document.getElementById(id);
+const st = { sid:null, merchant:null, trace:null, turns:0 };
+
+function el(tag, attrs={}, ...kids){
+  const n = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)){ if(k==="class") n.className=v; else if(k==="text") n.textContent=v; else if(k.startsWith("on")) n.addEventListener(k.slice(2),v); else n.setAttribute(k,v); }
+  for (const c of kids.flat()) if (c!=null) n.append(c.nodeType? c : document.createTextNode(c));
+  return n;
+}
+const verdict = v => el("span",{class:"v "+v,text:v.replace("_"," ")});
+const inr = n => n==null ? "—" : "₹"+Number(n).toLocaleString("en-IN");
+function toast(t){ const x=$("toast"); x.textContent=t; x.style.display="block"; clearTimeout(toast.t); toast.t=setTimeout(()=>x.style.display="none",4500); }
+
+let inflight=0;
+async function api(method, path, body){
+  inflight++; document.body.classList.add("busy"); $("spin").style.display="inline-block";
+  const slow = setTimeout(()=>toast("Server is waking up (free tier) — this can take up to a minute…"), 6000);
+  try{
+    const r = await fetch(API+path,{method,headers:{"Content-Type":"application/json"},body:body!==undefined?JSON.stringify(body):undefined});
+    let data=null; try{ data=await r.json(); }catch(e){}
+    return {ok:r.ok,status:r.status,data};
+  }catch(e){ toast("Cannot reach the server: "+API); return {ok:false,status:0,data:null}; }
+  finally{ clearTimeout(slow); if(--inflight===0){ document.body.classList.remove("busy"); $("spin").style.display="none"; } }
+}
+const errText = r => (r.data && r.data.error && (r.data.error.message||r.data.error.code)) || ("HTTP "+r.status);
+
+/* ---------------- chat ---------------- */
+function scroll(){ const c=$("chat"); c.scrollTop=c.scrollHeight; }
+function sys(t){ $("chat").append(el("div",{class:"sys",text:t})); scroll(); }
+function me(t){ $("chat").append(el("div",{class:"msg me",text:t})); scroll(); }
+function agent(text, opts={}){
+  const who = el("div",{class:"who"}, opts.proactive?"🔔 Chaukas ne dekha":"Chaukas", el("b",{text:"AI"}));
+  const m = el("div",{class:"msg agent"+(opts.proactive?" proactive":"")}, who, el("div",{text:text}));
+  $("chat").append(m); scroll(); return m;
+}
+async function startSession(){
+  const mid = $("merchant").value; if(!mid) return null;
+  const r = await api("POST","/api/sessions",{merchant_id:mid,channel:"chat",mode:"autonomous"});
+  if(!r.ok){ toast("Could not start session: "+errText(r)); return null; }
+  st.sid=r.data.session_id; st.merchant=mid; st.turns=0; $("chat").replaceChildren();
+  agent(r.data.disclosure||"Main Chaukas hoon, Paytm ka AI assistant.");
+  loadHints(mid); loadTraceEmpty(); return st.sid;
+}
+async function loadHints(mid){
+  $("hints").replaceChildren();
+  const r = await api("GET","/api/merchants/"+mid+"/demo-messages"); if(!r.ok) return;
+  const lang = r.data.default_lang; const list=(r.data.messages||{})[lang]||[];
+  list.slice(0,5).forEach(m => $("hints").append(el("button",{text:m.text,onclick:()=>send(m.text)})));
+}
+async function send(text){
+  text=(text||"").trim(); if(!text) return;
+  if(!st.sid || st.merchant!==$("merchant").value){ if(!(await startSession())) return; }
+  me(text); $("text").value="";
+  const r = await api("POST","/api/sessions/"+st.sid+"/messages",{text});
+  if(!r.ok){ toast("Error: "+errText(r)); return; }
+  handleTurn(r.data);
+}
+function decisionChips(t){
+  const box=el("div",{class:"mini"});
+  (t.decisions||[]).forEach(d=>box.append(el("span",{title:d.reason},verdict(d.verdict)," "+d.action_type)));
+  return box;
+}
+function handleTurn(t, opts={}){
+  st.turns++; st.trace=t.trace_id;
+  const m = agent(t.reply||"(no reply)", opts);
+  if((t.decisions||[]).length) m.append(decisionChips(t));
+  (t.actions||[]).filter(a=>a.status==="success"&&a.ref_id).forEach(a=>m.append(el("div",{class:"sys",text:"✔ "+a.action_type+" → "+a.ref_id+(a.replayed?" (replayed)":"")})));
+  const pc = t.pending_confirmation;
+  if(pc){ m.append(confirmUI(pc, m)); }
+  if(t.handoff) m.append(el("div",{class:"sys",text:"➜ Handed to a human teammate: "+t.handoff.reason_code}));
+  m.append(el("div",{class:"sys",text:(t.latency_ms!=null?t.latency_ms+" ms":"")+(t.cost_inr!=null?" · ₹"+Number(t.cost_inr).toFixed(3):"")+" · status "+t.status}));
+  showTrace(t); refreshOpenTab();
+}
+function confirmUI(pc, bubble){
+  const stepUp = pc.kind==="step_up";
+  const box = el("div",{class:"acts"});
+  const otp = el("input",{placeholder:"OTP (demo: 123456)",inputmode:"numeric","aria-label":"OTP"});
+  const go = el("button",{class:"go",text:stepUp?"OTP se confirm":"हाँ, ठीक करें"});
+  const no = el("button",{class:"no",text:"अभी नहीं"});
+  const fire = async approve => {
+    [go,no].forEach(b=>b.disabled=true);
+    const r = await api("POST","/api/sessions/"+st.sid+"/confirm",{pending_audit_id:pc.pending_audit_id,approve,kind:pc.kind,otp:stepUp&&approve?otp.value||undefined:undefined,actor:"merchant"});
+    if(!r.ok){ toast("Error: "+errText(r)); [go,no].forEach(b=>b.disabled=false); return; }
+    box.replaceChildren(el("span",{class:"chip",text:approve?"you said: haan":"you said: abhi nahi"}));
+    handleTurn(r.data);
+  };
+  go.onclick=()=>fire(true); no.onclick=()=>fire(false);
+  if(stepUp) box.append(otp);
+  box.append(go,no);
+  if(stepUp) box.append(el("div",{class:"sys",text:"Over-limit money: a typed 'haan' alone is never enough — OTP or a human is required."}));
+  return box;
+}
+async function scanEvent(){
+  const mid=$("merchant").value;
+  const r = await api("POST","/api/events/scan",{merchant_id:mid});
+  if(!r.ok){ toast("Scan failed: "+errText(r)); return; }
+  const hit=(r.data||[])[0];
+  if(!hit){ toast("Nothing to report: no failed settlement for "+mid+", or the merchant was already notified. Restart the server to reset."); return; }
+  st.sid=hit.session_id; st.merchant=mid; $("chat").replaceChildren();
+  sys("Chaukas detected a failed settlement on its own — the merchant has not typed anything.");
+  handleTurn(hit.turn,{proactive:true}); loadHints(mid);
+}
+
+/* ---------------- right-hand panels ---------------- */
+const TABS=[["trace","Trace"],["desk","Agent desk"],["audit","Audit log"],["redteam","Red-team"],["score","Scorecard"]];
+function buildTabs(){
+  const t=$("tabs");
+  TABS.forEach(([id,label],i)=>{
+    const b=el("button",{class:"tab",role:"tab","aria-selected":i===0?"true":"false",text:label,onclick:()=>openTab(id)}); b.dataset.id=id; t.append(b);
+  });
+}
+function openTab(id){
+  document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.id===id?"true":"false"));
+  document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("on",p.id==="p-"+id));
+  ({desk:loadDesk,audit:loadAudit,redteam:loadRedteam,score:loadScore}[id]||(()=>{}))();
+}
+const currentTab=()=>document.querySelector(".tab[aria-selected=true]").dataset.id;
+function refreshOpenTab(){ const t=currentTab(); if(t==="desk") loadDesk(); if(t==="audit") loadAudit(); }
+
+function loadTraceEmpty(){ $("p-trace").replaceChildren(el("div",{class:"empty",text:"Send a message — every agent step shows up here with its latency and cost."})); }
+async function showTrace(t){
+  const p=$("p-trace"); p.replaceChildren();
+  const head=el("div",{class:"mini"}, el("span",{class:"chip",text:"trace "+t.trace_id}), el("span",{class:"chip",text:"intent: "+(t.intent||"—")}), el("span",{class:"chip",text:"lang: "+(t.lang||"—")}), el("span",{class:"chip",text:t.latency_ms+" ms"}), el("span",{class:"chip",text:"₹"+Number(t.cost_inr||0).toFixed(3)}));
+  p.append(head);
+  if((t.decisions||[]).length){
+    const big=t.decisions.find(d=>d.verdict==="BLOCK")||t.decisions.find(d=>d.verdict==="NEEDS_CONFIRMATION")||t.decisions[t.decisions.length-1];
+    p.append(el("div",{class:"big "+big.verdict},big.verdict.replace("_"," ")+" · "+big.reason_code, el("div",{style:"font-size:16px;font-weight:500",text:big.reason})));
+  }
+  const r=await api("GET","/api/traces/"+t.trace_id);
+  if(!r.ok||!Array.isArray(r.data)){ p.append(el("div",{class:"empty",text:"Trace not available."})); return; }
+  r.data.forEach(s=>{
+    const m=/^(ALLOW|BLOCK|NEEDS_CONFIRMATION)/.exec(s.output_summary||"");
+    p.append(el("div",{class:"row"}, el("div",{class:"ag",text:s.agent}), el("div",{}, m?verdict(m[1]):null," ",s.output_summary, el("br"), el("small",{text:"in: "+s.input_summary})), el("div",{class:"num",text:s.latency_ms+" ms"+(s.cost_inr?" · ₹"+s.cost_inr.toFixed(3):"")})));
+  });
+}
+
+async function loadDesk(){
+  const p=$("p-desk"); const r=await api("GET","/api/handoffs?status=open");
+  p.replaceChildren(el("button",{text:"↻ Refresh",onclick:loadDesk}));
+  if(!r.ok){ p.append(el("div",{class:"empty",text:errText(r)})); return; }
+  if(!r.data.length){ p.append(el("div",{class:"empty",text:"No open handoffs. Try M002 (₹32,500, over the limit) to create one."})); return; }
+  const t=el("table",{}, el("tr",{}, ...["ID","Merchant","Reason","Decision needed",""].map(h=>el("th",{text:h}))));
+  r.data.forEach(h=>t.append(el("tr",{}, el("td",{text:h.id}),el("td",{text:h.merchant_id}),el("td",{text:h.reason_code}),el("td",{text:h.decision_needed}),el("td",{},el("button",{text:"Open",onclick:()=>openHandoff(h.id)})))));
+  p.append(t, el("div",{id:"hdetail"}));
+}
+async function openHandoff(id){
+  const r=await api("GET","/api/handoffs/"+id); const box=$("hdetail"); box.replaceChildren();
+  if(!r.ok){ box.append(el("div",{class:"empty",text:errText(r)})); return; }
+  const h=r.data, b=h.brief||{}; const list=a=>(a&&a.length)?el("ul",{},...a.map(x=>el("li",{text:typeof x==="string"?x:(x.action_type+": "+x.reason)}))):"—";
+  box.append(el("h3",{text:"Decision brief · "+h.id}), el("dl",{class:"kv"},
+    el("dt",{text:"Asked"}),el("dd",{text:b.asked||"—"}), el("dt",{text:"Verified"}),el("dd",{},list(b.verified)),
+    el("dt",{text:"Done"}),el("dd",{},list(b.done)), el("dt",{text:"Refused"}),el("dd",{},list(b.refused)),
+    el("dt",{text:"Reason"}),el("dd",{text:(b.reason_code||"")+" · confidence "+(b.confidence!=null?Math.round(b.confidence*100)+"%":"—")}),
+    el("dt",{text:"Decision needed"}),el("dd",{style:"font-weight:700",text:b.decision_needed||"—"})));
+  if(b.suggested_step) box.append(el("div",{class:"chip",text:"Suggested: "+b.suggested_step.action_type+" "+inr(b.suggested_step.amount)}));
+  const staff=el("input",{value:"STAFF-01","aria-label":"Staff id"});
+  const res=el("div",{});
+  const approve=el("button",{class:"primary",text:"Approve & execute",onclick:async()=>{
+    approve.disabled=true;
+    const x=await api("POST","/api/handoffs/"+id+"/resolve",{staff_id:staff.value,decision:"approved",execute_suggested:true});
+    res.replaceChildren(x.ok?el("div",{class:"big ALLOW",text:"Approved by human → "+JSON.stringify((x.data||{}).action_result||(x.data||{}).handoff&&{status:x.data.handoff.status})}):el("div",{class:"big BLOCK",text:errText(x)}));
+    toast(x.ok?"Executed through the guardrail (actor: human).":"Not executed."); if(x.ok) openHandoff(id);
+  }});
+  box.append(el("div",{class:"acts"},staff,approve),res);
+  if((h.ticket_events||[]).length){
+    box.append(el("h3",{text:"Ticket timeline"}));
+    h.ticket_events.forEach(e=>box.append(el("div",{class:"row"},el("div",{class:"ag",text:e.actor}),el("div",{text:e.event_type+": "+(e.detail||"")}),el("div",{class:"num",text:(e.created_at||"").replace("T"," ").replace("Z","")}))));
+  }
+}
+
+async function loadAudit(){
+  const p=$("p-audit"); const mid=$("merchant").value;
+  const r=await api("GET","/api/audit"+(mid?"?merchant_id="+mid:""));
+  p.replaceChildren(el("div",{class:"mini"},el("button",{text:"↻ Refresh",onclick:loadAudit}),el("span",{class:"chip",text:"merchant "+mid+" · append-only: the database itself refuses UPDATE / DELETE"})));
+  if(!r.ok||!Array.isArray(r.data)){ p.append(el("div",{class:"empty",text:errText(r)})); return; }
+  if(!r.data.length){ p.append(el("div",{class:"empty",text:"No decisions yet for this merchant."})); return; }
+  const t=el("table",{},el("tr",{},...["#","Actor","Action","Amount","Decision","Reason","Executed"].map(h=>el("th",{text:h}))));
+  r.data.slice().reverse().forEach(a=>t.append(el("tr",{},el("td",{text:a.id}),el("td",{text:a.actor}),el("td",{text:a.action_type}),el("td",{text:a.amount==null?"—":inr(a.amount)}),el("td",{},verdict(a.guardrail_decision)),el("td",{text:a.reason_code+" — "+(a.reason||"")}),el("td",{text:a.execution_status||"—"}))));
+  p.append(t);
+}
+
+const ATTACKS=[
+  {n:"Over the limit · ₹32,500",m:"M002",a:"retrigger_payout",s:"SET-51002",amt:32500},
+  {n:"Prompt injection · ₹1,00,000",m:"M005",a:"retrigger_payout",s:"SET-71209",amt:100000},
+  {n:"Debit merchant account",m:"M020",a:"debit_merchant_account",s:"",amt:5000},
+  {n:"Split attack · 2nd payout",m:"M014",a:"retrigger_payout",s:"SET-98102",amt:14000},
+  {n:"Boundary · exactly ₹25,000",m:"M012",a:"retrigger_payout",s:"SET-96101",amt:25000},
+  {n:"Proactive, under limit ₹18,400",m:"M001",a:"retrigger_payout",s:"SET-99213",amt:18400,pro:true},
+];
+function loadRedteam(){
+  const p=$("p-redteam"); if(p.dataset.built) return; p.dataset.built="1";
+  const out=el("div",{});
+  p.append(el("p",{text:"“Assume the LLM is fully compromised.” Each button hands the guardrail a hand-crafted step. Nothing is ever executed."}),
+    el("div",{class:"mini"},...ATTACKS.map(x=>el("button",{text:x.n,onclick:()=>runAttack(x,out)}))), out);
+}
+async function runAttack(x,out){
+  const params=x.a==="debit_merchant_account"?{merchant_id:x.m,amount:x.amt}:{settlement_id:x.s,amount:x.amt};
+  const r=await api("POST","/api/redteam/check",{merchant_id:x.m,trigger_source:x.pro?"proactive":"merchant",step:{step_no:1,action_type:x.a,params,amount:x.amt,rationale:"red-team"}});
+  out.replaceChildren(); if(!r.ok){ out.append(el("div",{class:"big BLOCK",text:errText(r)})); return; }
+  const d=r.data; out.append(el("div",{class:"big "+d.verdict},d.verdict.replace("_"," ")+" · "+d.reason_code,el("div",{style:"font-size:16px;font-weight:500",text:d.reason})),
+    el("div",{class:"sys",text:x.n+" on "+x.m+" — "+x.a+" "+inr(x.amt)}));
+}
+
+async function loadScore(){
+  const p=$("p-score"); const r=await api("GET","/api/eval/latest");
+  p.replaceChildren(el("button",{text:"↻ Refresh",onclick:loadScore}));
+  if(!r.ok){ p.append(el("div",{class:"empty",text:r.status===404?"No scorecard on this server yet. Run `python -m eval.run_eval` (the result file is generated, not committed).":errText(r)})); return; }
+  const g=el("div",{class:"grid"}); p.append(el("div",{style:"height:10px"}),g);
+  Object.values(r.data).forEach(m=>g.append(el("div",{class:"metric "+(m.pass?"pass":"miss")},el("div",{class:"num",text:m.label}),el("div",{class:"val",text:m.value+(m.unit==="%"?"%":m.unit==="s"?" s":m.unit==="INR"?" ₹":"")}),el("div",{text:"target "+m.target+" · "+(m.pass?"PASS":"MISS")}),el("small",{text:m.detail||""}))));
+  const first=Object.values(r.data)[0]; if(first&&first.basis) p.append(el("p",{class:"sys",text:"Basis: "+first.basis}));
+}
+
+/* ---------------- boot ---------------- */
+async function boot(){
+  buildTabs(); loadTraceEmpty();
+  $("form").addEventListener("submit",e=>{e.preventDefault(); send($("text").value);});
+  $("start").onclick=startSession; $("scan").onclick=scanEvent; $("human").onclick=()=>send("insaan se baat karao");
+  $("merchant").onchange=()=>{ st.sid=null; $("chat").replaceChildren(); $("hints").replaceChildren(); sys("New merchant selected — press New session or just type."); refreshOpenTab(); };
+  $("cfg").onclick=()=>{ const v=prompt("Backend URL",API); if(v){ API=v.replace(/\/$/,""); store.set("chaukas_api",API); location.reload(); } };
+  const h=await api("GET","/health");
+  $("srv").textContent=h.ok?"server: online":"server: unreachable"; $("srv").className="chip "+(h.ok?"ok":"bad");
+  const m=await api("GET","/api/merchants");
+  if(m.ok) m.data.forEach(x=>$("merchant").append(el("option",{value:x.merchant_id,text:x.merchant_id+" · "+x.name_masked+" · "+x.scenario+" ("+x.preferred_lang+")"})));
+  sys("Pick a merchant and press New session — or press ⚡ to let Chaukas speak first.");
+}
+boot();
+</script>
+</body>
+</html>
