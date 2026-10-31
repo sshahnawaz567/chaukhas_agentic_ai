@@ -191,3 +191,48 @@ def test_an_already_masked_pan_is_not_reported_as_pii_again():
                                    "98 hazaar ka loan", "kal 12 baje call karo", "ID 12345 67890"])
 def test_ordinary_numbers_and_ids_are_not_masked_by_the_wider_patterns(text):
     assert mask_text(text) == text
+
+
+# ------------------------------------------------------------------ the company's own published contact is not PII
+
+def _config_contacts():
+    disclosure = yaml.safe_load((Path(__file__).resolve().parents[1] / "config" / "disclosure.yaml").read_text(encoding="utf-8"))
+    lender = yaml.safe_load((Path(__file__).resolve().parents[1] / "config" / "lender_sim.yaml").read_text(encoding="utf-8"))
+    return disclosure["grievance_contact"], re.search(r"\S+@[\w.\-]*\w", lender["kfs"]["grievance_contact"]).group(0)
+
+
+def test_public_contacts_come_from_config_not_from_code():
+    from chaukas.privacy.pii import public_contacts
+    assert set(public_contacts()) == set(_config_contacts())
+
+
+def test_the_published_grievance_contacts_survive_masking_and_scrubbing():
+    for contact in _config_contacts():
+        assert mask_text(f"Shikayat ke liye {contact} par likhein.") == f"Shikayat ke liye {contact} par likhein."
+        assert detect(f"contact {contact}") == []
+        assert scrub({"loan": {"grievance_contact": f"{contact} (mock)"}}) == {"loan": {"grievance_contact": f"{contact} (mock)"}}
+
+
+def test_a_personal_upi_or_email_next_to_a_public_contact_is_still_masked():
+    contact = _config_contacts()[0]
+    out = mask_text(f"mera upi sharmakiranast@paytm, mail sharma.kiran@gmail.com, aur {contact}")
+    assert "sharmakiranast" not in out and "sharma.kiran" not in out and contact in out
+
+
+@pytest.mark.parametrize("lookalike", ["my{c}", "x.{c}", "{c}.evil.io", "{c}x"])
+def test_only_the_exact_published_address_is_protected_not_lookalikes(lookalike):
+    contact = _config_contacts()[0]
+    typed = lookalike.format(c=contact)
+    assert mask_text(typed) != typed
+
+
+def test_if_the_config_cannot_be_read_nothing_is_protected(monkeypatch, tmp_path):
+    from chaukas.privacy import pii
+    contact = _config_contacts()[0]
+    monkeypatch.setattr(pii, "_CONFIG_DIR", tmp_path)          # an empty folder: no yaml files
+    pii.public_contacts.cache_clear()
+    try:
+        assert pii.public_contacts() == ()
+        assert mask_text(f"write to {contact}") != f"write to {contact}"     # fail closed
+    finally:
+        pii.public_contacts.cache_clear()

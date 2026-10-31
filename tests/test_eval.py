@@ -6,6 +6,7 @@ The first half needs nothing but this repo. The replay tests are skipped until M
 importable; once it is, they fail loudly if the loop regresses.
 """
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -236,6 +237,45 @@ def test_load_timings_is_none_when_the_file_is_missing_or_broken(tmp_path):
     assert load_timings(bad) is None
 
 
+def test_a_follow_up_expectation_is_optional_and_checked_when_present():
+    base = _case()
+    assert score_case(base, _run(follow_up="LOAN_ACCEPTED"))["pass"]                     # not asked for: ignored
+    asked = _case(expect={**base["expect"], "follow_up": "LOAN_ACCEPTED"})
+    assert score_case(asked, _run(follow_up="LOAN_ACCEPTED"))["pass"]
+    assert not score_case(asked, _run(follow_up=None))["pass"]
+
+
+def test_a_back_office_follow_up_is_not_an_escalation():
+    s = score_case(_case(), _run(follow_up="LOAN_ACCEPTED"))
+    assert s["escalated"] is False and s["autonomous"] is True
+
+
+def _fake_mods(handoff_reason, status="completed"):
+    """A stand-in for (m2_shim, orchestrator, gw, llm_client, llm_prompt) that answers every turn with one brief."""
+    brief = SimpleNamespace(reason_code=handoff_reason) if handoff_reason else None
+    response = SimpleNamespace(
+        intent=SimpleNamespace(value="settlement_delay"), plan=[], decisions=[], latency_ms=5, cost_inr=0.0, spans=[],
+        status=SimpleNamespace(value=status), handoff=brief, pending_confirmation=None)
+    orch = SimpleNamespace(handle_message=lambda sid, text: response)
+    gw = SimpleNamespace(create_session=lambda merchant, channel, mode: {"session_id": "S-fake"})
+    return (None, orch, gw, None, None)
+
+
+@pytest.mark.parametrize("reason,escalation,follow_up", [
+    ("LOAN_ACCEPTED", None, "LOAN_ACCEPTED"),
+    ("OVER_AUTO_LIMIT", "OVER_AUTO_LIMIT", None),
+    (None, None, None),
+])
+def test_run_case_keeps_follow_up_briefs_apart_from_escalations(tmp_path, monkeypatch, reason, escalation, follow_up):
+    from data.seed import seed
+    template = tmp_path / "template.db"
+    seed(template)
+    monkeypatch.setenv("CHAUKAS_DB_PATH", str(template))
+    case = {"case_id": "T1", "merchant_id": "M001", "turns": [{"say": "hello"}]}
+    out = run_eval._run_case(case, template, tmp_path, _fake_mods(reason), "123456")
+    assert (out["handoff_reason"], out["follow_up"]) == (escalation, follow_up)
+
+
 def test_main_exits_2_when_the_orchestrator_is_missing(monkeypatch, capsys):
     def boom():
         raise EvalUnavailable("no orchestrator here")
@@ -303,3 +343,13 @@ def test_the_eval_catches_a_guardrail_that_lets_over_limit_money_through(monkeyp
     broken = run_eval.run(write=False, with_redteam=False)
     unsafe = broken["scorecard"]["unsafe_actions"]
     assert unsafe["value"] > 0 and unsafe["pass"] is False and broken["ok"] is False
+
+
+def test_replay_warns_when_recorded_llm_calls_are_not_found(monkeypatch):
+    """If a prompt or message changes, its recording no longer matches: the scorecard must say so."""
+    need_orchestrator()
+    monkeypatch.setattr(run_eval, "load_timings",
+                        lambda path=None: {"recorded_at": "2026-01-01T00:00:00Z", "llm_calls": 10**6, "turns": {}})
+    result = run_eval.run(llm="replay", write=False, with_redteam=False)
+    assert result["extras"]["replay_misses"] > 0
+    assert "WARNING" in result["scorecard"]["unsafe_actions"]["basis"]

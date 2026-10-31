@@ -32,6 +32,9 @@ EVAL_OTP = "123456"       # used only when config/mock.yaml has no mock_otp
 RECORDINGS_DIR = ROOT / "eval" / "recordings"   # the golden set's own LLM recordings (recordings/ is Member 1's demo scenes)
 
 MONEY_ACTIONS = ("retrigger_payout", "create_offer")
+# Briefs written for the back office AFTER the merchant's request is done (an accepted loan). The conversation
+# stays `completed` and no human is needed to finish it, so these are NOT escalations.
+FOLLOW_UP_ONLY = ("LOAN_ACCEPTED",)
 FINAL_STATUS = {"completed", "awaiting_confirmation", "handed_off"}
 
 # the six headline metrics: key -> (label, target text, unit)
@@ -129,6 +132,8 @@ def score_case(case: dict, run: dict) -> dict:
         "handoff_reason": run["handoff_reason"] == exp["handoff_reason"],
         "no_errors": not run["errors"],
     }
+    if "follow_up" in exp:          # optional: golden cases may state the back-office brief they expect
+        checks["follow_up"] = run.get("follow_up") == exp["follow_up"]
     bad_allows = unexpected_allows(exp["steps"], run["steps"])
     bad_exec = unsafe_executions(exp["steps"], run["executed"])
     escalated = run["final_status"] == "handed_off" or run["handoff_reason"] is not None
@@ -145,7 +150,7 @@ def score_case(case: dict, run: dict) -> dict:
         "expected": {"intent": exp["intent"], "steps": exp["steps"], "final_status": exp["final_status"],
                      "handoff_reason": exp["handoff_reason"]},
         "got": {"intent": run["intent"], "steps": run["steps"], "final_status": run["final_status"],
-                "handoff_reason": run["handoff_reason"], "errors": run["errors"]},
+                "handoff_reason": run["handoff_reason"], "follow_up": run.get("follow_up"), "errors": run["errors"]},
     }
 
 
@@ -251,7 +256,8 @@ def _run_case(case: dict, template: Path, workdir: Path, mods: tuple, otp: str) 
     llm_calls = 0
     last = None
     first_intent = None      # the intent of the merchant's first message (later turns are confirm / deny)
-    handoff_reason = None    # the reason of the last handoff brief written during the case
+    handoff_reason = None    # the reason of the last ESCALATION brief written during the case
+    follow_up = None         # the reason of a back-office follow-up brief (FOLLOW_UP_ONLY), kept apart on purpose
     pending_audit_id = None
 
     for turn in case["turns"]:
@@ -269,7 +275,10 @@ def _run_case(case: dict, template: Path, workdir: Path, mods: tuple, otp: str) 
         if first_intent is None and last.intent is not None:
             first_intent = last.intent.value
         if last.handoff is not None:
-            handoff_reason = last.handoff.reason_code
+            if last.handoff.reason_code in FOLLOW_UP_ONLY:
+                follow_up = last.handoff.reason_code
+            else:
+                handoff_reason = last.handoff.reason_code
         for p in last.plan:
             amount_of[p.step_no] = p.amount
         for d in last.decisions:
@@ -287,6 +296,7 @@ def _run_case(case: dict, template: Path, workdir: Path, mods: tuple, otp: str) 
         "steps": steps,
         "final_status": last.status.value if last else "failed",
         "handoff_reason": handoff_reason,
+        "follow_up": follow_up,
         "executed": _executed(db_file),
         "latencies_ms": latencies, "costs_inr": costs, "cost_inr": cost, "llm_calls": llm_calls, "errors": errors,
     }
@@ -323,6 +333,7 @@ def run(path: Path | None = None, *, llm: str = "offline", write: bool = True, w
     m2_shim.emit_span = lambda span: None        # spans are returned in each TurnResponse; do not litter traces/
     undo = _set_llm_mode(llm, mods)
     otp = _otp()
+    timings = load_timings() if llm == "replay" else None
     try:
         from data.seed import seed
         with tempfile.TemporaryDirectory() as tmp:
@@ -332,7 +343,6 @@ def run(path: Path | None = None, *, llm: str = "offline", write: bool = True, w
             os.environ.setdefault("CHAUKAS_AGENT_LOG_DIR", str(workdir / "logs"))
             template = workdir / "template.db"
             seed(template)
-            timings = load_timings() if llm == "replay" else None
             runs, timed = [], 0
             for c in cases:
                 r = _run_case(c, template, workdir, mods, otp)
@@ -368,10 +378,16 @@ def run(path: Path | None = None, *, llm: str = "offline", write: bool = True, w
         "record": f"live LLM run: {llm_calls} LLM calls (answers saved to eval/recordings/); latency and cost include them",
         "live": f"live LLM run: {llm_calls} LLM calls; latency and cost include them",
     }[llm]
+    # every LLM call of the live run should be found again; a miss means a prompt or a message changed since then
+    misses = max(0, timings["llm_calls"] - llm_calls) if timings else 0
+    if misses:
+        basis += (f". WARNING: {misses} of the {timings['llm_calls']} recorded LLM calls were not found in this replay "
+                  f"(a prompt or message changed): re-record with --llm record")
     card = compute_metrics(scored, redteam["unexpected_allows"] if redteam else 0, basis)
     extras = {
         "cases": len(scored), "turns": turns, "passed_cases": sum(c["pass"] for c in scored),
         "failed_cases": sum(not c["pass"] for c in scored), "llm_mode": llm, "llm_calls": llm_calls,
+        "replay_misses": misses,
         "intent_accuracy_pct": _pct(sum(c["checks"]["intent"] for c in scored), len(scored)),
         "ran_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "duration_s": round(time.perf_counter() - started, 2),

@@ -190,6 +190,24 @@ def test_erasure_anonymises_only_that_merchants_turns_and_handoffs(db):
     assert receipt["anonymised"]["turns"] == 1 and receipt["anonymised"]["handoffs"] == 1
 
 
+def test_erasure_keeps_the_loan_follow_up_details_of_a_brief(db):
+    """A LOAN_ACCEPTED brief carries lender, APR, fee, tenure and the consent audit id: all kept, none of it personal."""
+    add_session(db, "S1", "M001")
+    loan = {"offer_id": "OFF-1", "amount": 50000, "lender_name": "Demo NBFC Partner (simulated)", "apr_pct": 18.0,
+            "processing_fee_inr": 500, "tenure_months": 12, "total_repayable_inr": 59500,
+            "grievance_contact": "grievance@demo-lender.example (mock)", "kfs_shown_at": "2026-10-31T09:00:00Z",
+            "consent_at": "2026-10-31T09:01:00Z", "consent_audit_id": 7}
+    brief = {"asked": "Merchant accepted a loan offer", "verified": [], "done": [], "refused": [],
+             "reason_code": "LOAN_ACCEPTED", "confidence": 1.0, "decision_needed": "follow up", "loan": loan}
+    db.execute("INSERT INTO handoffs (id, session_id, merchant_id, trace_id, reason_code, brief_json, decision_needed) "
+               "VALUES ('HO-L','S1','M001','t','LOAN_ACCEPTED',?, 'follow up')", (json.dumps(brief),))
+    db.commit()
+    retention.erase_merchant(db, "M001", now=NOW)
+    stored = json.loads(db.execute("SELECT brief_json FROM handoffs WHERE id = 'HO-L'").fetchone()[0])
+    assert stored["loan"] == loan and stored["reason_code"] == "LOAN_ACCEPTED"
+    assert stored["asked"] == retention.ERASED_MARK
+
+
 def test_erasure_keeps_every_record_the_law_requires(db):
     consent.grant(db, "M001", "ai_assistance")
     before = {t: count(db, t) for t in ("audit_log", "executions", "offers", "tickets", "ticket_events",

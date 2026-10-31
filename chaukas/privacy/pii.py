@@ -6,6 +6,8 @@ Owner: Member 2 · Contract: CONTRACTS C4
 import hashlib
 import re
 import secrets
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 PII_FIELDS: list[str] = ["account_no", "ifsc", "vpa", "pan", "aadhaar", "phone", "name"]
@@ -25,6 +27,52 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("phone", re.compile(r"(?<!\d)(?:\+?91[ -]?)?[6-9]\d{4}[ -]?\d{5}(?!\d)")),
     ("account_no", re.compile(r"(?<!\d)\d{9,18}(?!\d)")),
 ]
+
+_CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
+_SENTINEL = chr(1)   # a control character: no PII pattern can match it and a merchant will not type it
+_CONTACT_IN_TEXT = re.compile(r"[\w.\-]+@[\w.\-]*\w")
+
+
+@lru_cache(maxsize=1)
+def public_contacts() -> tuple[str, ...]:
+    """Contact addresses the company publishes ON PURPOSE: the grievance contact in the DPDP notice
+    (config/disclosure.yaml) and in the loan Key Fact Statement (config/lender_sim.yaml). They look like an e-mail
+    or UPI id, but they are the company's, not a person's, and RBI / DPDP require the merchant to be shown them,
+    so masking them would hide exactly what must be visible. Static config, so reading it once is safe.
+    If the config cannot be read nothing is protected: everything that looks like PII stays masked (fail closed)."""
+    found: set[str] = set()
+    try:
+        import yaml
+
+        for name, keys in (("disclosure", ("grievance_contact",)), ("lender_sim", ("kfs", "grievance_contact"))):
+            node = yaml.safe_load((_CONFIG_DIR / f"{name}.yaml").read_text(encoding="utf-8")) or {}
+            for key in keys:
+                node = node.get(key) if isinstance(node, dict) else None
+            if isinstance(node, str):
+                found.update(_CONTACT_IN_TEXT.findall(node))
+    except Exception:
+        return ()
+    return tuple(sorted(found, key=len, reverse=True))      # longest first, so one never hides inside another
+
+
+def _shield(text: str) -> tuple[str, dict[str, str]]:
+    """Swap every published contact for a placeholder the PII patterns cannot match; `_unshield` puts it back."""
+    kept: dict[str, str] = {}
+    for i, contact in enumerate(public_contacts()):
+        placeholder = f"{_SENTINEL}PUBLIC{chr(65 + i)}{_SENTINEL}"
+        # the WHOLE token only: 'mygrievance@chaukas-demo.example.com' is somebody else's address and stays masked
+        rx = re.compile(r"(?<![\w.\-@])" + re.escape(contact) + r"(?![\w\-@]|\.\w)")
+        text, n = rx.subn(placeholder, text)
+        if n:
+            kept[placeholder] = contact
+    return text, kept
+
+
+def _unshield(text: str, kept: dict[str, str]) -> str:
+    for placeholder, contact in kept.items():
+        text = text.replace(placeholder, contact)
+    return text
+
 
 # token -> raw value. In-memory only: tokens are valid for the life of the process.
 _VAULT: dict[str, str] = {}
@@ -67,6 +115,7 @@ def detect(obj: Any) -> list[str]:
 
 def _collect(obj: Any, found: set[str]) -> None:
     if isinstance(obj, str):
+        obj, _ = _shield(obj)
         for field, rx in _PATTERNS:  # same order as mask_text: a matched span is consumed
             if rx.search(obj):
                 found.add(field)
@@ -82,10 +131,12 @@ def _collect(obj: Any, found: set[str]) -> None:
 
 
 def mask_text(text: str) -> str:
-    """Mask every PII value found inside free text (used at ingestion). Names cannot be found by regex."""
+    """Mask every PII value found inside free text (used at ingestion). Names cannot be found by regex.
+    The company's own published contact addresses (public_contacts) are left as they are."""
+    text, kept = _shield(text)
     for field, rx in _PATTERNS:
         text = rx.sub(lambda m, f=field: mask(m.group(0), f), text)
-    return text
+    return _unshield(text, kept)
 
 
 def tokenise(value: str, field: str) -> str:

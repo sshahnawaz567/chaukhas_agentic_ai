@@ -162,6 +162,7 @@ def _cached_functions():
 ALLOWED_CACHED = {
     "chaukas/integrations/_common.py::load_config",
     "chaukas/llm/client.py::config",
+    "chaukas/privacy/pii.py::public_contacts",     # the published grievance contacts, from static YAML
 }
 
 

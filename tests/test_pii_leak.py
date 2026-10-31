@@ -276,6 +276,18 @@ def test_no_raw_pii_in_logs(run):
     assert find_leaks({"logs": run.corpus["logs"]}, needles()) == []
 
 
+def test_a_loan_follow_up_brief_keeps_the_published_grievance_contact_and_holds_no_pii(run):
+    """Member 1's LOAN_ACCEPTED brief (scene 1, after 'haan') is saved through scrub: the company's grievance
+    contact must come out intact, not as 'g****@...', and nothing personal may be in it."""
+    rows = [r for r in run.db_rows["handoffs"] if r["reason_code"] == "LOAN_ACCEPTED"]
+    if not rows:
+        pytest.skip("no LOAN_ACCEPTED brief in this tree yet (Member 1's follow-up change is not merged)")
+    brief = json.loads(rows[0]["brief_json"])
+    contact = brief["loan"]["grievance_contact"]
+    assert "@" in contact and "****" not in contact
+    assert find_leaks({"brief": rows[0]["brief_json"]}, needles()) == []
+
+
 # ------------------------------------------------------------------ the one gap we cannot close with a regex
 @pytest.mark.xfail(strict=True, reason=(
     "A merchant's NAME typed inside free text cannot be found by a regex. Closing it needs the gateway to pass "
