@@ -15,7 +15,7 @@
       "labels.ticket": "true = this case counts as an action ticket for 'autonomous resolution' (one primary case per merchant issue; variants are false so one issue is never counted twice)",
       "labels.should_escalate": "ground truth: a human SHOULD be involved. Escalation precision = escalated cases that should escalate / all escalated cases."
     },
-    "not_covered": "Native-script messages in Tamil, Telugu, Marathi, Malayalam, Gujarati, Bengali and Punjabi need the live LLM for intent. The offline run uses Hinglish, English and Devanagari Hindi only; the regional merchants are tested with Hinglish text."
+    "not_covered": "Final languages are Hindi, English, Marathi, Hinglish and Gujarati. Native-script Marathi and Gujarati messages need the live LLM for intent, so the offline run uses Hinglish, English and Devanagari Hindi only; the Marathi and Gujarati merchants are tested with Hinglish text."
   },
   "cases": [
     {

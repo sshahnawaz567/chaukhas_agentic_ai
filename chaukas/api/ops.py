@@ -1,7 +1,8 @@
 """Observability/eval routes: GET /api/traces/{trace_id}, GET /api/audit,
 POST /api/redteam/check (guardrail only, never executes), GET /api/eval/latest, GET /api/eval/details.
 Compliance routes: GET /api/disclosure, GET|POST /api/merchants/{id}/consents (DPDP notice + consent),
-GET /api/merchants/{id}/data-summary and POST /api/merchants/{id}/erasure (DPDP access + erasure).
+GET /api/merchants/{id}/data-summary and POST /api/merchants/{id}/erasure (DPDP access + erasure),
+GET /api/merchants/{id}/demo-messages (the quick-reply chips of each merchant's own scenario).
 
 Owner: Member 2 · Contract: CONTRACTS C5
 
@@ -214,3 +215,18 @@ def request_erasure(merchant_id: str):
             return retention.erase_merchant(conn, merchant_id)
         except retention.MerchantNotFound:
             return _error(404, "MERCHANT_NOT_FOUND", "no merchant with that id")
+
+
+# ------------------------------------------------------------------ demo: the quick-reply chips of every merchant
+
+@router.get("/merchants/{merchant_id}/demo-messages")
+def get_demo_messages(merchant_id: str):
+    """The two quick-reply messages for this merchant's own scenario, in Hinglish (hi-Latn) and English (en-IN).
+    The UI shows these instead of one fixed pair for everybody. Each has the intent it must reach (tested)."""
+    fixtures = json.loads((ROOT / "data" / "merchant_fixtures.json").read_text(encoding="utf-8"))["merchants"]
+    merchant = next((m for m in fixtures if m["merchant_id"] == merchant_id), None)
+    if merchant is None:
+        return _error(404, "MERCHANT_NOT_FOUND", "no merchant with that id")
+    return {"merchant_id": merchant_id, "scenario": merchant.get("scenario", ""),
+            "preferred_lang": merchant.get("preferred_lang"), "default_lang": "hi-Latn",
+            "messages": merchant.get("demo_messages", {})}
