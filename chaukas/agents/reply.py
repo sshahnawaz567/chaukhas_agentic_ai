@@ -57,7 +57,11 @@ def _refs(state: ConversationState) -> dict[str, str | None]:
 def build_facts(state: ConversationState) -> dict[str, Any]:
     """Everything the reply may say. Amounts come from the ledger / lender, ids from action results."""
     mcfg = load_config("mock")
-    facts: dict[str, Any] = {"lang": state.lang or "hi-IN", "intent": state.intent.value if state.intent else "unknown"}
+    lang = state.lang or "hi-IN"
+    # the language NAME next to the code: models follow "Tamil" far better than "ta-IN"
+    language = (load_config("languages").get("detect") or {}).get(lang)
+    facts: dict[str, Any] = {"lang": lang, "language": language,
+                             "intent": state.intent.value if state.intent else "unknown"}
     refs = _refs(state)
     tags = list(state.outcome_tags)
     facts["outcome_tags"] = tags or None
@@ -157,6 +161,45 @@ def _grounded(reply: str, state: ConversationState, facts: dict) -> bool:
     return True
 
 
+_SCRIPTS = {  # Unicode blocks of the scripts named in config/languages.yaml `script`
+    "devanagari": re.compile(r"[ऀ-ॿ]"), "bengali": re.compile(r"[ঀ-৿]"),
+    "gurmukhi": re.compile(r"[਀-੿]"), "gujarati": re.compile(r"[઀-૿]"),
+    "odia": re.compile(r"[଀-୿]"), "tamil": re.compile(r"[஀-௿]"),
+    "telugu": re.compile(r"[ఀ-౿]"), "kannada": re.compile(r"[ಀ-೿]"),
+    "malayalam": re.compile(r"[ഀ-ൿ]"), "arabic": re.compile(r"[؀-ۿ]"),
+    "olchiki": re.compile(r"[᱐-᱿]"), "meetei": re.compile(r"[ꯀ-꯿]"),
+}
+
+
+def _right_script(reply: str, lang: str) -> bool:
+    """Deterministic check that the LLM answered in the script of the merchant's language: no letters from
+    any other Indic script, and (for an Indic language) at least some letters of its own script."""
+    allowed = (load_config("languages").get("script") or {}).get(lang)
+    if not allowed:
+        return True  # unknown language: nothing to check against
+    if any(rx.search(reply) for name, rx in _SCRIPTS.items() if name not in allowed):
+        return False
+    indic = [a for a in allowed if a != "latin"]
+    return not indic or any(_SCRIPTS[a].search(reply) for a in indic)
+
+
+_DEVANAGARI_WORD = re.compile(r"[ऀ-ॿ]+")
+
+
+def _right_language(reply: str, lang: str) -> bool:
+    """Script check, plus a word check for languages that share a script (Marathi vs Hindi, both Devanagari):
+    Hindi-only words and none of the language's own words -> the model answered in the wrong language."""
+    if not _right_script(reply, lang):
+        return False
+    cfg = load_config("languages")
+    wrong = set((cfg.get("wrong_words") or {}).get(lang) or [])
+    if not wrong:
+        return True
+    words = set(_DEVANAGARI_WORD.findall(reply))
+    own = set((cfg.get("own_words") or {}).get(lang) or [])
+    return not (words & wrong) or bool(words & own)
+
+
 _NEGATION = re.compile(r"(नहीं|नही|\bnot\b|n't|\bnever\b|\bno\b|\bnahi\b|\bnahin\b)", re.I)
 
 
@@ -242,6 +285,8 @@ def generate(state: ConversationState) -> tuple[str, LLMResult | None, str]:
             return fallback_reply(state, facts), llm, "template"
         if not _grounded(text, state, facts):  # the model claimed something that did not happen
             return fallback_reply(state, facts), llm, "template(ungrounded)"
+        if not _right_language(text, facts["lang"]):  # e.g. Devanagari for English, Hindi for Marathi
+            return fallback_reply(state, facts), llm, "template(wrong_language)"
         return text, llm, "llm"
     except (LLMUnavailable, LLMOutputError):
         return fallback_reply(state, facts), None, "template"

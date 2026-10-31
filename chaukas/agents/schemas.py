@@ -11,18 +11,48 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
 
 from chaukas.core.models import Intent, Track, Urgency
+from chaukas.integrations._common import load_config
 
 
 class _Base(BaseModel):
     thought_process: str = Field(default="", max_length=1500)
 
 
+def language_codes() -> list[str]:
+    """The closed list of language codes (config/languages.yaml `detect`)."""
+    return list(load_config("languages")["detect"])
+
+
+def normalize_lang(value: object) -> str:
+    """Map the model's answer onto `detect`: exact code, alias, then base language ('gu' -> 'gu-IN').
+    A language we do not support (e.g. 'ta-IN') -> `unsupported` (English), never Hindi; no answer at all ->
+    `default`. A wrong language code never throws away a correct intent."""
+    cfg = load_config("languages")
+    codes = list(cfg["detect"])
+    key = str(value or "").strip().lower().replace("_", "-")
+    if not key:
+        return cfg["default"]
+    by_lower = {c.lower(): c for c in codes}
+    aliases = {str(k).lower(): v for k, v in (cfg.get("aliases") or {}).items()}
+    if key in by_lower:
+        return by_lower[key]
+    if key in aliases:
+        return aliases[key]
+    base = key.split("-")[0]
+    return next((c for c in codes if c.endswith("-IN") and c.split("-")[0].lower() == base), cfg["unsupported"])
+
+
 class IntentResult(BaseModel):
     intent: Intent
-    lang: str = "hi-IN"
+    lang: str = "hi-IN"  # one of config/languages.yaml `detect` (normalised below)
     urgency: Urgency = Urgency.MED
     track: Track = Track.SUPPORT
     confidence: float = Field(ge=0.0, le=1.0)
+
+    @field_validator("lang", mode="before")
+    @classmethod
+    def _lang_in_enum(cls, v):
+        return normalize_lang(v)
 
     @field_validator("confidence", mode="before")
     @classmethod

@@ -1,4 +1,46 @@
-# Supported languages (text: all hi-IN, en-IN, ...; voice v1: hi-IN) — Owner: Member 1
-default: hi-IN
-text: [hi-IN, en-IN, bn-IN, ta-IN, te-IN, mr-IN, gu-IN, kn-IN, ml-IN, pa-IN]
+# Supported languages — Owner: Member 1
+# `detect` is the closed list (enum) the Intent agent may answer with. ONLY languages that work end to end
+# (detected AND answered in that language, live-tested on sarvam-105b-conversations, 31 Oct): Hindi,
+# Hinglish, English, Gujarati, Marathi (Marathi: the LLM answers in Hindi ~2 times in 5, so a word check
+# below sends those to the Marathi template). The intent prompt's O/P SCHEMA lists exactly these codes
+# (tests/test_llm_prompt.py keeps the two in sync). Codes are BCP-47.
+# hi-Latn = Hinglish: Hindi (often mixed with English) in Latin/Roman script, e.g. "paisa nahi aaya".
+#           Same code as config/disclosure.yaml (Member 2). hi-IN is Hindi in Devanagari only.
+# Dropped after the live test: ta, bn, te, kn, ml, pa, or (the model replied in Hindi).
+# A message in any language outside `detect` is answered in English (`unsupported`).
+default: hi-IN        # no detection at all (e.g. a turn with no message)
+unsupported: en-IN    # the model named a language outside `detect`
+detect:
+  hi-IN: Hindi (Devanagari script)
+  hi-Latn: Hinglish (Hindi / Hindi-English mix in Latin script)
+  en-IN: English
+  gu-IN: Gujarati
+  mr-IN: Marathi
+# common model answers that are not in `detect`, mapped to a code that is
+aliases:
+  hi: hi-IN
+  hinglish: hi-Latn
+  hi-latn-in: hi-Latn
+  hi-en: hi-Latn
+  en: en-IN
+  en-us: en-IN
+  en-gb: en-IN
+  gu: gu-IN
+# script(s) an LLM reply in that language must be written in (reply._right_script rejects anything else and
+# falls back to the template). latin = no Indic letters at all; ids / amounts / English loanwords are always fine.
+script:
+  hi-IN: [devanagari]
+  hi-Latn: [latin]
+  en-IN: [latin]
+  gu-IN: [gujarati]
+  mr-IN: [devanagari]
+# Same script, different language: a reply in `lang` that has these words (and none of `own_words`) is in the
+# wrong language (Marathi merchant, Hindi reply). reply._right_language rejects it -> template.
+wrong_words:
+  mr-IN: [है, हैं, नहीं, आपका, आपके, आपकी, गया, किया, हमने, दिया, क्योंकि]
+own_words:
+  mr-IN: [आहे, आहेत, नाही, तुमचे, तुमच्या, तुमचा, झाले, केले, आम्ही, कारण, आणि]
+# deterministic fallback templates (LLM down / wrong language) exist for hi-IN, hi-Latn, en-IN, mr-IN;
+# gu-IN falls back to en-IN
+text: [hi-IN, hi-Latn, en-IN, gu-IN, mr-IN]
 voice: [hi-IN]

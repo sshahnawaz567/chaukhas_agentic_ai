@@ -18,7 +18,14 @@ Classify the merchant message in <USER QUESTION> into exactly ONE intent:
 - deny: a NO to the pending request ("nahi", "mat bhejo") - ONLY valid when <pending_request> is true
 - human_request: merchant asks for a human, an agent, a manager, or wants to complain ("insaan se baat karao")
 - unknown: anything else, unclear, or off-topic
-Also detect: lang (BCP-47, e.g. hi-IN, en-IN, ta-IN; Hinglish written in Latin script is hi-IN),
+Also detect: lang - exactly ONE code from the list in the O/P SCHEMA. Decide by the language AND the script:
+- hi-IN: Hindi written in Devanagari ("पिछले हफ्ते का पैसा अभी तक नहीं आया")
+- hi-Latn: Hinglish = Hindi, or a Hindi-English mix, written in Latin/Roman letters ("Bhai mera settlement nahi aaya", "haan bhej do", "loan milega kya?")
+- en-IN: English only, no Hindi words ("My settlement has not arrived")
+- gu-IN: Gujarati ("મારા પૈસા હજુ આવ્યા નથી")
+- mr-IN: Marathi, in Devanagari or Roman letters ("माझे पैसे अजून आले नाहीत", "maza paisa ajun ala nahi"). Marathi is NOT hi-IN.
+- ANY other language (Tamil, Bengali, Telugu, ...): en-IN. We answer those merchants in English.
+- a short reply like "ok" / "yes" / "haan": use the language of the recent turns in <CONTEXT>
 urgency (low | med | high), track (support for settlement_delay/device_issue/refund_request/human_request/confirm/deny, sales for loan_inquiry),
 and confidence (0.0 to 1.0).
 </INSTRUCTION>
@@ -49,7 +56,7 @@ Think in at most 3 short sentences (no personal data):
   "thought_process": "str - your short reasoning, max 3 sentences",
   "intent_result": {{
     "intent": "str - one of settlement_delay | loan_inquiry | device_issue | refund_request | confirm | deny | human_request | unknown",
-    "lang": "str - BCP-47 code, e.g. hi-IN",
+    "lang": "str - one of hi-IN | hi-Latn | en-IN | gu-IN | mr-IN",
     "urgency": "str - low | med | high",
     "track": "str - support | sales",
     "confidence": "float - 0.0 to 1.0"

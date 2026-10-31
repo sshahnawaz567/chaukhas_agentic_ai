@@ -11,7 +11,7 @@ import uuid
 from typing import Any
 
 from chaukas import db
-from chaukas.agents import action, context, handoff, intent as intent_agent, reply as reply_agent
+from chaukas.agents import action, context, handoff, intent as intent_agent, notify, reply as reply_agent
 from chaukas.compliance import consent
 from chaukas.core import create_logs, m2_shim, plans
 from chaukas.core.models import (
@@ -30,6 +30,7 @@ from chaukas.core.models import (
     PlannedStep,
     ReasonCode,
     RefusedStep,
+    SettlementView,
     Track,
     TurnResponse,
     TurnStatus,
@@ -55,6 +56,16 @@ class PendingMismatch(ValueError):
     """The confirm request does not point at the session's pending step."""
 
 
+class ProactiveConsentViolation(RuntimeError):
+    """The guardrail ALLOWed a money action in a proactive session without the merchant's yes. Never executed."""
+
+
+def _proactive_consent_actions() -> set[str]:
+    # S6 (policy.yaml, Member 2). Until it lands: the two money actions of PROACTIVE_FEATURE_CHANGES §1.
+    return set(load_config("policy").get("proactive_consent_required")
+               or [ActionType.RETRIGGER_PAYOUT.value, ActionType.CREATE_OFFER.value])
+
+
 class _Turn:
     """Per-turn bookkeeping: state, trace spans, cost."""
 
@@ -62,6 +73,12 @@ class _Turn:
         self.state = state
         self.spans: list[dict[str, Any]] = []
         self.loan_brief: HandoffBrief | None = None  # LOAN_ACCEPTED follow-up, attached in _finish() after the reply
+        # proactive flow (event watcher): the trigger, e.g. "settlement_failed:SET-99213"; None = merchant-initiated
+        self.proactive_ref: str | None = None
+        self.is_event = False  # this turn was started by an event, not a merchant message (no merchant turn row)
+        self.notify = False  # reply with the deterministic notification template instead of the reply agent
+        self.notify_variant: str | None = None
+        self.notify_settlement: SettlementView | None = None
         self.cost = 0.0
         self.t0 = time.perf_counter()
 
@@ -159,6 +176,39 @@ def handle_confirm(session_id: str, pending_audit_id: int | None, approve: bool,
         return _finish(turn)
 
 
+def handle_event(merchant_id: str, settlement_id: str) -> TurnResponse:
+    """Proactive entry point (event watcher): Chaukas speaks first about a failed settlement.
+
+    Same house, second door: context, plan templates, guardrail and action are the reactive ones. Only the
+    start differs: the watcher creates the session (trigger_source='proactive'), the intent is known, and the
+    reply is a deterministic notification. Money never moves in this turn: the guardrail parks the payout
+    for the merchant's yes (Member 2, check 10), and _execute() refuses to run one if it does not.
+    """
+    trigger_ref = f"settlement_failed:{settlement_id}"
+    created = gw.create_session(merchant_id, "chat", "autonomous", trigger_source="proactive",
+                                trigger_ref=trigger_ref)
+    session = gw.load_session(created["session_id"])
+    state = _new_state(session, f"[event] settlement_failed {settlement_id}")  # a marker, no PII
+    state.intent, state.intent_confidence = Intent.SETTLEMENT_DELAY, 1.0
+    state.lang = session.get("lang")
+    state.track, state.urgency = Track.SUPPORT, Urgency.HIGH
+    turn = _Turn(state)
+    turn.proactive_ref, turn.is_event, turn.notify = trigger_ref, True, True
+    with create_logs.turn_scope(state.session_id, state.turn_no, state.trace_id):
+        try:
+            # "gateway" until Member 2 adds "watcher" to Span.agent (S4): /api/traces validates the literal
+            turn.span("gateway", f"watcher: {trigger_ref}", f"proactive session {state.session_id}",
+                      time.perf_counter())
+            _load_context(turn)
+            turn.notify_settlement = next((x for x in state.merchant.settlements if x.id == settlement_id), None)
+            _plan_and_execute(turn, proactive_settlement=settlement_id)
+        except Exception as exc:
+            log.exception("proactive event failed")
+            state.status = TurnStatus.FAILED
+            state.errors.append(m2_shim.mask_text(f"{type(exc).__name__}: {exc}")[:200])
+        return _finish(turn)
+
+
 # --------------------------------------------------------------------------
 # stages
 # --------------------------------------------------------------------------
@@ -196,9 +246,13 @@ def _fresh_flow(turn: _Turn) -> None:
         reason = HandoffReason.UNKNOWN_INTENT if s.intent == Intent.UNKNOWN else HandoffReason.LOW_CONFIDENCE
         _hand_off(turn, reason.value)
         return
+    _plan_and_execute(turn)
 
+
+def _plan_and_execute(turn: _Turn, proactive_settlement: str | None = None) -> None:
+    s = turn.state
     t = time.perf_counter()
-    plan = plans.plan_for(s, gw.next_step_no(s.session_id))
+    plan = plans.plan_for(s, gw.next_step_no(s.session_id), proactive_settlement)
     s.plan = [_stamp(p, s.session_id) for p in plan.steps]
     if s.plan:
         gw.advance_step_no(s.session_id, max(p.step_no for p in s.plan))
@@ -228,10 +282,14 @@ def _execute(turn: _Turn, queue: list[PlannedStep]) -> None:
                   f"{decision.verdict.value} {decision.reason_code.value}: {decision.reason}", t, step_no=step.step_no)
 
         if decision.verdict == Verdict.ALLOW:
+            if turn.proactive_ref and step.action_type in _proactive_consent_actions():
+                # defence in depth: in a proactive session nobody asked for this money action, so it needs the
+                # merchant's own yes (a resumed step is run by _resume(), never through this loop)
+                raise ProactiveConsentViolation(f"{step.action_type} ALLOWed without a yes in a proactive session")
             if not _run_allowed(turn, step, decision, queue):
                 return
         elif decision.verdict == Verdict.NEEDS_CONFIRMATION:
-            _park_for_confirmation(turn, step, decision)
+            _park_for_confirmation(turn, step, decision, queue)
             return
         else:  # BLOCK is final
             if decision.reason_code == ReasonCode.DUPLICATE_ACTION:
@@ -277,12 +335,19 @@ def _run_allowed(turn: _Turn, step: PlannedStep, decision: Decision, queue: list
     return True
 
 
-def _park_for_confirmation(turn: _Turn, step: PlannedStep, decision: Decision) -> None:
+def _park_for_confirmation(turn: _Turn, step: PlannedStep, decision: Decision,
+                           queue: list[PlannedStep] | None = None) -> None:
     """Guardrail said NEEDS_CONFIRMATION: store the step, stop the loop (one pending step at a time)."""
     s = turn.state
     s.pending_step, s.pending_audit_id = step, decision.audit_id
     kind = decision.confirmation_kind or "consent"
     s.pending_meta = {"kind": kind, "reason_code": decision.reason_code.value}
+    if turn.proactive_ref:
+        # proactive: "haan" -> fix + ticket + loan offer, so the rest of the plan resumes after the yes
+        # (every remaining step still goes through the guardrail; create_offer will ask its own yes)
+        s.pending_meta["proactive_ref"] = turn.proactive_ref
+        if queue:
+            s.pending_meta["remaining_steps"] = [p.model_dump(mode="json") for p in queue]
     if kind == "consent":
         # the KFS is presented in this turn's reply: record WHEN (RBI Digital Lending: before consent)
         s.pending_meta["kfs_shown_at"] = db.now_iso()
@@ -309,13 +374,19 @@ def _resume(turn: _Turn, pending: tuple[PlannedStep, dict, int | None], *, appro
     step, meta, audit_id = pending
     kind = kind or meta.get("kind") or "consent"
     s.plan = [step]
+    turn.proactive_ref = meta.get("proactive_ref")
 
     if not approve:
-        if kind == "consent":
+        if kind == "consent" and step.action_type == ActionType.CREATE_OFFER.value:
             lending.record_declined_offer(step.params["merchant_id"], step.params["amount"], s.session_id,
                                           s.trace_id, meta.get("kfs_shown_at"))
             s.outcome_tags.append("offer_declined")
             s.status = TurnStatus.COMPLETED
+        elif kind == "consent":  # e.g. a proactive payout: "abhi nahi" -> nothing runs, nothing is recorded as an offer
+            s.outcome_tags.append("payout_declined")
+            s.status = TurnStatus.COMPLETED
+            if turn.proactive_ref:
+                turn.notify, turn.notify_variant = True, "declined"
         else:
             _hand_off(turn, HandoffReason.MERCHANT_DECLINED_STEP_UP.value)
         return
@@ -343,6 +414,12 @@ def _resume(turn: _Turn, pending: tuple[PlannedStep, dict, int | None], *, appro
             if step.action_type == ActionType.CREATE_OFFER.value:
                 _grant_consent(s, "loan_offer", kfs_shown=True)  # KFS was shown when the offer was parked
                 turn.loan_brief = _loan_brief(s, step, decision)  # attached in _finish(), after the reply
+            remaining = [PlannedStep.model_validate(x) for x in meta.get("remaining_steps") or []]
+            if remaining:  # proactive: the yes covered THIS step only; the rest goes through the guardrail again
+                s.plan.extend(remaining)
+                _execute(turn, remaining)
+                if s.status == TurnStatus.EXECUTING:
+                    s.status = TurnStatus.COMPLETED
     elif decision.verdict == Verdict.NEEDS_CONFIRMATION:  # e.g. wrong OTP or params changed since
         _park_for_confirmation(turn, step, decision)
     else:
@@ -440,7 +517,10 @@ def _finish(turn: _Turn) -> TurnResponse:
     if s.status == TurnStatus.FAILED and s.handoff is None:
         s.outcome_tags.append("turn_failed")
     t = time.perf_counter()
-    text, llm, source = reply_agent.generate(s)
+    if turn.notify:  # proactive: deterministic template, amounts from the ledger, never an LLM
+        text, llm, source = notify.build(s, turn.notify_settlement, turn.notify_variant), None, "notification"
+    else:
+        text, llm, source = reply_agent.generate(s)
     s.reply = text
     turn.span("reply", f"{s.intent.value if s.intent else '?'} in {s.lang}", f"via {source}: {len(text)} chars", t, llm=llm)
 
@@ -453,8 +533,9 @@ def _finish(turn: _Turn) -> TurnResponse:
         turn.span("handoff", f"reason {HandoffReason.LOAN_ACCEPTED.value}",
                   f"{s.handoff_id}: {s.handoff.decision_needed}", t)
 
-    gw.record_turn(s.session_id, s.turn_no, s.trace_id, "merchant", s.message_masked, s.lang,
-                   s.intent.value if s.intent else None)
+    if not turn.is_event:  # an event turn has no merchant message: Chaukas speaks first
+        gw.record_turn(s.session_id, s.turn_no, s.trace_id, "merchant", s.message_masked, s.lang,
+                       s.intent.value if s.intent else None)
     gw.record_turn(s.session_id, s.turn_no + 1, s.trace_id, "agent", text, s.lang)
     pending = (s.pending_step, s.pending_meta or {}, s.pending_audit_id) if s.pending_step else None
     gw.save_session_state(

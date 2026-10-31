@@ -67,17 +67,28 @@ def _ticket_step(num: _Numberer, ctx: MerchantContext, settlement_id: str | None
                     "no open ticket for this issue: raise one")
 
 
+def _payout_step(num: _Numberer, s: SettlementView) -> PlannedStep:
+    return num.step(ActionType.RETRIGGER_PAYOUT, {"settlement_id": s.id, "amount": s.amount},
+                    f"{s.cause} and retriggerable; amount taken from the ledger", amount=s.amount)
+
+
 def unresolved_settlements(ctx: MerchantContext) -> list[SettlementView]:
     """failed / pending settlements, newest first (retriggered and success need no action)."""
     return [s for s in ctx.settlements if s.status in ("failed", "pending")][:MAX_SETTLEMENTS_PER_TURN]
 
 
-def plan_settlement_delay(state: ConversationState, start_step_no: int) -> PlanResult:
+def plan_settlement_delay(state: ConversationState, start_step_no: int,
+                          proactive_settlement: str | None = None) -> PlanResult:
+    """`proactive_settlement` = the failed settlement the watcher found (proactive flow). Then only that
+    settlement is planned, and the money step comes right after verify_ledger: nothing is written (e.g. a
+    ticket saying "payout re-sent") before the merchant has said yes to the payout."""
     ctx = state.merchant
     assert ctx is not None
     num = _Numberer(start_step_no)
     res = PlanResult()
     res.unresolved = unresolved_settlements(ctx)
+    if proactive_settlement is not None:
+        res.unresolved = [s for s in res.unresolved if s.id == proactive_settlement]
 
     if not res.unresolved:
         res.note = "no failed or pending settlement"
@@ -100,12 +111,13 @@ def plan_settlement_delay(state: ConversationState, start_step_no: int) -> PlanR
             res.note = res.note or "bank delay: waiting, no retrigger"
             wants_check_eligibility = False
         elif s.retriggerable:
-            res.steps.append(_ticket_step(num, ctx, s.id, f"Settlement {s.id} failed: {s.cause}",
-                                          f"{s.cause}: payout re-sent after fix"))
-            res.steps.append(num.step(ActionType.RETRIGGER_PAYOUT,
-                                      {"settlement_id": s.id, "amount": s.amount},
-                                      f"{s.cause} and retriggerable; amount taken from the ledger",
-                                      amount=s.amount))
+            issue, note = f"Settlement {s.id} failed: {s.cause}", f"{s.cause}: payout re-sent after fix"
+            if proactive_settlement is not None:  # proactive: ask for the payout before writing anything
+                res.steps.append(_payout_step(num, s))
+                res.steps.append(_ticket_step(num, ctx, s.id, issue, note))
+            else:  # reactive: ticket first, so it exists even when the payout stops at the guardrail
+                res.steps.append(_ticket_step(num, ctx, s.id, issue, note))
+                res.steps.append(_payout_step(num, s))
         else:  # IFSC_MISMATCH and bank details not updated since the failure
             res.steps.append(_ticket_step(num, ctx, s.id, f"Settlement {s.id} failed: bank details not updated",
                                           "bank details not updated; merchant asked to update them"))
@@ -148,11 +160,11 @@ def followup_offer_step(state: ConversationState, step_no: int) -> PlannedStep |
                        reversible=True, rationale="eligible: offer the lender's max amount (needs consent)")
 
 
-def plan_for(state: ConversationState, start_step_no: int) -> PlanResult:
+def plan_for(state: ConversationState, start_step_no: int, proactive_settlement: str | None = None) -> PlanResult:
     """Intent -> plan template. Intents that always hand off return a PlanResult with no steps."""
     intent = state.intent
     if intent == Intent.SETTLEMENT_DELAY:
-        return plan_settlement_delay(state, start_step_no)
+        return plan_settlement_delay(state, start_step_no, proactive_settlement)
     if intent == Intent.LOAN_INQUIRY:
         return plan_loan_inquiry(state, start_step_no)
     if intent == Intent.DEVICE_ISSUE:

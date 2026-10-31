@@ -50,8 +50,23 @@ def advance_step_no(session_id: str, used_up_to: int) -> None:
     _STEP_COUNTERS[session_id] = max(next_step_no(session_id), used_up_to + 1)
 
 
-def create_session(merchant_id: str, channel: str, mode: str) -> dict[str, Any]:
-    """Insert a session and return {session_id, disclosure, lang}. The disclosure is stored as turn 1."""
+class ProactiveSchemaMissing(RuntimeError):
+    """sessions.trigger_source / trigger_ref (schema change S5, Member 2) are not in this DB yet."""
+
+
+def has_trigger_columns(conn) -> bool:
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()}
+    return {"trigger_source", "trigger_ref"} <= cols
+
+
+def create_session(merchant_id: str, channel: str, mode: str, *, trigger_source: str = "merchant",
+                   trigger_ref: str | None = None) -> dict[str, Any]:
+    """Insert a session and return {session_id, disclosure, lang}. The disclosure is stored as turn 1.
+
+    `trigger_source='proactive'` is set ONLY by the event watcher (server side), never from an API body.
+    The guardrail reads it back from the sessions row, so it must be written to the DB, not kept in memory.
+    """
+    proactive = trigger_source == "proactive"
     conn = db.connect()
     try:
         m = conn.execute("SELECT preferred_lang FROM merchants WHERE merchant_id=?", (merchant_id,)).fetchone()
@@ -59,14 +74,23 @@ def create_session(merchant_id: str, channel: str, mode: str) -> dict[str, Any]:
             raise MerchantNotFound(merchant_id)
         session_id = "S-" + uuid.uuid4().hex[:10]
         lang = m["preferred_lang"]
-        conn.execute("INSERT INTO sessions (session_id, merchant_id, channel, mode, lang) VALUES (?,?,?,?,?)",
-                     (session_id, merchant_id, channel, mode, lang))
+        if proactive:
+            if not has_trigger_columns(conn):  # never run a proactive session the guardrail cannot recognise
+                raise ProactiveSchemaMissing("sessions.trigger_source/trigger_ref missing (schema S5)")
+            conn.execute("INSERT INTO sessions (session_id, merchant_id, channel, mode, lang, trigger_source, "
+                         "trigger_ref) VALUES (?,?,?,?,?,?,?)",
+                         (session_id, merchant_id, channel, mode, lang, trigger_source, trigger_ref))
+        else:
+            conn.execute("INSERT INTO sessions (session_id, merchant_id, channel, mode, lang) VALUES (?,?,?,?,?)",
+                         (session_id, merchant_id, channel, mode, lang))
         text, notice_version = m2_shim.get_disclosure(lang)
         conn.execute("INSERT INTO turns (session_id, turn_no, trace_id, role, text_masked, lang) VALUES (?,?,?,?,?,?)",
                      (session_id, 1, "gateway-" + session_id, "agent", text, lang))
         conn.commit()
-        # DPDP consent artefact for AI assistance, against the notice just shown (no-op if already granted)
-        consent.grant(conn, merchant_id, "ai_assistance", channel=channel, session_id=session_id)
+        if not proactive:
+            # DPDP consent artefact for AI assistance, against the notice just shown (no-op if already granted).
+            # Not for a proactive session: the merchant did not open it, so nothing was consented to.
+            consent.grant(conn, merchant_id, "ai_assistance", channel=channel, session_id=session_id)
     finally:
         conn.close()
     create_logs.log_session_started(session_id, merchant_id, channel, mode, lang, notice_version)

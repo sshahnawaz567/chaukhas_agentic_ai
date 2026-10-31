@@ -1,0 +1,118 @@
+# Proactive notification templates — deterministic, never sent to an LLM (amounts must not come from a model).
+# Owner: Member 1 · PROACTIVE_FEATURE_CHANGES.md §4.4
+# Placeholders (filled from the LEDGER / config): {amount} {settlement_id} {cause_text} {kyc_link}
+# One block per [lang.variant]. Missing language -> en-IN. Lines starting with # are comments.
+#   retriggerable  payout can be re-sent; waiting for the merchant's yes (Haan / Abhi nahi buttons)
+#   over_limit     above the auto-limit: a team member verifies (step-up)
+#   bank_details   IFSC wrong and not fixed yet: no money step
+#   kyc            KYC pending: never retriggered
+#   declined       merchant said "abhi nahi" to the payout
+#   generic        anything else (the settlement could not be actioned automatically)
+
+[hi-IN.retriggerable]
+नमस्ते! आपका ₹{amount} का settlement ({settlement_id}) fail हो गया था — {cause_text}। आपने बैंक डिटेल्स ठीक कर दी हैं। क्या मैं यह payment दोबारा भेज दूँ?
+
+[hi-IN.over_limit]
+नमस्ते! आपका ₹{amount} का settlement ({settlement_id}) fail हो गया था — {cause_text}। यह रकम बड़ी है, इसलिए सुरक्षा के लिए हमारी टीम इसे verify करके भेजेगी। आपको कुछ करने की ज़रूरत नहीं है।
+
+[hi-IN.bank_details]
+नमस्ते! आपका ₹{amount} का settlement ({settlement_id}) fail हो गया है — {cause_text}। कृपया Paytm ऐप में अपनी बैंक डिटेल्स (IFSC) अपडेट कर दीजिए, फिर हम payment दोबारा भेज पाएँगे। हमारी टीम आपकी मदद करेगी।
+
+[hi-IN.kyc]
+नमस्ते! आपका ₹{amount} का settlement ({settlement_id}) रुका हुआ है — {cause_text}। कृपया अपनी KYC पूरी कीजिए: {kyc_link} — हमारी टीम आपकी मदद करेगी।
+
+[hi-IN.declined]
+ठीक है, अभी कुछ नहीं भेजा गया। जब चाहें, बस बता दीजिए।
+
+[hi-IN.generic]
+नमस्ते! आपका ₹{amount} का settlement ({settlement_id}) fail हो गया था। हमारी टीम इसे देख रही है और जल्द आपसे संपर्क करेगी।
+
+[hi-IN.cause.IFSC_MISMATCH]
+बैंक डिटेल्स (IFSC) गलत थीं
+
+[hi-IN.cause.BANK_DOWN]
+बैंक कुछ समय के लिए बंद था
+
+[hi-IN.cause.KYC_PENDING]
+आपकी KYC पूरी नहीं है
+
+[hi-Latn.retriggerable]
+Namaste! Aapka ₹{amount} ka settlement ({settlement_id}) fail ho gaya tha — {cause_text}. Aapne bank details theek kar di hain. Kya main yeh payment dobara bhej doon?
+
+[hi-Latn.over_limit]
+Namaste! Aapka ₹{amount} ka settlement ({settlement_id}) fail ho gaya tha — {cause_text}. Yeh amount badi hai, isliye security ke liye hamari team ise verify karke bhejegi. Aapko kuch karne ki zaroorat nahi hai.
+
+[hi-Latn.bank_details]
+Namaste! Aapka ₹{amount} ka settlement ({settlement_id}) fail ho gaya hai — {cause_text}. Kripya Paytm app mein apni bank details (IFSC) update kar dijiye, phir hum payment dobara bhej paayenge. Hamari team aapki madad karegi.
+
+[hi-Latn.kyc]
+Namaste! Aapka ₹{amount} ka settlement ({settlement_id}) ruka hua hai — {cause_text}. Kripya apni KYC poori kijiye: {kyc_link} — hamari team aapki madad karegi.
+
+[hi-Latn.declined]
+Theek hai, abhi kuch nahi bheja gaya. Jab chahein, bas bata dijiye.
+
+[hi-Latn.generic]
+Namaste! Aapka ₹{amount} ka settlement ({settlement_id}) fail ho gaya tha. Hamari team ise dekh rahi hai aur jaldi aapse sampark karegi.
+
+[hi-Latn.cause.IFSC_MISMATCH]
+bank details (IFSC) galat thi
+
+[hi-Latn.cause.BANK_DOWN]
+bank kuch der ke liye band tha
+
+[hi-Latn.cause.KYC_PENDING]
+aapki KYC poori nahi hai
+
+[mr-IN.retriggerable]
+नमस्कार! तुमचे ₹{amount} चे settlement ({settlement_id}) फेल झाले होते — {cause_text}. तुम्ही बँक डिटेल्स दुरुस्त केले आहेत. मी हे पेमेंट पुन्हा पाठवू का?
+
+[mr-IN.over_limit]
+नमस्कार! तुमचे ₹{amount} चे settlement ({settlement_id}) फेल झाले होते — {cause_text}. ही रक्कम मोठी आहे, म्हणून सुरक्षेसाठी आमची टीम ती तपासून पाठवेल. तुम्हाला काहीही करण्याची गरज नाही.
+
+[mr-IN.bank_details]
+नमस्कार! तुमचे ₹{amount} चे settlement ({settlement_id}) फेल झाले आहे — {cause_text}. कृपया Paytm ॲपमध्ये तुमचे बँक डिटेल्स (IFSC) अपडेट करा, मग आम्ही पेमेंट पुन्हा पाठवू शकू. आमची टीम तुम्हाला मदत करेल.
+
+[mr-IN.kyc]
+नमस्कार! तुमचे ₹{amount} चे settlement ({settlement_id}) थांबले आहे — {cause_text}. कृपया तुमची KYC पूर्ण करा: {kyc_link} — आमची टीम तुम्हाला मदत करेल.
+
+[mr-IN.declined]
+ठीक आहे, सध्या काहीही पाठवले नाही. जेव्हा हवे तेव्हा फक्त सांगा.
+
+[mr-IN.generic]
+नमस्कार! तुमचे ₹{amount} चे settlement ({settlement_id}) फेल झाले होते. आमची टीम हे तपासत आहे आणि लवकरच तुमच्याशी संपर्क करेल.
+
+[mr-IN.cause.IFSC_MISMATCH]
+बँक डिटेल्स (IFSC) चुकीचे होते
+
+[mr-IN.cause.BANK_DOWN]
+बँक काही काळ बंद होती
+
+[mr-IN.cause.KYC_PENDING]
+तुमची KYC पूर्ण नाही
+
+[en-IN.retriggerable]
+Hello! Your settlement of ₹{amount} ({settlement_id}) failed — {cause_text}. You have since fixed your bank details. Shall I send this payment again?
+
+[en-IN.over_limit]
+Hello! Your settlement of ₹{amount} ({settlement_id}) failed — {cause_text}. This is a large amount, so for your security our team will verify it before sending. You don't need to do anything.
+
+[en-IN.bank_details]
+Hello! Your settlement of ₹{amount} ({settlement_id}) has failed — {cause_text}. Please update your bank details (IFSC) in the Paytm app, and we can then send the payment again. Our team will help you.
+
+[en-IN.kyc]
+Hello! Your settlement of ₹{amount} ({settlement_id}) is on hold — {cause_text}. Please complete your KYC here: {kyc_link} — our team will help you.
+
+[en-IN.declined]
+Okay, nothing has been sent. Just tell me whenever you want it.
+
+[en-IN.generic]
+Hello! Your settlement of ₹{amount} ({settlement_id}) failed. Our team is looking into it and will contact you soon.
+
+[en-IN.cause.IFSC_MISMATCH]
+the bank details (IFSC) were wrong
+
+[en-IN.cause.BANK_DOWN]
+the bank was temporarily down
+
+[en-IN.cause.KYC_PENDING]
+your KYC is not complete

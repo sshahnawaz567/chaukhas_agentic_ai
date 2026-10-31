@@ -127,3 +127,85 @@ def _reply_state(paid):
 def test_reply_grounding(text, paid, ok):
     R, st, facts = _reply_state(paid)
     assert R._grounded(text, st, facts) is ok
+
+
+# ------------------------------------------------------------------ language enum (config/languages.yaml `detect`)
+def test_intent_prompt_lang_enum_matches_config():
+    import re as _re
+
+    from chaukas.agents.schemas import language_codes
+
+    t = prompt.load_prompt("intent.v1.txt")
+    line = next(x for x in t.splitlines() if '"lang": "str - one of' in x)
+    in_prompt = [c.strip() for c in _re.search(r"one of ([^\"]+)", line).group(1).split("|")]
+    assert in_prompt == language_codes()
+    assert in_prompt == ["hi-IN", "hi-Latn", "en-IN", "gu-IN", "mr-IN"]  # only languages that work end to end
+
+
+@pytest.mark.parametrize("model_says, code", [
+    ("hi-IN", "hi-IN"), ("hi-Latn", "hi-Latn"), ("HI-LATN", "hi-Latn"), ("Hinglish", "hi-Latn"),
+    ("hi", "hi-IN"), ("en-US", "en-IN"), ("gu", "gu-IN"), ("gu-IN", "gu-IN"),
+    ("mr", "mr-IN"), ("ta-IN", "en-IN"), ("bn", "en-IN"), ("fr-FR", "en-IN"),  # unsupported -> English
+    ("", "hi-IN"), (None, "hi-IN"),                                                 # no answer -> default
+])
+def test_model_lang_answer_is_normalised_into_the_enum(model_says, code):
+    from chaukas.agents.schemas import IntentResult
+
+    r = IntentResult(intent="settlement_delay", lang=model_says, confidence=0.9)
+    assert r.lang == code
+
+
+@pytest.mark.parametrize("text, code", [
+    ("पिछले हफ्ते का पैसा अभी तक नहीं आया।", "hi-IN"),
+    ("Bhai mera 32,500 ka settlement 2 din se nahi aaya, jaldi bhejo.", "hi-Latn"),
+    ("haan bhej do", "hi-Latn"),
+    ("My settlement has not arrived", "en-IN"),
+    ("મારા પૈસા હજુ આવ્યા નથી", "gu-IN"),
+    ("என் பணம் இன்னும் வரவில்லை", "en-IN"),   # unsupported language -> answered in English
+])
+def test_keyword_fallback_tells_hinglish_from_hindi(text, code):
+    from chaukas.agents.intent import keyword_classify
+
+    assert keyword_classify(text, pending=True).lang == code
+
+
+@pytest.mark.parametrize("reply, lang, ok", [
+    ("आपका ₹18,400 का भुगतान दोबारा भेज दिया गया है। टिकट TKT-12345", "hi-IN", True),
+    ("Aapka ₹18,400 ka payment dobara bhej diya gaya hai. Ticket TKT-12345", "hi-Latn", True),
+    ("आपका settlement SET-99213 फिर से शुरू किया गया है", "en-IN", False),   # Hindi for an English merchant
+    ("आपका payment भेज दिया", "hi-Latn", False),                              # Devanagari for Hinglish
+    ("Your payout of ₹18,400 has been re-sent.", "en-IN", True),
+    ("Your payout has been re-sent.", "hi-IN", False),                       # no Devanagari at all
+    ("તમારું settlement SET-99213 ફરીથી મોકલવામાં આવ્યું છે", "gu-IN", True),
+    ("सभी settlements सफल हो गए हैं", "gu-IN", False),                        # Hindi for a Gujarati merchant
+    ("anything", "xx-YY", True),                                              # unknown language: no check
+])
+def test_reply_must_be_in_the_merchants_script(reply, lang, ok):
+    from chaukas.agents.reply import _right_script
+
+    assert _right_script(reply, lang) is ok
+
+
+def test_every_detectable_language_has_a_script():
+    from chaukas.agents.schemas import language_codes
+    from chaukas.integrations._common import load_config
+
+    assert set(load_config("languages")["script"]) == set(language_codes())
+
+
+@pytest.mark.parametrize("reply, ok", [
+    ("तुमचे SET-99213 settlement fail झाले कारण bank details (IFSC) चुकीचे होते. आम्ही payout re-send केला आहे.", True),
+    ("आपका settlement SET-99213 fail हो गया था क्योंकि bank details (IFSC) गलत थे। हमने payout re-send कर दिया है।", False),
+    ("तुमचे सेटलमेंट अजूनही प्रलंबित आहे, त्यामुळे सध्या कर्ज ऑफर तयार करता येणार नाही.", True),
+    ("Your payout has been re-sent.", False),  # no Devanagari at all
+])
+def test_marathi_reply_in_hindi_is_caught(reply, ok):
+    from chaukas.agents.reply import _right_language
+
+    assert _right_language(reply, "mr-IN") is ok
+
+
+def test_hindi_replies_are_not_affected_by_the_marathi_word_check():
+    from chaukas.agents.reply import _right_language
+
+    assert _right_language("आपका ₹18,400 का भुगतान दोबारा भेज दिया गया है।", "hi-IN")
