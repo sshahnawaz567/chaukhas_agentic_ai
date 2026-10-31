@@ -1,0 +1,10 @@
+# Exact versions the 700+ tests were run with (Python 3.11.9). requirements.txt stays unpinned for development;
+# the deployed build uses THIS file so a new upstream release cannot break the demo.
+fastapi==0.118.0
+starlette==0.48.0
+uvicorn[standard]==0.37.0
+pydantic==2.11.9
+pyyaml==6.0.2
+openai==2.1.0
+httpx==0.28.1
+python-dotenv==1.1.1

@@ -1,0 +1,34 @@
+# Render Blueprint for Chaukas (API + the built UI, one service). Deploy: Render dashboard > New > Blueprint > pick this repo.
+# See DEPLOY.md for the steps, the env vars and the demo-day checklist.
+services:
+  - type: web
+    name: chaukas
+    runtime: python
+    plan: free                      # free instances sleep after ~15 min idle and their disk is wiped on restart (see DEPLOY.md)
+    region: singapore               # closest Render region to India
+    buildCommand: >-
+      pip install -r requirements-deploy.txt &&
+      (python -m eval.run_eval --llm replay; test -f eval/latest.json)
+    # ^ the second part fills eval/latest.json for GET /api/eval/latest (it is gitignored, so it must be built here).
+    #   It replays the recorded LLM answers: no API key and no network needed, about 10 seconds.
+    #   run_eval exits 1 while any metric misses its target (autonomous resolution is 50%, target 60%), which must NOT
+    #   fail the build: only a missing scorecard file does.
+    # ONE worker only: the PII token vault and the step counters live in memory, a second worker would break detokenise.
+    startCommand: uvicorn chaukas.main:app --host 0.0.0.0 --port $PORT --workers 1 --proxy-headers
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: CHAUKAS_PUBLIC_DEMO       # the public URL has no login: switches off the destructive erasure endpoint
+        value: "1"
+      - key: CHAUKAS_REPLAY_MODE       # off = live Sarvam/Gemini (falls back to keyword + templates if they fail)
+        value: "off"
+      - key: CHAUKAS_LOG_LEVEL
+        value: INFO
+      - key: CHAUKAS_CORS_ORIGINS      # only if the UI is hosted elsewhere (e.g. Vercel): its exact https URL, comma separated
+        sync: false
+      - key: SARVAM_API_KEY            # secrets: type them in the Render dashboard, never in git
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

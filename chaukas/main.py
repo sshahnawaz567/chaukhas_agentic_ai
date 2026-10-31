@@ -33,6 +33,15 @@ async def _lifespan(_: FastAPI):
 
 app = FastAPI(title="Chaukas", version="0.1", lifespan=_lifespan)
 
+# CORS only when the UI is hosted on ANOTHER origin (e.g. Vercel calling Render): its exact https URL(s), comma separated.
+# Empty (the default) = same origin or a proxy, nothing is opened. Never "*": the API has no login.
+_cors_origins = [o.strip() for o in os.environ.get("CHAUKAS_CORS_ORIGINS", "").split(",") if o.strip()]
+if _cors_origins:
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(CORSMiddleware, allow_origins=_cors_origins, allow_methods=["GET", "POST", "OPTIONS"],
+                       allow_headers=["Content-Type"])
+
 
 @app.exception_handler(HTTPException)
 async def _http_error(_: Request, exc: HTTPException):
