@@ -40,6 +40,12 @@ _CAUSE_PLAIN = {
 }
 
 
+def template_line(lang: str | None, key: str) -> str:
+    """One fixed reply line (config/fallback_replies.yaml) in the merchant's language."""
+    t = _templates(lang or "hi-IN")
+    return t.get(key) or t["handoff"]
+
+
 def _templates(lang: str) -> dict[str, str]:
     data = yaml.safe_load((ROOT / "config" / "fallback_replies.yaml").read_text(encoding="utf-8"))
     return data.get(lang) or data["en-IN"]

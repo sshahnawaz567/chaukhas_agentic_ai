@@ -79,6 +79,7 @@ class _Turn:
         self.notify = False  # reply with the deterministic notification template instead of the reply agent
         self.notify_variant: str | None = None
         self.notify_settlement: SettlementView | None = None
+        self.fixed_reply_key: str | None = None  # deterministic reply template (e.g. suspected injection)
         self.cost = 0.0
         self.t0 = time.perf_counter()
 
@@ -135,13 +136,17 @@ def handle_message(session_id: str, text: str) -> TurnResponse:
     pending = gw.load_pending(session)
     with create_logs.turn_scope(state.session_id, state.turn_no, state.trace_id):
         try:
-            _understand(turn, pending is not None)
-            if pending is not None and state.intent in (Intent.CONFIRM, Intent.DENY):
-                _load_context(turn)
-                _resume(turn, pending, approve=state.intent == Intent.CONFIRM, actor="merchant",
-                        actor_id=None, kind=None, otp=None)
+            signals = intent_agent.injection_signals(state.message_masked)
+            if signals:  # checked in code BEFORE any LLM sees the message (a pending step expires, C1.4)
+                _injection_flow(turn, signals)
             else:
-                _fresh_flow(turn)
+                _understand(turn, pending is not None)
+                if pending is not None and state.intent in (Intent.CONFIRM, Intent.DENY):
+                    _load_context(turn)
+                    _resume(turn, pending, approve=state.intent == Intent.CONFIRM, actor="merchant",
+                            actor_id=None, kind=None, otp=None)
+                else:
+                    _fresh_flow(turn)
         except Exception as exc:  # a turn must never crash the API; surface it as FAILED + handoff text
             log.exception("turn failed")
             state.status = TurnStatus.FAILED
@@ -247,6 +252,45 @@ def _fresh_flow(turn: _Turn) -> None:
         _hand_off(turn, reason.value)
         return
     _plan_and_execute(turn)
+
+
+def _injection_flow(turn: _Turn, signals: list[str]) -> None:
+    """Suspected prompt injection: nothing is planned, nothing moves, no LLM words anything. The merchant gets
+    the plain ledger answer (DEMO_SCRIPT scene 4); a human gets a fraud-review brief written by code."""
+    s = turn.state
+    t = time.perf_counter()
+    kw = intent_agent.keyword_classify(s.message_masked, pending=False)
+    s.lang, s.intent, s.intent_confidence = kw.lang, kw.intent, kw.confidence
+    s.urgency, s.track = kw.urgency, kw.track
+    s.status = TurnStatus.UNDERSTOOD
+    turn.span("intent", f"msg ({len(s.message_masked)} chars)",
+              f"{s.intent.value} {s.lang} via injection guard: {', '.join(signals)}", t)
+    _load_context(turn)
+
+    # audit trail: the injected demand goes to the guardrail once (never executed) -> BLOCK NOT_IN_ALLOW_LIST row
+    step = PlannedStep(step_no=gw.next_step_no(s.session_id), action_type="transfer",
+                       params={"merchant_id": s.merchant_id}, reversible=False,
+                       rationale="injected request from the message; audit only, never executed")
+    _stamp(step, s.session_id)
+    gw.advance_step_no(s.session_id, step.step_no)
+    t = time.perf_counter()
+    decision = m2_shim.guardrail_check(step, s)
+    turn.span("guardrail", "transfer (injected, audit only)",
+              f"{decision.verdict.value} {decision.reason_code.value}: {decision.reason}", t, step_no=step.step_no)
+    if decision.verdict == Verdict.BLOCK:
+        s.refused.append(RefusedStep(action_type=step.action_type, verdict=decision.verdict,
+                                     reason_code=decision.reason_code,
+                                     reason="no such action exists; nothing was planned"))
+    # anything other than BLOCK is ignored on purpose: this step is never executed
+
+    t = time.perf_counter()
+    s.handoff = handoff.injection_brief(s, signals)
+    s.handoff_id = handoff.save(s, s.handoff)
+    s.status = TurnStatus.HANDED_OFF
+    turn.span("handoff", f"reason {HandoffReason.SUSPECTED_INJECTION.value}",
+              f"{s.handoff_id}: {s.handoff.decision_needed}", t)
+    open_issue = any(x.status in ("failed", "pending") for x in s.merchant.settlements)
+    turn.fixed_reply_key = "handoff" if open_issue else "all_good"
 
 
 def _plan_and_execute(turn: _Turn, proactive_settlement: str | None = None) -> None:
@@ -519,6 +563,8 @@ def _finish(turn: _Turn) -> TurnResponse:
     t = time.perf_counter()
     if turn.notify:  # proactive: deterministic template, amounts from the ledger, never an LLM
         text, llm, source = notify.build(s, turn.notify_settlement, turn.notify_variant), None, "notification"
+    elif turn.fixed_reply_key:  # e.g. suspected injection: no LLM reads the message or words the answer
+        text, llm, source = reply_agent.template_line(s.lang, turn.fixed_reply_key), None, "template(fixed)"
     else:
         text, llm, source = reply_agent.generate(s)
     s.reply = text

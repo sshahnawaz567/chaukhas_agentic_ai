@@ -1,7 +1,7 @@
 # Deterministic reply templates used when the LLM is unavailable (and no recording exists), or its reply
 # was rejected (ungrounded / wrong language).
 # Facts are filled from the ledger / action results; nothing here is a policy number.
-# Languages: hi-IN (Devanagari), hi-Latn (Hinglish, Latin script), mr-IN, en-IN (anything else falls back to en-IN).
+# Languages: hi-IN (Devanagari), hi-Latn (Hinglish, Latin script), mr-IN, gu-IN, en-IN (anything else falls back to en-IN).
 hi-IN:
   all_good: "आपके सभी भुगतान सफल हैं, कोई पेमेंट पेंडिंग नहीं है।"
   retriggered: "आपका ₹{amount} का भुगतान दोबारा भेज दिया गया है।"
@@ -25,7 +25,7 @@ hi-IN:
   unclear: "माफ़ कीजिए, मैं समझ नहीं पाया। मैं इसे हमारी टीम को भेज रहा हूँ।"
   nothing_pending: "अभी कोई पेंडिंग अनुरोध नहीं है। बताइए, मैं क्या मदद करूँ?"
 hi-Latn:
-  all_good: "Aapke saare settlements successful hain, koi payment pending nahi hai."
+  all_good: "Aapke sabhi settlements successful hain, koi payment pending nahi hai."
   retriggered: "Aapka ₹{amount} ka payment dobara bhej diya gaya hai."
   ticket_raised: "Ticket {ticket_id} bana diya gaya hai."
   ticket_updated: "Pehle se khula ticket {ticket_id} update kar diya hai."
@@ -68,6 +68,28 @@ mr-IN:
   step_up: "या रकमेसाठी OTP पडताळणी आवश्यक आहे; आमची टीम ती तपासेल."
   unclear: "माफ करा, मला समजले नाही. मी हे आमच्या टीमकडे पाठवत आहे."
   nothing_pending: "सध्या कोणतीही प्रलंबित विनंती नाही. सांगा, मी काय मदत करू?"
+gu-IN:
+  all_good: "તમારા બધા settlements સફળ થયા છે, કોઈ પેમેન્ટ બાકી નથી."
+  retriggered: "તમારું ₹{amount} નું પેમેન્ટ ફરીથી મોકલી દીધું છે."
+  ticket_raised: "ટિકિટ {ticket_id} બનાવી દીધી છે."
+  ticket_updated: "પહેલેથી ખુલ્લી ટિકિટ {ticket_id} અપડેટ કરી દીધી છે."
+  over_limit: "આ રકમ મોટી છે, તેથી સુરક્ષા માટે અમારી ટીમ તેને ચકાસીને મોકલશે."
+  pending_wait: "તમારું ₹{amount} નું પેમેન્ટ બેંક તરફથી પ્રોસેસ થઈ રહ્યું છે. લગભગ {eta_hours} કલાકમાં આવી જવું જોઈએ."
+  kyc: "તમારું KYC પૂરું નથી, તેથી પેમેન્ટ અટકેલું છે. કૃપા કરીને KYC પૂરું કરો: {kyc_link} — અમારી ટીમ તમારી મદદ કરશે."
+  bank_not_updated: "તમારી બેંક વિગતો હજુ અપડેટ થઈ નથી, તેથી પેમેન્ટ ફરી મોકલીએ તો ફરીથી નિષ્ફળ જશે. કૃપા કરીને બેંક વિગતો અપડેટ કરો; અમારી ટીમ તમારો સંપર્ક કરશે."
+  offer: "તમે ₹{amount} સુધીની લોન માટે પાત્ર છો ({lender_name}). વ્યાજ {apr_pct}% વાર્ષિક, પ્રોસેસિંગ ફી ₹{fee}, મુદત {tenure} મહિના, કુલ ચુકવણી ₹{total}. ફરિયાદ: {grievance}. શું હું ઓફર મોકલું?"
+  offer_accepted: "તમારી ₹{amount} ની લોન ઓફર {offer_id} સ્વીકારાઈ ગઈ છે."
+  offer_declined: "ઠીક છે, મેં ઓફર મોકલી નથી."
+  offer_not_eligible: "હાલમાં તમે લોન માટે પાત્ર નથી."
+  offer_later: "હાલમાં લોન ઓફર આપવી યોગ્ય નથી, આપણે પછી વાત કરીશું."
+  device_ticket: "તમારા ડિવાઇસની સમસ્યા માટે ટિકિટ {ticket_id} નોંધી દીધી છે."
+  handoff: "હું આ અમારી ટીમને મોકલું છું, તેઓ જલ્દી તમારો સંપર્ક કરશે."
+  human: "ચોક્કસ, હું તમને અમારી ટીમના સભ્ય સાથે જોડું છું."
+  refund: "રિફંડ હું જાતે કરી શકતો નથી, તેથી આ અમારી ટીમને મોકલું છું."
+  action_failed: "પેમેન્ટ મોકલવામાં મુશ્કેલી આવી, તેથી કંઈ બદલાયું નથી. અમારી ટીમ આ તપાસશે."
+  step_up: "આ રકમ માટે OTP ચકાસણી જરૂરી છે; અમારી ટીમ તેની ચકાસણી કરશે."
+  unclear: "માફ કરશો, મને સમજાયું નહીં. હું આ અમારી ટીમને મોકલું છું."
+  nothing_pending: "હાલમાં કોઈ બાકી વિનંતી નથી. કહો, હું શું મદદ કરું?"
 en-IN:
   all_good: "All your settlements are successful, nothing is pending."
   retriggered: "Your payout of ₹{amount} has been re-sent."

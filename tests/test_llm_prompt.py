@@ -209,3 +209,18 @@ def test_hindi_replies_are_not_affected_by_the_marathi_word_check():
     from chaukas.agents.reply import _right_language
 
     assert _right_language("आपका ₹18,400 का भुगतान दोबारा भेज दिया गया है।", "hi-IN")
+
+
+def test_every_supported_language_has_fallback_and_notification_templates():
+    """A rejected (wrong-language) LLM reply falls back to a template in the SAME language, never English."""
+    import yaml
+
+    from chaukas.agents.notify import _templates
+    from chaukas.agents.schemas import language_codes
+    from chaukas.db import ROOT
+
+    replies = yaml.safe_load((ROOT / "config" / "fallback_replies.yaml").read_text(encoding="utf-8"))
+    notes = _templates()
+    for code in language_codes():
+        assert set(replies[code]) == set(replies["en-IN"]), code
+        assert set(notes[code]) == set(notes["en-IN"]), code

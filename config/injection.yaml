@@ -1,0 +1,15 @@
+# Prompt-injection signals — deterministic, checked in code BEFORE any LLM sees the message. Owner: Member 1
+# A hit never moves money anyway (amounts come from the ledger, the guardrail BLOCKs unknown actions); it routes
+# the message to a fraud-review handoff (HandoffReason.SUSPECTED_INJECTION) with a brief written by code, not an LLM.
+# Case-insensitive Python regexes. Keep them specific: an ordinary merchant message must never match.
+patterns:
+  ignore_previous: '\bignore\s+(all\s+|the\s+|any\s+)?(previous|prior|above|earlier|your)\s+(rules|instructions|prompts?|limits)'
+  ignore_rules: '\bignore\s+(all\s+|the\s+|your\s+)?(rules|instructions|limits|policy|policies)\b'
+  system_prefix: '(^|\n|\s)(system|assistant|developer)\s*:'
+  admin_mode: '\b(admin|developer|god|debug|sudo)\s+mode\b'
+  you_are_now: '\byou\s+are\s+now\b'
+  act_as: '\b(act|behave)\s+as\s+(an?\s+)?(admin|system|developer|root)\b'
+  jailbreak: '\bjailbreak\b'
+  hinglish_rules_ignore: '\b(rules?|niyam|limits?)\s+(ko\s+)?(ignore|bhool|chhod)'
+  hinglish_previous_rules: '\b(pehle|pichhle|pichle)\s+ke\s+(saare\s+|sabhi\s+)?(rules?|niyam|instructions?)'
+  hindi_rules_ignore: '(नियम|नियमों|रूल्स).{0,20}(अनदेखा|इग्नोर|भूल)'

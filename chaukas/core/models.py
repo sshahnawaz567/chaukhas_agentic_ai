@@ -93,6 +93,7 @@ class HandoffReason(str, Enum):  # handoffs.reason_code = a ReasonCode OR one of
     MERCHANT_DECLINED_STEP_UP = "MERCHANT_DECLINED_STEP_UP"
     HUMAN_REQUESTED = "HUMAN_REQUESTED"  # merchant asked for a human
     LOAN_ACCEPTED = "LOAN_ACCEPTED"  # ADDITIVE: merchant accepted an offer -> back-office follow-up, not an approval
+    SUSPECTED_INJECTION = "SUSPECTED_INJECTION"  # ADDITIVE: message carries instructions aimed at the AI -> fraud review
 
 
 class TurnStatus(str, Enum):  # the state machine — see C1.4

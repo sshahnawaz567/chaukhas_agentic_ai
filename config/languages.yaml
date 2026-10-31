@@ -1,9 +1,10 @@
 # Supported languages — Owner: Member 1
 # `detect` is the closed list (enum) the Intent agent may answer with. ONLY languages that work end to end
 # (detected AND answered in that language, live-tested on sarvam-105b-conversations, 31 Oct): Hindi,
-# Hinglish, English, Gujarati, Marathi (Marathi: the LLM answers in Hindi ~2 times in 5, so a word check
-# below sends those to the Marathi template). The intent prompt's O/P SCHEMA lists exactly these codes
-# (tests/test_llm_prompt.py keeps the two in sync). Codes are BCP-47.
+# Hinglish, English, Gujarati, Marathi. Gujarati and Marathi: the LLM answers in Hindi (or romanised) about
+# half the time / 2 in 5; the script + word checks send those replies to the Gujarati / Marathi template.
+# The intent prompt's O/P SCHEMA lists exactly these codes (tests/test_llm_prompt.py keeps the two in sync).
+# Codes are BCP-47.
 # hi-Latn = Hinglish: Hindi (often mixed with English) in Latin/Roman script, e.g. "paisa nahi aaya".
 #           Same code as config/disclosure.yaml (Member 2). hi-IN is Hindi in Devanagari only.
 # Dropped after the live test: ta, bn, te, kn, ml, pa, or (the model replied in Hindi).
@@ -40,7 +41,6 @@ wrong_words:
   mr-IN: [है, हैं, नहीं, आपका, आपके, आपकी, गया, किया, हमने, दिया, क्योंकि]
 own_words:
   mr-IN: [आहे, आहेत, नाही, तुमचे, तुमच्या, तुमचा, झाले, केले, आम्ही, कारण, आणि]
-# deterministic fallback templates (LLM down / wrong language) exist for hi-IN, hi-Latn, en-IN, mr-IN;
-# gu-IN falls back to en-IN
+# deterministic fallback templates (LLM down / wrong language) exist for every code in `detect`
 text: [hi-IN, hi-Latn, en-IN, gu-IN, mr-IN]
 voice: [hi-IN]

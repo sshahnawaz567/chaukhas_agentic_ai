@@ -9,6 +9,7 @@ import re
 
 from chaukas.agents.schemas import IntentOutput, IntentResult
 from chaukas.core.models import ConversationState, Intent, Track, Urgency
+from chaukas.integrations._common import load_config
 from chaukas.llm.client import LLMResult, LLMUnavailable
 from chaukas.llm.prompt import LLMOutputError, esc, run_validated, to_xml
 
@@ -36,6 +37,13 @@ def _keyword_lang(text: str) -> str:
     if _GUJARATI.search(text):
         return "gu-IN"
     return "hi-Latn" if _HINGLISH_HINTS.search(text) else "en-IN"
+
+
+def injection_signals(text: str) -> list[str]:
+    """Names of the prompt-injection patterns (config/injection.yaml) found in the message. Deterministic:
+    runs before any LLM, so a model that would obey the injection never gets to word the outcome."""
+    patterns = load_config("injection").get("patterns") or {}
+    return [name for name, rx in patterns.items() if re.search(rx, text or "", re.I)]
 
 
 def keyword_classify(text: str, pending: bool) -> IntentResult:

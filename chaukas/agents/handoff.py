@@ -2,14 +2,17 @@
 Never dumps the transcript.
 
 The structured parts (verified / done / refused / reason / confidence / suggested step) are built
-deterministically from state. The LLM only words two lines (`asked`, `decision_needed`); if it is
-unavailable or returns junk, the deterministic wording below is used.
+deterministically from state. The LLM only words `asked`, and `decision_needed` ONLY when a step is pending
+(the human approves that exact step). Every LLM line passes `_safe_line()`: an amount that is not in the plan
+or the ledger, or an "approve / transfer / send" with no pending step, rejects it -> the deterministic wording
+below. A suspected prompt injection gets a brief written entirely by code (`injection_brief`).
 
 Owner: Member 1 · Contract: CONTRACTS C1
 """
 from __future__ import annotations
 
 import json
+import re
 from typing import Literal
 
 from chaukas import db
@@ -104,6 +107,51 @@ def _llm_wording(state: ConversationState, reason: str, verified, done, refused
         return None, None
 
 
+_AMOUNT = re.compile(r"(?:₹|\brs\.?|\binr)\s*([\d,]+)|(?<![\w\-/])(\d{1,3}(?:,\d{2,3})+|\d{3,})(?![\w\-/])", re.I)
+_MONEY_VERB = re.compile(r"\b(approv\w*|transfer\w*|send\w*|sent|pay\w*|re-?trigger\w*|re-?send\w*|disburs\w*|"
+                         r"credit\w*|refund\w*|release\w*|remit\w*)\b", re.I)
+
+
+def _amounts(text: str) -> set[int]:
+    out = set()
+    for m in _AMOUNT.finditer(text):
+        digits = (m.group(1) or m.group(2) or "").replace(",", "")
+        if digits.isdigit():
+            out.add(int(digits))
+    return out
+
+
+def _safe_line(line: str, state: ConversationState, *, money_verbs_ok: bool) -> bool:
+    """Deterministic check on an LLM-worded line. Amounts must come from the plan or the ledger (never from
+    the merchant's message); money verbs only when a step is actually pending for the human to approve."""
+    known = {p.amount for p in state.plan if p.amount}
+    if state.pending_step and state.pending_step.amount:
+        known.add(state.pending_step.amount)
+    if state.merchant:
+        known |= {s.amount for s in state.merchant.settlements}
+    if _amounts(line) - known:
+        return False
+    return money_verbs_ok or not _MONEY_VERB.search(line)
+
+
+def injection_brief(state: ConversationState, signals: list[str]) -> HandoffBrief:
+    """Fraud-review brief for a suspected prompt injection. Written by code only: an LLM that would obey the
+    injection never words it. No amount from the message, no suggested step, nothing to approve."""
+    ctx = state.merchant
+    open_issues = [s for s in (ctx.settlements if ctx else []) if s.status in ("failed", "pending")]
+    verified = ([f"{s.id} {s.status}" + (f", {s.cause}" if s.cause else "") for s in open_issues]
+                or ["No failed/pending settlement: the ledger shows nothing owed"])
+    if ctx:
+        verified.append(f"KYC {ctx.kyc_status}")
+    verified.append("Injection signals: " + ", ".join(signals))
+    return HandoffBrief(
+        asked="Message contains instructions aimed at the AI (possible prompt injection) and asks for a money transfer",
+        verified=verified, done=_done(state), refused=list(state.refused),
+        reason_code=HandoffReason.SUSPECTED_INJECTION.value, confidence=1.0,
+        decision_needed="Review for fraud: no money action is pending", suggested_step=None,
+    )
+
+
 def build(state: ConversationState, reason_code: str,
           confirmation_kind: Literal["consent", "step_up"] | None = None,
           pending_audit_id: int | None = None) -> tuple[HandoffBrief, LLMResult | None]:
@@ -111,7 +159,13 @@ def build(state: ConversationState, reason_code: str,
     asked, decision = _wording(state, reason_code)
     wording, llm = _llm_wording(state, reason_code, verified, done, state.refused)
     if wording:
-        asked, decision = wording
+        llm_asked, llm_decision = wording
+        if _safe_line(llm_asked, state, money_verbs_ok=True):
+            asked = llm_asked
+        # decision_needed from the LLM only when a step is pending: the human approves THAT step. Otherwise the
+        # fixed line, so the merchant's demand can never be turned into "Approve the transfer of ...?"
+        if state.pending_step is not None and _safe_line(llm_decision, state, money_verbs_ok=True):
+            decision = llm_decision
     suggested = state.pending_step.model_copy() if state.pending_step else None
     brief = HandoffBrief(
         asked=m2_shim.mask_text(asked), verified=verified, done=done, refused=list(state.refused),
