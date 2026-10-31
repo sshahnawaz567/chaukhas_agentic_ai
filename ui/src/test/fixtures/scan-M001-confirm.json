@@ -1,0 +1,309 @@
+{
+ "session_id": "S-ee993a337e",
+ "turn_no": 4,
+ "trace_id": "T-f8a4c43db0df",
+ "status": "awaiting_confirmation",
+ "lang": "hi-IN",
+ "intent": "confirm",
+ "reply": "आपका ₹18,400 का भुगतान दोबारा भेज दिया गया है। टिकट TKT-75081 बना दिया गया है। आप ₹50,000 तक के लोन के लिए पात्र हैं (Demo NBFC Partner (simulated)). ब्याज 18.0% सालाना, प्रोसेसिंग फीस ₹500, अवधि 12 महीने, कुल वापसी ₹59,500. शिकायत: grievance@demo-lender.example (mock). क्या मैं ऑफ़र भेजूँ?",
+ "plan": [
+  {
+   "step_no": 2,
+   "action_type": "retrigger_payout",
+   "params": {
+    "settlement_id": "SET-99213",
+    "amount": 18400
+   },
+   "amount": 18400,
+   "reversible": true,
+   "rationale": "IFSC_MISMATCH and retriggerable; amount taken from the ledger",
+   "session_id": "S-ee993a337e"
+  },
+  {
+   "step_no": 3,
+   "action_type": "raise_ticket",
+   "params": {
+    "merchant_id": "M001",
+    "issue": "Settlement SET-99213 failed: IFSC_MISMATCH",
+    "settlement_id": "SET-99213"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "no open ticket for this issue: raise one",
+   "session_id": "S-ee993a337e"
+  },
+  {
+   "step_no": 4,
+   "action_type": "check_eligibility",
+   "params": {
+    "merchant_id": "M001"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "issue actioned; check loan eligibility (read-only)",
+   "session_id": "S-ee993a337e"
+  },
+  {
+   "step_no": 5,
+   "action_type": "create_offer",
+   "params": {
+    "merchant_id": "M001",
+    "amount": 50000
+   },
+   "amount": 50000,
+   "reversible": true,
+   "rationale": "eligible: offer the lender's max amount (needs consent)",
+   "session_id": "S-ee993a337e"
+  }
+ ],
+ "decisions": [
+  {
+   "step_no": 2,
+   "action_type": "retrigger_payout",
+   "verdict": "ALLOW",
+   "reason_code": "CONFIRMED_BY_MERCHANT",
+   "reason": "retrigger_payout confirmed by merchant",
+   "audit_id": 2
+  },
+  {
+   "step_no": 3,
+   "action_type": "raise_ticket",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "raise_ticket: all checks passed",
+   "audit_id": 3
+  },
+  {
+   "step_no": 4,
+   "action_type": "check_eligibility",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "check_eligibility is read-only",
+   "audit_id": null
+  },
+  {
+   "step_no": 5,
+   "action_type": "create_offer",
+   "verdict": "NEEDS_CONFIRMATION",
+   "reason_code": "CONSENT_REQUIRED",
+   "reason": "create_offer needs the merchant's consent",
+   "audit_id": 4
+  }
+ ],
+ "actions": [
+  {
+   "step_no": 2,
+   "action_type": "retrigger_payout",
+   "status": "success",
+   "ref_id": "PAY-99213-1",
+   "replayed": false,
+   "error": null,
+   "audit_id": 2,
+   "latency_ms": 77
+  },
+  {
+   "step_no": 3,
+   "action_type": "raise_ticket",
+   "status": "success",
+   "ref_id": "TKT-75081",
+   "replayed": false,
+   "error": null,
+   "audit_id": 3,
+   "latency_ms": 67
+  },
+  {
+   "step_no": 4,
+   "action_type": "check_eligibility",
+   "status": "success",
+   "ref_id": null,
+   "replayed": false,
+   "error": null,
+   "audit_id": null,
+   "latency_ms": 13
+  }
+ ],
+ "pending_confirmation": {
+  "pending_audit_id": 4,
+  "step": {
+   "step_no": 5,
+   "action_type": "create_offer",
+   "params": {
+    "merchant_id": "M001",
+    "amount": 50000
+   },
+   "amount": 50000,
+   "reversible": true,
+   "rationale": "eligible: offer the lender's max amount (needs consent)",
+   "session_id": "S-ee993a337e"
+  },
+  "kind": "consent",
+  "reason_code": "CONSENT_REQUIRED",
+  "prompt": "आपका ₹18,400 का भुगतान दोबारा भेज दिया गया है। टिकट TKT-75081 बना दिया गया है। आप ₹50,000 तक के लोन के लिए पात्र हैं (Demo NBFC Partner (simulated)). ब्याज 18.0% सालाना, प्रोसेसिंग फीस ₹500, अवधि 12 महीने, कुल वापसी ₹59,500. शिकायत: grievance@demo-lender.example (mock). क्या मैं ऑफ़र भेजूँ?",
+  "kfs": {
+   "lender_name": "Demo NBFC Partner (simulated)",
+   "apr_pct": 18.0,
+   "processing_fee_inr": 500,
+   "tenure_months": 12,
+   "total_repayable_inr": 59500,
+   "grievance_contact": "grievance@demo-lender.example (mock)"
+  }
+ },
+ "handoff": null,
+ "latency_ms": 437,
+ "cost_inr": 0.0,
+ "spans": [
+  {
+   "trace_id": "T-f8a4c43db0df",
+   "session_id": "S-ee993a337e",
+   "turn_no": 4,
+   "seq": 1,
+   "agent": "context",
+   "step_no": null,
+   "input_summary": "merchant M001",
+   "output_summary": "SET-99213 failed IFSC_MISMATCH",
+   "status": "ok",
+   "latency_ms": 12,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T08:34:19Z"
+  },
+  {
+   "trace_id": "T-f8a4c43db0df",
+   "session_id": "S-ee993a337e",
+   "turn_no": 4,
+   "seq": 2,
+   "agent": "guardrail",
+   "step_no": 2,
+   "input_summary": "retrigger_payout + merchant consent confirmation",
+   "output_summary": "ALLOW CONFIRMED_BY_MERCHANT: retrigger_payout confirmed by merchant",
+   "status": "ok",
+   "latency_ms": 48,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T08:34:19Z"
+  },
+  {
+   "trace_id": "T-f8a4c43db0df",
+   "session_id": "S-ee993a337e",
+   "turn_no": 4,
+   "seq": 3,
+   "agent": "action",
+   "step_no": 2,
+   "input_summary": "retrigger_payout",
+   "output_summary": "success PAY-99213-1",
+   "status": "ok",
+   "latency_ms": 78,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T08:34:19Z"
+  },
+  {
+   "trace_id": "T-f8a4c43db0df",
+   "session_id": "S-ee993a337e",
+   "turn_no": 4,
+   "seq": 4,
+   "agent": "guardrail",
+   "step_no": 3,
+   "input_summary": "raise_ticket",
+   "output_summary": "ALLOW WITHIN_POLICY: raise_ticket: all checks passed",
+   "status": "ok",
+   "latency_ms": 33,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T08:34:19Z"
+  },
+  {
+   "trace_id": "T-f8a4c43db0df",
+   "session_id": "S-ee993a337e",
+   "turn_no": 4,
+   "seq": 5,
+   "agent": "action",
+   "step_no": 3,
+   "input_summary": "raise_ticket",
+   "output_summary": "success TKT-75081",
+   "status": "ok",
+   "latency_ms": 68,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T08:34:19Z"
+  },
+  {
+   "trace_id": "T-f8a4c43db0df",
+   "session_id": "S-ee993a337e",
+   "turn_no": 4,
+   "seq": 6,
+   "agent": "guardrail",
+   "step_no": 4,
+   "input_summary": "check_eligibility",
+   "output_summary": "ALLOW WITHIN_POLICY: check_eligibility is read-only",
+   "status": "ok",
+   "latency_ms": 15,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T08:34:19Z"
+  },
+  {
+   "trace_id": "T-f8a4c43db0df",
+   "session_id": "S-ee993a337e",
+   "turn_no": 4,
+   "seq": 7,
+   "agent": "action",
+   "step_no": 4,
+   "input_summary": "check_eligibility",
+   "output_summary": "success",
+   "status": "ok",
+   "latency_ms": 13,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T08:34:19Z"
+  },
+  {
+   "trace_id": "T-f8a4c43db0df",
+   "session_id": "S-ee993a337e",
+   "turn_no": 4,
+   "seq": 8,
+   "agent": "guardrail",
+   "step_no": 5,
+   "input_summary": "create_offer 50000",
+   "output_summary": "NEEDS_CONFIRMATION CONSENT_REQUIRED: create_offer needs the merchant's consent",
+   "status": "ok",
+   "latency_ms": 30,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T08:34:19Z"
+  },
+  {
+   "trace_id": "T-f8a4c43db0df",
+   "session_id": "S-ee993a337e",
+   "turn_no": 4,
+   "seq": 9,
+   "agent": "reply",
+   "step_no": null,
+   "input_summary": "confirm in hi-IN",
+   "output_summary": "via template: 291 chars",
+   "status": "ok",
+   "latency_ms": 35,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T08:34:19Z"
+  }
+ ]
+}

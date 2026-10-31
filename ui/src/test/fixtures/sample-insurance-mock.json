@@ -1,0 +1,6 @@
+{ "status":"awaiting_confirmation","intent":"device_issue","lang":"en-IN",
+  "reply":"Your ticket TKT-79901 is updated. Since you had a device problem before, this cover fits you: Soundbox / POS Device Protection from Demo General Insurance (simulated). Cover up to Rs 15,000, premium about Rs 499 a year (illustrative). Do you want the insurer to contact you? Please say yes or no.",
+  "pending_confirmation":{"pending_audit_id":42,"kind":"consent","reason_code":"CONSENT_REQUIRED",
+    "step":{"action_type":"offer_insurance","params":{"merchant_id":"M017","product_id":"DEVICE_PROTECT"}},
+    "insurance":{"product_id":"DEVICE_PROTECT","product_name":"Soundbox / POS Device Protection","insurer_name":"Demo General Insurance (simulated)","cover_inr":15000,"premium_inr":499,"covers":["accidental damage to the Paytm device","water damage","short circuit"],"reasons":["HAS_DEVICE","DEVICE_TICKET_HISTORY"],"grievance_contact":"claims@demo-insurer.example (mock)","alternatives":[]}},
+  "decisions":[{"action_type":"update_ticket","verdict":"ALLOW","reason_code":"WITHIN_POLICY"},{"action_type":"check_insurance","verdict":"ALLOW","reason_code":"WITHIN_POLICY"},{"action_type":"offer_insurance","verdict":"NEEDS_CONFIRMATION","reason_code":"CONSENT_REQUIRED"}] }

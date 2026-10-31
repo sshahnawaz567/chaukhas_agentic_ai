@@ -1,0 +1,169 @@
+{
+ "session_id": "S-15e657450c",
+ "turn_no": 4,
+ "trace_id": "T-bf8d050eb390",
+ "status": "completed",
+ "lang": "hi-Latn",
+ "intent": "confirm",
+ "reply": "Aapki ₹7,000 ki credit line OFF-61267 accept ho gayi hai.",
+ "plan": [
+  {
+   "step_no": 2,
+   "action_type": "create_offer",
+   "params": {
+    "merchant_id": "M016",
+    "amount": 7000,
+    "product": "credit_line"
+   },
+   "amount": 7000,
+   "reversible": true,
+   "rationale": "eligible: offer the lender's credit line limit (needs consent)",
+   "session_id": "S-15e657450c"
+  }
+ ],
+ "decisions": [
+  {
+   "step_no": 2,
+   "action_type": "create_offer",
+   "verdict": "ALLOW",
+   "reason_code": "CONFIRMED_BY_MERCHANT",
+   "reason": "create_offer confirmed by merchant",
+   "audit_id": 2
+  }
+ ],
+ "actions": [
+  {
+   "step_no": 2,
+   "action_type": "create_offer",
+   "status": "success",
+   "ref_id": "OFF-61267",
+   "replayed": false,
+   "error": null,
+   "audit_id": 2,
+   "latency_ms": 86
+  }
+ ],
+ "pending_confirmation": null,
+ "handoff": {
+  "asked": "Merchant accepted a ₹7,000 short-term credit line offer",
+  "verified": [
+   "Key Fact Statement shown before consent",
+   "Consent recorded (CONFIRMED_BY_MERCHANT, audit #2)"
+  ],
+  "done": [
+   "Offer OFF-61267 accepted"
+  ],
+  "refused": [],
+  "reason_code": "LOAN_ACCEPTED",
+  "confidence": 1.0,
+  "decision_needed": "Follow up with the lender on OFF-61267 and confirm next steps with the merchant",
+  "suggested_step": null,
+  "pending_audit_id": null,
+  "confirmation_kind": null,
+  "loan": {
+   "offer_id": "OFF-61267",
+   "amount": 7000,
+   "lender_name": "Demo NBFC Partner (simulated)",
+   "apr_pct": 24.0,
+   "processing_fee_inr": 0,
+   "tenure_months": 1,
+   "total_repayable_inr": 7000,
+   "grievance_contact": "grievance@demo-lender.example (mock)",
+   "kfs_shown_at": "2026-10-31T10:17:06Z",
+   "consent_at": "2026-10-31T10:17:06Z",
+   "consent_audit_id": 2,
+   "product": "credit_line",
+   "interest_free_days": 30,
+   "late_fee_inr": 250
+  }
+ },
+ "latency_ms": 329,
+ "cost_inr": 0.0,
+ "spans": [
+  {
+   "trace_id": "T-bf8d050eb390",
+   "session_id": "S-15e657450c",
+   "turn_no": 4,
+   "seq": 1,
+   "agent": "context",
+   "step_no": null,
+   "input_summary": "merchant M016",
+   "output_summary": "no failed/pending settlement",
+   "status": "ok",
+   "latency_ms": 9,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  },
+  {
+   "trace_id": "T-bf8d050eb390",
+   "session_id": "S-15e657450c",
+   "turn_no": 4,
+   "seq": 2,
+   "agent": "guardrail",
+   "step_no": 2,
+   "input_summary": "create_offer + merchant consent confirmation",
+   "output_summary": "ALLOW CONFIRMED_BY_MERCHANT: create_offer confirmed by merchant",
+   "status": "ok",
+   "latency_ms": 45,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  },
+  {
+   "trace_id": "T-bf8d050eb390",
+   "session_id": "S-15e657450c",
+   "turn_no": 4,
+   "seq": 3,
+   "agent": "action",
+   "step_no": 2,
+   "input_summary": "create_offer",
+   "output_summary": "success OFF-61267",
+   "status": "ok",
+   "latency_ms": 86,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  },
+  {
+   "trace_id": "T-bf8d050eb390",
+   "session_id": "S-15e657450c",
+   "turn_no": 4,
+   "seq": 4,
+   "agent": "reply",
+   "step_no": null,
+   "input_summary": "confirm in hi-Latn",
+   "output_summary": "via template: 57 chars",
+   "status": "ok",
+   "latency_ms": 25,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  },
+  {
+   "trace_id": "T-bf8d050eb390",
+   "session_id": "S-15e657450c",
+   "turn_no": 4,
+   "seq": 5,
+   "agent": "handoff",
+   "step_no": null,
+   "input_summary": "reason LOAN_ACCEPTED",
+   "output_summary": "HO-00001: Follow up with the lender on OFF-61267 and confirm next steps with the merchant",
+   "status": "ok",
+   "latency_ms": 21,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  }
+ ]
+}

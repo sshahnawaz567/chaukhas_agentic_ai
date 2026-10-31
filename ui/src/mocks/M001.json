@@ -1,0 +1,163 @@
+{
+  "merchantId": "M001",
+  "traceId": "TRC-8F31",
+  "maskedAccount": "XXXXXX7919",
+  "quickReplies": [
+    "पिछले हफ्ते का पैसा अभी तक नहीं आया।"
+  ],
+  "turns": [
+    {
+      "merchantText": "पिछले हफ्ते का पैसा अभी तक नहीं आया।",
+      "bot": [
+        {
+          "type": "settlement-card",
+          "settlement": {
+            "id": "SET-99213",
+            "amount": "₹18,400",
+            "age": "6 दिन पहले",
+            "failure": "Failed: बैंक डिटेल्स (IFSC) गलत थी",
+            "note": "आपने कल डिटेल्स अपडेट कर दी",
+            "statusPill": "Re-triggered",
+            "statusTone": "ALLOW",
+            "ticket": "TKT-xxxxx — ticket raised",
+            "guardrailNote": "Checked by Chaukas Guardrail · ALLOW"
+          }
+        },
+        {
+          "type": "text",
+          "text": "आपका ₹18,400 का भुगतान दोबारा भेज दिया गया है। स्टेटस: retriggered। टिकट TKT-xxxxx पर मैं नज़र रखूँगा।"
+        },
+        {
+          "type": "loan-offer",
+          "offer": {
+            "title": "आप ₹50,000 तक के बिज़नेस लोन के लिए eligible हैं",
+            "sub": "Offered by Demo NBFC Ltd via Paytm",
+            "pendingAuditId": "9003",
+            "kfsRows": [
+              {
+                "label": "Loan amount",
+                "value": "₹50,000"
+              },
+              {
+                "label": "APR",
+                "value": "—"
+              },
+              {
+                "label": "Processing fee",
+                "value": "—"
+              },
+              {
+                "label": "Tenure",
+                "value": "—"
+              },
+              {
+                "label": "Total repayable",
+                "value": "—"
+              },
+              {
+                "label": "Grievance contact",
+                "value": "—"
+              }
+            ],
+            "kfsNote": "illustrative — from lender"
+          }
+        }
+      ],
+      "trace": [
+        {
+          "agent": "Intent",
+          "output": "settlement_delay · hi-IN · urgency high · confidence 0.9",
+          "latencyMs": 112,
+          "cost": "₹0.018"
+        },
+        {
+          "agent": "Context",
+          "output": "SET-99213 ₹18,400 failed (IFSC_MISMATCH) · a/c XXXXXX7919 · bank details updated 1 day ago → retriggerable",
+          "latencyMs": 86,
+          "cost": "₹0.009"
+        },
+        {
+          "agent": "Plan",
+          "output": "verify_ledger → retrigger_payout → raise_ticket → check_eligibility → create_offer",
+          "latencyMs": 47,
+          "cost": "₹0.004"
+        },
+        {
+          "agent": "Guardrail",
+          "output": "retrigger_payout ₹18,400 · audit #9001",
+          "verdict": "ALLOW",
+          "reason": "WITHIN_POLICY · ₹18,400 ≤ ₹25,000",
+          "big": true,
+          "latencyMs": 58,
+          "cost": "₹0.006"
+        },
+        {
+          "agent": "Action",
+          "output": "payout retriggered · SET-99213 → retriggered",
+          "latencyMs": 204,
+          "cost": "₹0.031"
+        },
+        {
+          "agent": "Guardrail",
+          "output": "raise_ticket · audit #9002",
+          "verdict": "ALLOW",
+          "reason": "WITHIN_POLICY · non-money action",
+          "big": true,
+          "latencyMs": 21,
+          "cost": "₹0.002"
+        },
+        {
+          "agent": "Action",
+          "output": "TKT-xxxxx created",
+          "latencyMs": 96,
+          "cost": "₹0.004"
+        },
+        {
+          "agent": "Action",
+          "output": "check_eligibility → eligible up to ₹50,000 (simulated lender) · read-only, not audited",
+          "latencyMs": 44,
+          "cost": "₹0.003"
+        },
+        {
+          "agent": "Guardrail",
+          "output": "create_offer ₹50,000 · audit #9003",
+          "verdict": "NEEDS_CONFIRMATION",
+          "reason": "CONSENT_REQUIRED · loan offer needs the merchant's consent",
+          "big": true,
+          "latencyMs": 39,
+          "cost": "₹0.005"
+        },
+        {
+          "agent": "Reply",
+          "output": "hi-IN",
+          "latencyMs": 71,
+          "cost": "₹0.012"
+        }
+      ]
+    }
+  ],
+  "consent": {
+    "approve": {
+      "botText": "ठीक है, आपकी सहमति दर्ज हो गई। ऑफ़र OFF-xxxxx आगे भेज दिया गया है।",
+      "trace": {
+        "agent": "Guardrail",
+        "output": "create_offer ₹50,000 · audit #9004 · confirms #9003",
+        "verdict": "ALLOW",
+        "reason": "CONFIRMED_BY_MERCHANT",
+        "big": true,
+        "latencyMs": 33,
+        "cost": "₹0.004"
+      },
+      "handoffNote": "Brief sent to the loan team · HO-10022"
+    },
+    "decline": {
+      "botText": "ठीक है, ऑफ़र यहीं रोक दिया गया है। जब आप चाहें, मुझसे बात कर सकते हैं।",
+      "trace": {
+        "agent": "Intent",
+        "output": "deny · pending create_offer cancelled · no ALLOW written · offer dropped (no re-offer for 7 days)",
+        "latencyMs": 29,
+        "cost": "₹0.003"
+      }
+    }
+  }
+}

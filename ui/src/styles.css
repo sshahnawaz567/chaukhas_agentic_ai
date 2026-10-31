@@ -1,0 +1,208 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+/* Fonts are bundled (not a Google Fonts link) so the demo renders correctly offline. */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/inter/800.css";
+@import "@fontsource/noto-sans-devanagari/400.css";
+@import "@fontsource/noto-sans-devanagari/500.css";
+@import "@fontsource/noto-sans-devanagari/600.css";
+@import "@fontsource/noto-sans-devanagari/700.css";
+@import "@fontsource/noto-sans-devanagari/800.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Chaukas design system.
+ *
+ * Brand values taken from paytm.com's own CSS (30 Oct 2026):
+ * Paytm navy #002970 (header, primary buttons, backdrop),
+ * Paytm cyan #00BAF2 (accents, merchant bubbles, active states),
+ * app surface #F7F9FC, card white, text #101010, secondary text #505050.
+ * Verdict colours: ALLOW #16A34A, NEEDS_CONFIRMATION #F59E0B, BLOCK #DC2626.
+ * Fonts: Inter (paytm.com's font, Latin) + Noto Sans Devanagari (Hindi), body min 16px.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: "Inter", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
+  /* Chaukas brand tokens */
+  --color-navy: var(--navy);
+  --color-cyan: var(--cyan);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-allow: var(--allow);
+  --color-confirm: var(--confirm);
+  --color-block: var(--block);
+}
+
+:root {
+  --radius: 1rem;
+  /* Chaukas brand */
+  --navy: #002970;
+  --cyan: #00BAF2;
+  --surface: #F7F9FC;
+  --ink: #101010;
+  --allow: #16A34A;
+  --confirm: #F59E0B;
+  --block: #DC2626;
+  /* shadcn semantic values, themed to the Chaukas brand */
+  --background: #F7F9FC;
+  --foreground: #101010;
+  --card: #FFFFFF;
+  --card-foreground: #101010;
+  --popover: #FFFFFF;
+  --popover-foreground: #101010;
+  --primary: #002970;
+  --primary-foreground: #FFFFFF;
+  --secondary: #E0F5FD;
+  --secondary-foreground: #002970;
+  --muted: #F5F8FA;
+  --muted-foreground: #505050;
+  --accent: #E0F5FD;
+  --accent-foreground: #101010;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E0E0E0;
+  --input: #E0E0E0;
+  --ring: #00BAF2;
+  --chart-1: #00BAF2;
+  --chart-2: #002970;
+  --chart-3: #16A34A;
+  --chart-4: #F59E0B;
+  --chart-5: #DC2626;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #101010;
+  --sidebar-primary: #002970;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E0F5FD;
+  --sidebar-accent-foreground: #101010;
+  --sidebar-border: #E0E0E0;
+  --sidebar-ring: #00BAF2;
+  --shadow-card: 0 10px 30px -12px rgba(0, 41, 112, 0.18);
+  --shadow-soft: 0 4px 14px -6px rgba(0, 41, 112, 0.12);
+}
+
+.dark {
+  --background: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.984 0.003 247.858);
+  --card: oklch(0.208 0.042 265.755);
+  --card-foreground: oklch(0.984 0.003 247.858);
+  --popover: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.984 0.003 247.858);
+  --primary: oklch(0.929 0.013 255.508);
+  --primary-foreground: oklch(0.208 0.042 265.755);
+  --secondary: oklch(0.279 0.041 260.031);
+  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
+  --accent: oklch(0.279 0.041 260.031);
+  --accent-foreground: oklch(0.984 0.003 247.858);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.551 0.027 264.364);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    font-size: 16px;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+}
+
+/* Entrance animations for chat bubbles and trace rows */
+@keyframes chaukas-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@utility bubble-in {
+  animation: chaukas-rise 0.3s ease-out both;
+}
+
+@utility trace-in {
+  animation: chaukas-rise 0.3s ease-out both;
+}
+
+/* Proactive notification: a short amber glow when Chaukas speaks first (~1 s, then still). */
+@keyframes chaukas-alert-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55);
+  }
+  60% {
+    box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
+@utility alert-glow {
+  animation: chaukas-alert-glow 1.1s ease-out 2;
+}
+
+/* Push notification sliding down onto the lock screen. */
+@keyframes chaukas-notif-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-140%) scale(0.96);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(6%) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@utility notif-in {
+  animation: chaukas-notif-in 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}

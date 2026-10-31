@@ -1,0 +1,26 @@
+[
+ {
+  "merchant_id": "M001",
+  "name_masked": "Sh****",
+  "scenario": "happy_path_with_loan",
+  "preferred_lang": "hi-IN"
+ },
+ {
+  "merchant_id": "M002",
+  "name_masked": "Pa****",
+  "scenario": "over_limit_existing_ticket",
+  "preferred_lang": "hi-IN"
+ },
+ {
+  "merchant_id": "M003",
+  "name_masked": "La****",
+  "scenario": "loan_ask_ineligible",
+  "preferred_lang": "ta-IN"
+ },
+ {
+  "merchant_id": "M004",
+  "name_masked": "Re****",
+  "scenario": "pending_bank_down_wait",
+  "preferred_lang": "te-IN"
+ }
+]

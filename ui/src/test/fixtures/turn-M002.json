@@ -1,0 +1,329 @@
+{
+ "session_id": "S-f91313d96d",
+ "turn_no": 2,
+ "trace_id": "T-71cd3be4ebab",
+ "status": "handed_off",
+ "lang": "hi-IN",
+ "intent": "settlement_delay",
+ "reply": "पहले से खुला टिकट TKT-77201 अपडेट कर दिया है। यह रकम बड़ी है, इसलिए सुरक्षा के लिए हमारी टीम इसे वेरिफाई करके भेजेगी।",
+ "plan": [
+  {
+   "step_no": 1,
+   "action_type": "verify_ledger",
+   "params": {
+    "settlement_id": "SET-51002"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "read the ledger fresh before deciding",
+   "session_id": "S-f91313d96d"
+  },
+  {
+   "step_no": 2,
+   "action_type": "update_ticket",
+   "params": {
+    "ticket_id": "TKT-77201",
+    "note": "IFSC_MISMATCH: payout re-sent after fix",
+    "status": "in_progress"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "open ticket TKT-77201 already exists for this settlement: update it",
+   "session_id": "S-f91313d96d"
+  },
+  {
+   "step_no": 3,
+   "action_type": "retrigger_payout",
+   "params": {
+    "settlement_id": "SET-51002",
+    "amount": 32500
+   },
+   "amount": 32500,
+   "reversible": true,
+   "rationale": "IFSC_MISMATCH and retriggerable; amount taken from the ledger",
+   "session_id": "S-f91313d96d"
+  },
+  {
+   "step_no": 4,
+   "action_type": "check_eligibility",
+   "params": {
+    "merchant_id": "M002"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "issue actioned; check loan eligibility (read-only)",
+   "session_id": "S-f91313d96d"
+  }
+ ],
+ "decisions": [
+  {
+   "step_no": 1,
+   "action_type": "verify_ledger",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "verify_ledger is read-only",
+   "audit_id": null
+  },
+  {
+   "step_no": 2,
+   "action_type": "update_ticket",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "update_ticket: all checks passed",
+   "audit_id": 5
+  },
+  {
+   "step_no": 3,
+   "action_type": "retrigger_payout",
+   "verdict": "NEEDS_CONFIRMATION",
+   "reason_code": "OVER_AUTO_LIMIT",
+   "reason": "amount 32500 > auto_limit 25000",
+   "audit_id": 6
+  }
+ ],
+ "actions": [
+  {
+   "step_no": 1,
+   "action_type": "verify_ledger",
+   "status": "success",
+   "ref_id": null,
+   "replayed": false,
+   "error": null,
+   "audit_id": null,
+   "latency_ms": 14
+  },
+  {
+   "step_no": 2,
+   "action_type": "update_ticket",
+   "status": "success",
+   "ref_id": "TKT-77201",
+   "replayed": false,
+   "error": null,
+   "audit_id": 5,
+   "latency_ms": 93
+  }
+ ],
+ "pending_confirmation": {
+  "pending_audit_id": 6,
+  "step": {
+   "step_no": 3,
+   "action_type": "retrigger_payout",
+   "params": {
+    "settlement_id": "SET-51002",
+    "amount": 32500
+   },
+   "amount": 32500,
+   "reversible": true,
+   "rationale": "IFSC_MISMATCH and retriggerable; amount taken from the ledger",
+   "session_id": "S-f91313d96d"
+  },
+  "kind": "step_up",
+  "reason_code": "OVER_AUTO_LIMIT",
+  "prompt": "पहले से खुला टिकट TKT-77201 अपडेट कर दिया है। यह रकम बड़ी है, इसलिए सुरक्षा के लिए हमारी टीम इसे वेरिफाई करके भेजेगी।"
+ },
+ "handoff": {
+  "asked": "Merchant wants the failed settlement of ₹32,500 sent",
+  "verified": [
+   "SET-51002 failed, IFSC_MISMATCH",
+   "bank details updated after failure",
+   "amount 32500 matches ledger",
+   "KYC verified"
+  ],
+  "done": [
+   "ticket TKT-77201 updated"
+  ],
+  "refused": [],
+  "reason_code": "OVER_AUTO_LIMIT",
+  "confidence": 0.75,
+  "decision_needed": "Approve retrigger of ₹32,500 to the merchant's registered account?",
+  "suggested_step": {
+   "step_no": 3,
+   "action_type": "retrigger_payout",
+   "params": {
+    "settlement_id": "SET-51002",
+    "amount": 32500
+   },
+   "amount": 32500,
+   "reversible": true,
+   "rationale": "IFSC_MISMATCH and retriggerable; amount taken from the ledger",
+   "session_id": "S-f91313d96d"
+  },
+  "pending_audit_id": 6,
+  "confirmation_kind": "step_up",
+  "loan": null
+ },
+ "latency_ms": 579,
+ "cost_inr": 0.0,
+ "spans": [
+  {
+   "trace_id": "T-71cd3be4ebab",
+   "session_id": "S-f91313d96d",
+   "turn_no": 2,
+   "seq": 1,
+   "agent": "intent",
+   "step_no": null,
+   "input_summary": "msg (63 chars), pending=False",
+   "output_summary": "settlement_delay hi-IN urgency=high conf=0.75 via keyword",
+   "status": "ok",
+   "latency_ms": 50,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:28Z"
+  },
+  {
+   "trace_id": "T-71cd3be4ebab",
+   "session_id": "S-f91313d96d",
+   "turn_no": 2,
+   "seq": 2,
+   "agent": "context",
+   "step_no": null,
+   "input_summary": "merchant M002",
+   "output_summary": "SET-51002 failed IFSC_MISMATCH",
+   "status": "ok",
+   "latency_ms": 13,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:28Z"
+  },
+  {
+   "trace_id": "T-71cd3be4ebab",
+   "session_id": "S-f91313d96d",
+   "turn_no": 2,
+   "seq": 3,
+   "agent": "planner",
+   "step_no": null,
+   "input_summary": "intent settlement_delay",
+   "output_summary": "verify_ledger -> update_ticket -> retrigger_payout -> check_eligibility",
+   "status": "ok",
+   "latency_ms": 14,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:28Z"
+  },
+  {
+   "trace_id": "T-71cd3be4ebab",
+   "session_id": "S-f91313d96d",
+   "turn_no": 2,
+   "seq": 4,
+   "agent": "guardrail",
+   "step_no": 1,
+   "input_summary": "verify_ledger",
+   "output_summary": "ALLOW WITHIN_POLICY: verify_ledger is read-only",
+   "status": "ok",
+   "latency_ms": 25,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:28Z"
+  },
+  {
+   "trace_id": "T-71cd3be4ebab",
+   "session_id": "S-f91313d96d",
+   "turn_no": 2,
+   "seq": 5,
+   "agent": "action",
+   "step_no": 1,
+   "input_summary": "verify_ledger",
+   "output_summary": "success",
+   "status": "ok",
+   "latency_ms": 14,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:28Z"
+  },
+  {
+   "trace_id": "T-71cd3be4ebab",
+   "session_id": "S-f91313d96d",
+   "turn_no": 2,
+   "seq": 6,
+   "agent": "guardrail",
+   "step_no": 2,
+   "input_summary": "update_ticket",
+   "output_summary": "ALLOW WITHIN_POLICY: update_ticket: all checks passed",
+   "status": "ok",
+   "latency_ms": 70,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:28Z"
+  },
+  {
+   "trace_id": "T-71cd3be4ebab",
+   "session_id": "S-f91313d96d",
+   "turn_no": 2,
+   "seq": 7,
+   "agent": "action",
+   "step_no": 2,
+   "input_summary": "update_ticket",
+   "output_summary": "success TKT-77201",
+   "status": "ok",
+   "latency_ms": 93,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:28Z"
+  },
+  {
+   "trace_id": "T-71cd3be4ebab",
+   "session_id": "S-f91313d96d",
+   "turn_no": 2,
+   "seq": 8,
+   "agent": "guardrail",
+   "step_no": 3,
+   "input_summary": "retrigger_payout 32500",
+   "output_summary": "NEEDS_CONFIRMATION OVER_AUTO_LIMIT: amount 32500 > auto_limit 25000",
+   "status": "ok",
+   "latency_ms": 34,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:28Z"
+  },
+  {
+   "trace_id": "T-71cd3be4ebab",
+   "session_id": "S-f91313d96d",
+   "turn_no": 2,
+   "seq": 9,
+   "agent": "handoff",
+   "step_no": null,
+   "input_summary": "reason OVER_AUTO_LIMIT",
+   "output_summary": "HO-00002: Approve retrigger of ₹32,500 to the merchant's registered account?",
+   "status": "ok",
+   "latency_ms": 53,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:28Z"
+  },
+  {
+   "trace_id": "T-71cd3be4ebab",
+   "session_id": "S-f91313d96d",
+   "turn_no": 2,
+   "seq": 10,
+   "agent": "reply",
+   "step_no": null,
+   "input_summary": "settlement_delay in hi-IN",
+   "output_summary": "via template: 117 chars",
+   "status": "ok",
+   "latency_ms": 31,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:28Z"
+  }
+ ]
+}

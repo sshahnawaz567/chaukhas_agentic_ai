@@ -1,0 +1,46 @@
+{
+ "id": "HO-00001",
+ "session_id": "S-15e657450c",
+ "merchant_id": "M016",
+ "ticket_id": null,
+ "trace_id": "T-bf8d050eb390",
+ "status": "open",
+ "assigned_to": null,
+ "human_decision": null,
+ "created_at": "2026-10-31T10:17:06Z",
+ "resolved_at": null,
+ "brief": {
+  "asked": "Merchant accepted a ₹7,000 short-term credit line offer",
+  "verified": [
+   "Key Fact Statement shown before consent",
+   "Consent recorded (CONFIRMED_BY_MERCHANT, audit #2)"
+  ],
+  "done": [
+   "Offer OFF-61267 accepted"
+  ],
+  "refused": [],
+  "reason_code": "LOAN_ACCEPTED",
+  "confidence": 1.0,
+  "decision_needed": "Follow up with the lender on OFF-61267 and confirm next steps with the merchant",
+  "suggested_step": null,
+  "pending_audit_id": null,
+  "confirmation_kind": null,
+  "loan": {
+   "offer_id": "OFF-61267",
+   "amount": 7000,
+   "lender_name": "Demo NBFC Partner (simulated)",
+   "apr_pct": 24.0,
+   "processing_fee_inr": 0,
+   "tenure_months": 1,
+   "total_repayable_inr": 7000,
+   "grievance_contact": "grievance@demo-lender.example (mock)",
+   "kfs_shown_at": "2026-10-31T10:17:06Z",
+   "consent_at": "2026-10-31T10:17:06Z",
+   "consent_audit_id": 2,
+   "product": "credit_line",
+   "interest_free_days": 30,
+   "late_fee_inr": 250
+  }
+ },
+ "ticket_events": []
+}

@@ -1,0 +1,189 @@
+{
+ "session_id": "S-6352943899",
+ "turn_no": 2,
+ "trace_id": "T-908542e336b9",
+ "status": "completed",
+ "lang": "hi-Latn",
+ "intent": "insurance_inquiry",
+ "reply": "Abhi insurance offer sahi nahi rahega. Sahi samay par bata denge.",
+ "plan": [
+  {
+   "step_no": 1,
+   "action_type": "check_insurance",
+   "params": {
+    "merchant_id": "M002"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "merchant asked about insurance",
+   "session_id": "S-6352943899"
+  },
+  {
+   "step_no": 2,
+   "action_type": "offer_insurance",
+   "params": {
+    "merchant_id": "M002",
+    "product_id": "ELECTRONICS_PARTS"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "a product fits this merchant: offer it (needs consent, records interest only)",
+   "session_id": "S-6352943899"
+  }
+ ],
+ "decisions": [
+  {
+   "step_no": 1,
+   "action_type": "check_insurance",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "check_insurance is read-only",
+   "audit_id": null
+  },
+  {
+   "step_no": 2,
+   "action_type": "offer_insurance",
+   "verdict": "BLOCK",
+   "reason_code": "ISSUE_UNRESOLVED",
+   "reason": "settlement SET-51002 is still failed",
+   "audit_id": 6
+  }
+ ],
+ "actions": [
+  {
+   "step_no": 1,
+   "action_type": "check_insurance",
+   "status": "success",
+   "ref_id": null,
+   "replayed": false,
+   "error": null,
+   "audit_id": null,
+   "latency_ms": 6
+  }
+ ],
+ "pending_confirmation": null,
+ "handoff": null,
+ "latency_ms": 188,
+ "cost_inr": 0.0,
+ "spans": [
+  {
+   "trace_id": "T-908542e336b9",
+   "session_id": "S-6352943899",
+   "turn_no": 2,
+   "seq": 1,
+   "agent": "intent",
+   "step_no": null,
+   "input_summary": "msg (34 chars), pending=False",
+   "output_summary": "insurance_inquiry hi-Latn urgency=med conf=0.75 via keyword",
+   "status": "ok",
+   "latency_ms": 13,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:54Z"
+  },
+  {
+   "trace_id": "T-908542e336b9",
+   "session_id": "S-6352943899",
+   "turn_no": 2,
+   "seq": 2,
+   "agent": "context",
+   "step_no": null,
+   "input_summary": "merchant M002",
+   "output_summary": "SET-51002 failed IFSC_MISMATCH",
+   "status": "ok",
+   "latency_ms": 8,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:54Z"
+  },
+  {
+   "trace_id": "T-908542e336b9",
+   "session_id": "S-6352943899",
+   "turn_no": 2,
+   "seq": 3,
+   "agent": "planner",
+   "step_no": null,
+   "input_summary": "intent insurance_inquiry",
+   "output_summary": "check_insurance",
+   "status": "ok",
+   "latency_ms": 7,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:54Z"
+  },
+  {
+   "trace_id": "T-908542e336b9",
+   "session_id": "S-6352943899",
+   "turn_no": 2,
+   "seq": 4,
+   "agent": "guardrail",
+   "step_no": 1,
+   "input_summary": "check_insurance",
+   "output_summary": "ALLOW WITHIN_POLICY: check_insurance is read-only",
+   "status": "ok",
+   "latency_ms": 11,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:54Z"
+  },
+  {
+   "trace_id": "T-908542e336b9",
+   "session_id": "S-6352943899",
+   "turn_no": 2,
+   "seq": 5,
+   "agent": "action",
+   "step_no": 1,
+   "input_summary": "check_insurance",
+   "output_summary": "success",
+   "status": "ok",
+   "latency_ms": 6,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:54Z"
+  },
+  {
+   "trace_id": "T-908542e336b9",
+   "session_id": "S-6352943899",
+   "turn_no": 2,
+   "seq": 6,
+   "agent": "guardrail",
+   "step_no": 2,
+   "input_summary": "offer_insurance",
+   "output_summary": "BLOCK ISSUE_UNRESOLVED: settlement SET-51002 is still failed",
+   "status": "ok",
+   "latency_ms": 23,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:55Z"
+  },
+  {
+   "trace_id": "T-908542e336b9",
+   "session_id": "S-6352943899",
+   "turn_no": 2,
+   "seq": 7,
+   "agent": "reply",
+   "step_no": null,
+   "input_summary": "insurance_inquiry in hi-Latn",
+   "output_summary": "via template: 65 chars",
+   "status": "ok",
+   "latency_ms": 37,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:55Z"
+  }
+ ]
+}

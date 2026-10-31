@@ -1,0 +1,65 @@
+{
+ "session_id": "S-ab57551840",
+ "turn_no": 4,
+ "trace_id": "T-17fba0790fc3",
+ "status": "completed",
+ "lang": "hi-Latn",
+ "intent": "deny",
+ "reply": "Koi baat nahi, kuch record nahi kiya. Shop ke insurance ke liye jab chahein pooch lijiye.",
+ "plan": [
+  {
+   "step_no": 2,
+   "action_type": "offer_insurance",
+   "params": {
+    "merchant_id": "M004",
+    "product_id": "ELECTRONICS_PARTS"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "a product fits this merchant: offer it (needs consent, records interest only)",
+   "session_id": "S-ab57551840"
+  }
+ ],
+ "decisions": [],
+ "actions": [],
+ "pending_confirmation": null,
+ "handoff": null,
+ "latency_ms": 151,
+ "cost_inr": 0.0,
+ "spans": [
+  {
+   "trace_id": "T-17fba0790fc3",
+   "session_id": "S-ab57551840",
+   "turn_no": 4,
+   "seq": 1,
+   "agent": "context",
+   "step_no": null,
+   "input_summary": "merchant M004",
+   "output_summary": "SET-66120 pending BANK_DOWN",
+   "status": "ok",
+   "latency_ms": 8,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:39Z"
+  },
+  {
+   "trace_id": "T-17fba0790fc3",
+   "session_id": "S-ab57551840",
+   "turn_no": 4,
+   "seq": 2,
+   "agent": "reply",
+   "step_no": null,
+   "input_summary": "deny in hi-Latn",
+   "output_summary": "via template: 89 chars",
+   "status": "ok",
+   "latency_ms": 47,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:39Z"
+  }
+ ]
+}

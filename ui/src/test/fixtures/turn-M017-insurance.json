@@ -1,0 +1,289 @@
+{
+ "session_id": "S-0d846cb609",
+ "turn_no": 2,
+ "trace_id": "T-227338adaeff",
+ "status": "awaiting_confirmation",
+ "lang": "hi-Latn",
+ "intent": "device_issue",
+ "reply": "Pehle se khula ticket TKT-79901 update kar diya hai. Aap you had a device problem before, isliye ye cover aapke liye theek hai: Soundbox / POS Device Protection, Demo General Insurance (simulated) ki taraf se. Cover Rs 15,000 tak, premium lagbhag Rs 499 saal ka (illustrative). Ismein accidental damage to the Paytm device, water damage, short circuit cover hota hai. Kya insurer aapse sampark kare? Haan ya nahi bataiye. Sawal ho to: claims@demo-insurer.example (mock).",
+ "plan": [
+  {
+   "step_no": 1,
+   "action_type": "update_ticket",
+   "params": {
+    "ticket_id": "TKT-79901",
+    "note": "merchant reported again: Mera QR scan nahi ho raha",
+    "status": "in_progress"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "open ticket TKT-79901 already exists for this settlement: update it",
+   "session_id": "S-0d846cb609"
+  },
+  {
+   "step_no": 2,
+   "action_type": "check_insurance",
+   "params": {
+    "merchant_id": "M017"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "device issue actioned; check which shop insurance fits (read-only)",
+   "session_id": "S-0d846cb609"
+  },
+  {
+   "step_no": 3,
+   "action_type": "offer_insurance",
+   "params": {
+    "merchant_id": "M017",
+    "product_id": "DEVICE_PROTECT"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "a product fits this merchant: offer it (needs consent, records interest only)",
+   "session_id": "S-0d846cb609"
+  }
+ ],
+ "decisions": [
+  {
+   "step_no": 1,
+   "action_type": "update_ticket",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "update_ticket: all checks passed",
+   "audit_id": 1
+  },
+  {
+   "step_no": 2,
+   "action_type": "check_insurance",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "check_insurance is read-only",
+   "audit_id": null
+  },
+  {
+   "step_no": 3,
+   "action_type": "offer_insurance",
+   "verdict": "NEEDS_CONFIRMATION",
+   "reason_code": "CONSENT_REQUIRED",
+   "reason": "offer_insurance needs the merchant's consent",
+   "audit_id": 2
+  }
+ ],
+ "actions": [
+  {
+   "step_no": 1,
+   "action_type": "update_ticket",
+   "status": "success",
+   "ref_id": "TKT-79901",
+   "replayed": false,
+   "error": null,
+   "audit_id": 1,
+   "latency_ms": 64
+  },
+  {
+   "step_no": 2,
+   "action_type": "check_insurance",
+   "status": "success",
+   "ref_id": null,
+   "replayed": false,
+   "error": null,
+   "audit_id": null,
+   "latency_ms": 12
+  }
+ ],
+ "pending_confirmation": {
+  "pending_audit_id": 2,
+  "step": {
+   "step_no": 3,
+   "action_type": "offer_insurance",
+   "params": {
+    "merchant_id": "M017",
+    "product_id": "DEVICE_PROTECT"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "a product fits this merchant: offer it (needs consent, records interest only)",
+   "session_id": "S-0d846cb609"
+  },
+  "kind": "consent",
+  "reason_code": "CONSENT_REQUIRED",
+  "prompt": "Pehle se khula ticket TKT-79901 update kar diya hai. Aap you had a device problem before, isliye ye cover aapke liye theek hai: Soundbox / POS Device Protection, Demo General Insurance (simulated) ki taraf se. Cover Rs 15,000 tak, premium lagbhag Rs 499 saal ka (illustrative). Ismein accidental damage to the Paytm device, water damage, short circuit cover hota hai. Kya insurer aapse sampark kare? Haan ya nahi bataiye. Sawal ho to: claims@demo-insurer.example (mock).",
+  "insurance": {
+   "product_id": "DEVICE_PROTECT",
+   "product_name": "Soundbox / POS Device Protection",
+   "insurer_name": "Demo General Insurance (simulated)",
+   "cover_inr": 15000,
+   "premium_inr": 499,
+   "covers": [
+    "accidental damage to the Paytm device",
+    "water damage",
+    "short circuit"
+   ],
+   "reasons": [
+    "HAS_DEVICE",
+    "DEVICE_TICKET_HISTORY"
+   ],
+   "grievance_contact": "claims@demo-insurer.example (mock)",
+   "alternatives": []
+  }
+ },
+ "handoff": null,
+ "latency_ms": 399,
+ "cost_inr": 0.0,
+ "spans": [
+  {
+   "trace_id": "T-227338adaeff",
+   "session_id": "S-0d846cb609",
+   "turn_no": 2,
+   "seq": 1,
+   "agent": "intent",
+   "step_no": null,
+   "input_summary": "msg (25 chars), pending=False",
+   "output_summary": "device_issue hi-Latn urgency=med conf=0.75 via keyword",
+   "status": "ok",
+   "latency_ms": 40,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:38Z"
+  },
+  {
+   "trace_id": "T-227338adaeff",
+   "session_id": "S-0d846cb609",
+   "turn_no": 2,
+   "seq": 2,
+   "agent": "context",
+   "step_no": null,
+   "input_summary": "merchant M017",
+   "output_summary": "no failed/pending settlement",
+   "status": "ok",
+   "latency_ms": 16,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:38Z"
+  },
+  {
+   "trace_id": "T-227338adaeff",
+   "session_id": "S-0d846cb609",
+   "turn_no": 2,
+   "seq": 3,
+   "agent": "planner",
+   "step_no": null,
+   "input_summary": "intent device_issue",
+   "output_summary": "update_ticket -> check_insurance",
+   "status": "ok",
+   "latency_ms": 10,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:38Z"
+  },
+  {
+   "trace_id": "T-227338adaeff",
+   "session_id": "S-0d846cb609",
+   "turn_no": 2,
+   "seq": 4,
+   "agent": "guardrail",
+   "step_no": 1,
+   "input_summary": "update_ticket",
+   "output_summary": "ALLOW WITHIN_POLICY: update_ticket: all checks passed",
+   "status": "ok",
+   "latency_ms": 27,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:38Z"
+  },
+  {
+   "trace_id": "T-227338adaeff",
+   "session_id": "S-0d846cb609",
+   "turn_no": 2,
+   "seq": 5,
+   "agent": "action",
+   "step_no": 1,
+   "input_summary": "update_ticket",
+   "output_summary": "success TKT-79901",
+   "status": "ok",
+   "latency_ms": 65,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:38Z"
+  },
+  {
+   "trace_id": "T-227338adaeff",
+   "session_id": "S-0d846cb609",
+   "turn_no": 2,
+   "seq": 6,
+   "agent": "guardrail",
+   "step_no": 2,
+   "input_summary": "check_insurance",
+   "output_summary": "ALLOW WITHIN_POLICY: check_insurance is read-only",
+   "status": "ok",
+   "latency_ms": 15,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:38Z"
+  },
+  {
+   "trace_id": "T-227338adaeff",
+   "session_id": "S-0d846cb609",
+   "turn_no": 2,
+   "seq": 7,
+   "agent": "action",
+   "step_no": 2,
+   "input_summary": "check_insurance",
+   "output_summary": "success",
+   "status": "ok",
+   "latency_ms": 12,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:38Z"
+  },
+  {
+   "trace_id": "T-227338adaeff",
+   "session_id": "S-0d846cb609",
+   "turn_no": 2,
+   "seq": 8,
+   "agent": "guardrail",
+   "step_no": 3,
+   "input_summary": "offer_insurance",
+   "output_summary": "NEEDS_CONFIRMATION CONSENT_REQUIRED: offer_insurance needs the merchant's consent",
+   "status": "ok",
+   "latency_ms": 25,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:38Z"
+  },
+  {
+   "trace_id": "T-227338adaeff",
+   "session_id": "S-0d846cb609",
+   "turn_no": 2,
+   "seq": 9,
+   "agent": "reply",
+   "step_no": null,
+   "input_summary": "device_issue in hi-Latn",
+   "output_summary": "via template: 470 chars",
+   "status": "ok",
+   "latency_ms": 54,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:38Z"
+  }
+ ]
+}

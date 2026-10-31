@@ -1,0 +1,92 @@
+{
+  "merchantId": "M002",
+  "traceId": "TRC-5B77",
+  "maskedAccount": "XXXXXX5838",
+  "quickReplies": [
+    "Bhai mera 32,500 ka settlement 2 din se nahi aaya, jaldi bhejo."
+  ],
+  "turns": [
+    {
+      "merchantText": "Bhai mera 32,500 ka settlement 2 din se nahi aaya, jaldi bhejo.",
+      "bot": [
+        {
+          "type": "settlement-card",
+          "settlement": {
+            "id": "SET-51002",
+            "amount": "₹32,500",
+            "age": "3 din pehle",
+            "failure": "Failed: bank details (IFSC) mismatch",
+            "note": "Bank details 1 din pehle update hui",
+            "statusPill": "Needs confirmation — ₹32,500 > ₹25,000 auto-limit",
+            "statusTone": "NEEDS_CONFIRMATION",
+            "ticket": "TKT-77201 — updated"
+          }
+        },
+        {
+          "type": "text",
+          "text": "Aapka ₹32,500 ka settlement bank details mismatch se ruka tha. Ye amount badi hai, isliye security ke liye hamari team ise verify karke bhejegi. Ticket TKT-77201 update kar diya hai."
+        },
+        {
+          "type": "system-line",
+          "text": "Handed to a Paytm teammate · HO-10021"
+        }
+      ],
+      "trace": [
+        {
+          "agent": "Intent",
+          "output": "settlement_delay · hi-IN (Hinglish) · urgency high · confidence 0.9",
+          "latencyMs": 108,
+          "cost": "₹0.017"
+        },
+        {
+          "agent": "Context",
+          "output": "SET-51002 ₹32,500 failed (IFSC_MISMATCH) · a/c XXXXXX5838 · bank details updated 1 day ago → retriggerable · open ticket TKT-77201",
+          "latencyMs": 91,
+          "cost": "₹0.010"
+        },
+        {
+          "agent": "Plan",
+          "output": "verify_ledger → update_ticket (ticket already open) → retrigger_payout",
+          "latencyMs": 45,
+          "cost": "₹0.004"
+        },
+        {
+          "agent": "Guardrail",
+          "output": "update_ticket TKT-77201 · audit #9005",
+          "verdict": "ALLOW",
+          "reason": "WITHIN_POLICY · non-money action",
+          "big": true,
+          "latencyMs": 19,
+          "cost": "₹0.002"
+        },
+        {
+          "agent": "Action",
+          "output": "update_ticket TKT-77201 · no duplicate ticket",
+          "latencyMs": 143,
+          "cost": "₹0.022"
+        },
+        {
+          "agent": "Guardrail",
+          "output": "retrigger_payout ₹32,500 · audit #9006",
+          "verdict": "NEEDS_CONFIRMATION",
+          "reason": "OVER_AUTO_LIMIT · amount 32500 > auto_limit 25000",
+          "big": true,
+          "latencyMs": 52,
+          "cost": "₹0.006"
+        },
+        {
+          "agent": "Handoff",
+          "output": "HO-10021 created · brief sent to the agent-desk",
+          "latencyMs": 77,
+          "cost": "₹0.008"
+        },
+        {
+          "agent": "Reply",
+          "output": "hi-IN (Hinglish)",
+          "latencyMs": 68,
+          "cost": "₹0.011"
+        }
+      ]
+    }
+  ]
+}

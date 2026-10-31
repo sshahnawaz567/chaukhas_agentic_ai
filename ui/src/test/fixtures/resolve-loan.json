@@ -1,0 +1,47 @@
+{
+ "handoff": {
+  "id": "HO-00001",
+  "session_id": "S-4040381142",
+  "merchant_id": "M001",
+  "ticket_id": null,
+  "trace_id": "T-a08bb0d538ca",
+  "status": "resolved",
+  "assigned_to": "STAFF-042",
+  "human_decision": "loan follow-up done",
+  "created_at": "2026-10-31T06:47:28Z",
+  "resolved_at": "2026-10-31T06:47:29Z",
+  "brief": {
+   "asked": "Merchant accepted a ₹50,000 business loan offer",
+   "verified": [
+    "Key Fact Statement shown before consent",
+    "Consent recorded (CONFIRMED_BY_MERCHANT, audit #4)"
+   ],
+   "done": [
+    "Offer OFF-30397 accepted"
+   ],
+   "refused": [],
+   "reason_code": "LOAN_ACCEPTED",
+   "confidence": 1.0,
+   "decision_needed": "Follow up with the lender on OFF-30397 and confirm next steps with the merchant",
+   "suggested_step": null,
+   "pending_audit_id": null,
+   "confirmation_kind": null,
+   "loan": {
+    "offer_id": "OFF-30397",
+    "amount": 50000,
+    "lender_name": "Demo NBFC Partner (simulated)",
+    "apr_pct": 18.0,
+    "processing_fee_inr": 500,
+    "tenure_months": 12,
+    "total_repayable_inr": 59500,
+    "grievance_contact": "grievance@demo-lender.example (mock)",
+    "kfs_shown_at": "2026-10-31T06:47:27Z",
+    "consent_at": "2026-10-31T06:47:28Z",
+    "consent_audit_id": 4
+   }
+  },
+  "ticket_events": []
+ },
+ "decision": null,
+ "action_result": null
+}

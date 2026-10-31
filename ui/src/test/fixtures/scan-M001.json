@@ -1,0 +1,238 @@
+[
+ {
+  "merchant_id": "M001",
+  "settlement_id": "SET-99213",
+  "session_id": "S-ee993a337e",
+  "trigger_source": "proactive",
+  "turn": {
+   "session_id": "S-ee993a337e",
+   "turn_no": 2,
+   "trace_id": "T-a2907a3b2687",
+   "status": "awaiting_confirmation",
+   "lang": "hi-IN",
+   "intent": "settlement_delay",
+   "reply": "नमस्ते! आपका ₹18,400 का settlement (SET-99213) fail हो गया था — बैंक डिटेल्स (IFSC) गलत थीं। आपने बैंक डिटेल्स ठीक कर दी हैं। क्या मैं यह payment दोबारा भेज दूँ?",
+   "plan": [
+    {
+     "step_no": 1,
+     "action_type": "verify_ledger",
+     "params": {
+      "settlement_id": "SET-99213"
+     },
+     "amount": null,
+     "reversible": true,
+     "rationale": "read the ledger fresh before deciding",
+     "session_id": "S-ee993a337e"
+    },
+    {
+     "step_no": 2,
+     "action_type": "retrigger_payout",
+     "params": {
+      "settlement_id": "SET-99213",
+      "amount": 18400
+     },
+     "amount": 18400,
+     "reversible": true,
+     "rationale": "IFSC_MISMATCH and retriggerable; amount taken from the ledger",
+     "session_id": "S-ee993a337e"
+    },
+    {
+     "step_no": 3,
+     "action_type": "raise_ticket",
+     "params": {
+      "merchant_id": "M001",
+      "issue": "Settlement SET-99213 failed: IFSC_MISMATCH",
+      "settlement_id": "SET-99213"
+     },
+     "amount": null,
+     "reversible": true,
+     "rationale": "no open ticket for this issue: raise one",
+     "session_id": "S-ee993a337e"
+    },
+    {
+     "step_no": 4,
+     "action_type": "check_eligibility",
+     "params": {
+      "merchant_id": "M001"
+     },
+     "amount": null,
+     "reversible": true,
+     "rationale": "issue actioned; check loan eligibility (read-only)",
+     "session_id": "S-ee993a337e"
+    }
+   ],
+   "decisions": [
+    {
+     "step_no": 1,
+     "action_type": "verify_ledger",
+     "verdict": "ALLOW",
+     "reason_code": "WITHIN_POLICY",
+     "reason": "verify_ledger is read-only",
+     "audit_id": null
+    },
+    {
+     "step_no": 2,
+     "action_type": "retrigger_payout",
+     "verdict": "NEEDS_CONFIRMATION",
+     "reason_code": "CONSENT_REQUIRED",
+     "reason": "retrigger_payout needs the merchant's consent",
+     "audit_id": 1
+    }
+   ],
+   "actions": [
+    {
+     "step_no": 1,
+     "action_type": "verify_ledger",
+     "status": "success",
+     "ref_id": null,
+     "replayed": false,
+     "error": null,
+     "audit_id": null,
+     "latency_ms": 10
+    }
+   ],
+   "pending_confirmation": {
+    "pending_audit_id": 1,
+    "step": {
+     "step_no": 2,
+     "action_type": "retrigger_payout",
+     "params": {
+      "settlement_id": "SET-99213",
+      "amount": 18400
+     },
+     "amount": 18400,
+     "reversible": true,
+     "rationale": "IFSC_MISMATCH and retriggerable; amount taken from the ledger",
+     "session_id": "S-ee993a337e"
+    },
+    "kind": "consent",
+    "reason_code": "CONSENT_REQUIRED",
+    "prompt": "नमस्ते! आपका ₹18,400 का settlement (SET-99213) fail हो गया था — बैंक डिटेल्स (IFSC) गलत थीं। आपने बैंक डिटेल्स ठीक कर दी हैं। क्या मैं यह payment दोबारा भेज दूँ?"
+   },
+   "handoff": null,
+   "latency_ms": 197,
+   "cost_inr": 0.0,
+   "spans": [
+    {
+     "trace_id": "T-a2907a3b2687",
+     "session_id": "S-ee993a337e",
+     "turn_no": 2,
+     "seq": 1,
+     "agent": "gateway",
+     "step_no": null,
+     "input_summary": "watcher: settlement_failed:SET-99213",
+     "output_summary": "proactive session S-ee993a337e",
+     "status": "ok",
+     "latency_ms": 0,
+     "model": null,
+     "tokens_in": 0,
+     "tokens_out": 0,
+     "cost_inr": 0.0,
+     "ts": "2026-10-31T08:34:18Z"
+    },
+    {
+     "trace_id": "T-a2907a3b2687",
+     "session_id": "S-ee993a337e",
+     "turn_no": 2,
+     "seq": 2,
+     "agent": "context",
+     "step_no": null,
+     "input_summary": "merchant M001",
+     "output_summary": "SET-99213 failed IFSC_MISMATCH",
+     "status": "ok",
+     "latency_ms": 18,
+     "model": null,
+     "tokens_in": 0,
+     "tokens_out": 0,
+     "cost_inr": 0.0,
+     "ts": "2026-10-31T08:34:18Z"
+    },
+    {
+     "trace_id": "T-a2907a3b2687",
+     "session_id": "S-ee993a337e",
+     "turn_no": 2,
+     "seq": 3,
+     "agent": "planner",
+     "step_no": null,
+     "input_summary": "intent settlement_delay",
+     "output_summary": "verify_ledger -> retrigger_payout -> raise_ticket -> check_eligibility",
+     "status": "ok",
+     "latency_ms": 12,
+     "model": null,
+     "tokens_in": 0,
+     "tokens_out": 0,
+     "cost_inr": 0.0,
+     "ts": "2026-10-31T08:34:18Z"
+    },
+    {
+     "trace_id": "T-a2907a3b2687",
+     "session_id": "S-ee993a337e",
+     "turn_no": 2,
+     "seq": 4,
+     "agent": "guardrail",
+     "step_no": 1,
+     "input_summary": "verify_ledger",
+     "output_summary": "ALLOW WITHIN_POLICY: verify_ledger is read-only",
+     "status": "ok",
+     "latency_ms": 19,
+     "model": null,
+     "tokens_in": 0,
+     "tokens_out": 0,
+     "cost_inr": 0.0,
+     "ts": "2026-10-31T08:34:18Z"
+    },
+    {
+     "trace_id": "T-a2907a3b2687",
+     "session_id": "S-ee993a337e",
+     "turn_no": 2,
+     "seq": 5,
+     "agent": "action",
+     "step_no": 1,
+     "input_summary": "verify_ledger",
+     "output_summary": "success",
+     "status": "ok",
+     "latency_ms": 10,
+     "model": null,
+     "tokens_in": 0,
+     "tokens_out": 0,
+     "cost_inr": 0.0,
+     "ts": "2026-10-31T08:34:18Z"
+    },
+    {
+     "trace_id": "T-a2907a3b2687",
+     "session_id": "S-ee993a337e",
+     "turn_no": 2,
+     "seq": 6,
+     "agent": "guardrail",
+     "step_no": 2,
+     "input_summary": "retrigger_payout 18400",
+     "output_summary": "NEEDS_CONFIRMATION CONSENT_REQUIRED: retrigger_payout needs the merchant's consent",
+     "status": "ok",
+     "latency_ms": 46,
+     "model": null,
+     "tokens_in": 0,
+     "tokens_out": 0,
+     "cost_inr": 0.0,
+     "ts": "2026-10-31T08:34:19Z"
+    },
+    {
+     "trace_id": "T-a2907a3b2687",
+     "session_id": "S-ee993a337e",
+     "turn_no": 2,
+     "seq": 7,
+     "agent": "reply",
+     "step_no": null,
+     "input_summary": "settlement_delay in hi-IN",
+     "output_summary": "via notification: 161 chars",
+     "status": "ok",
+     "latency_ms": 4,
+     "model": null,
+     "tokens_in": 0,
+     "tokens_out": 0,
+     "cost_inr": 0.0,
+     "ts": "2026-10-31T08:34:19Z"
+    }
+   ]
+  }
+ }
+]

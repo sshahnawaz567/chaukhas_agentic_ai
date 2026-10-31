@@ -1,0 +1,406 @@
+{
+ "session_id": "S-4040381142",
+ "turn_no": 2,
+ "trace_id": "T-2076fa976e12",
+ "status": "awaiting_confirmation",
+ "lang": "hi-IN",
+ "intent": "settlement_delay",
+ "reply": "आपका ₹18,400 का भुगतान दोबारा भेज दिया गया है। टिकट TKT-49711 बना दिया गया है। आप ₹50,000 तक के लोन के लिए पात्र हैं (Demo NBFC Partner (simulated)). ब्याज 18.0% सालाना, प्रोसेसिंग फीस ₹500, अवधि 12 महीने, कुल वापसी ₹59,500. शिकायत: grievance@demo-lender.example (mock). क्या मैं ऑफ़र भेजूँ?",
+ "plan": [
+  {
+   "step_no": 1,
+   "action_type": "verify_ledger",
+   "params": {
+    "settlement_id": "SET-99213"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "read the ledger fresh before deciding",
+   "session_id": "S-4040381142"
+  },
+  {
+   "step_no": 2,
+   "action_type": "raise_ticket",
+   "params": {
+    "merchant_id": "M001",
+    "issue": "Settlement SET-99213 failed: IFSC_MISMATCH",
+    "settlement_id": "SET-99213"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "no open ticket for this issue: raise one",
+   "session_id": "S-4040381142"
+  },
+  {
+   "step_no": 3,
+   "action_type": "retrigger_payout",
+   "params": {
+    "settlement_id": "SET-99213",
+    "amount": 18400
+   },
+   "amount": 18400,
+   "reversible": true,
+   "rationale": "IFSC_MISMATCH and retriggerable; amount taken from the ledger",
+   "session_id": "S-4040381142"
+  },
+  {
+   "step_no": 4,
+   "action_type": "check_eligibility",
+   "params": {
+    "merchant_id": "M001"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "issue actioned; check loan eligibility (read-only)",
+   "session_id": "S-4040381142"
+  },
+  {
+   "step_no": 5,
+   "action_type": "create_offer",
+   "params": {
+    "merchant_id": "M001",
+    "amount": 50000
+   },
+   "amount": 50000,
+   "reversible": true,
+   "rationale": "eligible: offer the lender's max amount (needs consent)",
+   "session_id": "S-4040381142"
+  }
+ ],
+ "decisions": [
+  {
+   "step_no": 1,
+   "action_type": "verify_ledger",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "verify_ledger is read-only",
+   "audit_id": null
+  },
+  {
+   "step_no": 2,
+   "action_type": "raise_ticket",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "raise_ticket: all checks passed",
+   "audit_id": 1
+  },
+  {
+   "step_no": 3,
+   "action_type": "retrigger_payout",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "retrigger_payout: amount 18400 <= auto_limit 25000",
+   "audit_id": 2
+  },
+  {
+   "step_no": 4,
+   "action_type": "check_eligibility",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "check_eligibility is read-only",
+   "audit_id": null
+  },
+  {
+   "step_no": 5,
+   "action_type": "create_offer",
+   "verdict": "NEEDS_CONFIRMATION",
+   "reason_code": "CONSENT_REQUIRED",
+   "reason": "create_offer needs the merchant's consent",
+   "audit_id": 3
+  }
+ ],
+ "actions": [
+  {
+   "step_no": 1,
+   "action_type": "verify_ledger",
+   "status": "success",
+   "ref_id": null,
+   "replayed": false,
+   "error": null,
+   "audit_id": null,
+   "latency_ms": 13
+  },
+  {
+   "step_no": 2,
+   "action_type": "raise_ticket",
+   "status": "success",
+   "ref_id": "TKT-49711",
+   "replayed": false,
+   "error": null,
+   "audit_id": 1,
+   "latency_ms": 95
+  },
+  {
+   "step_no": 3,
+   "action_type": "retrigger_payout",
+   "status": "success",
+   "ref_id": "PAY-99213-1",
+   "replayed": false,
+   "error": null,
+   "audit_id": 2,
+   "latency_ms": 91
+  },
+  {
+   "step_no": 4,
+   "action_type": "check_eligibility",
+   "status": "success",
+   "ref_id": null,
+   "replayed": false,
+   "error": null,
+   "audit_id": null,
+   "latency_ms": 19
+  }
+ ],
+ "pending_confirmation": {
+  "pending_audit_id": 3,
+  "step": {
+   "step_no": 5,
+   "action_type": "create_offer",
+   "params": {
+    "merchant_id": "M001",
+    "amount": 50000
+   },
+   "amount": 50000,
+   "reversible": true,
+   "rationale": "eligible: offer the lender's max amount (needs consent)",
+   "session_id": "S-4040381142"
+  },
+  "kind": "consent",
+  "reason_code": "CONSENT_REQUIRED",
+  "prompt": "आपका ₹18,400 का भुगतान दोबारा भेज दिया गया है। टिकट TKT-49711 बना दिया गया है। आप ₹50,000 तक के लोन के लिए पात्र हैं (Demo NBFC Partner (simulated)). ब्याज 18.0% सालाना, प्रोसेसिंग फीस ₹500, अवधि 12 महीने, कुल वापसी ₹59,500. शिकायत: grievance@demo-lender.example (mock). क्या मैं ऑफ़र भेजूँ?",
+  "kfs": {
+   "lender_name": "Demo NBFC Partner (simulated)",
+   "apr_pct": 18.0,
+   "processing_fee_inr": 500,
+   "tenure_months": 12,
+   "total_repayable_inr": 59500,
+   "grievance_contact": "grievance@demo-lender.example (mock)"
+  }
+ },
+ "handoff": null,
+ "latency_ms": 712,
+ "cost_inr": 0.0,
+ "spans": [
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 1,
+   "agent": "intent",
+   "step_no": null,
+   "input_summary": "msg (36 chars), pending=False",
+   "output_summary": "settlement_delay hi-IN urgency=high conf=0.75 via keyword",
+   "status": "ok",
+   "latency_ms": 61,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 2,
+   "agent": "context",
+   "step_no": null,
+   "input_summary": "merchant M001",
+   "output_summary": "SET-99213 failed IFSC_MISMATCH",
+   "status": "ok",
+   "latency_ms": 23,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 3,
+   "agent": "planner",
+   "step_no": null,
+   "input_summary": "intent settlement_delay",
+   "output_summary": "verify_ledger -> raise_ticket -> retrigger_payout -> check_eligibility",
+   "status": "ok",
+   "latency_ms": 13,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 4,
+   "agent": "guardrail",
+   "step_no": 1,
+   "input_summary": "verify_ledger",
+   "output_summary": "ALLOW WITHIN_POLICY: verify_ledger is read-only",
+   "status": "ok",
+   "latency_ms": 21,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 5,
+   "agent": "action",
+   "step_no": 1,
+   "input_summary": "verify_ledger",
+   "output_summary": "success",
+   "status": "ok",
+   "latency_ms": 13,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 6,
+   "agent": "guardrail",
+   "step_no": 2,
+   "input_summary": "raise_ticket",
+   "output_summary": "ALLOW WITHIN_POLICY: raise_ticket: all checks passed",
+   "status": "ok",
+   "latency_ms": 70,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 7,
+   "agent": "action",
+   "step_no": 2,
+   "input_summary": "raise_ticket",
+   "output_summary": "success TKT-49711",
+   "status": "ok",
+   "latency_ms": 96,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 8,
+   "agent": "guardrail",
+   "step_no": 3,
+   "input_summary": "retrigger_payout 18400",
+   "output_summary": "ALLOW WITHIN_POLICY: retrigger_payout: amount 18400 <= auto_limit 25000",
+   "status": "ok",
+   "latency_ms": 43,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 9,
+   "agent": "action",
+   "step_no": 3,
+   "input_summary": "retrigger_payout",
+   "output_summary": "success PAY-99213-1",
+   "status": "ok",
+   "latency_ms": 91,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 10,
+   "agent": "guardrail",
+   "step_no": 4,
+   "input_summary": "check_eligibility",
+   "output_summary": "ALLOW WITHIN_POLICY: check_eligibility is read-only",
+   "status": "ok",
+   "latency_ms": 18,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 11,
+   "agent": "action",
+   "step_no": 4,
+   "input_summary": "check_eligibility",
+   "output_summary": "success",
+   "status": "ok",
+   "latency_ms": 19,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 12,
+   "agent": "guardrail",
+   "step_no": 5,
+   "input_summary": "create_offer 50000",
+   "output_summary": "NEEDS_CONFIRMATION CONSENT_REQUIRED: create_offer needs the merchant's consent",
+   "status": "ok",
+   "latency_ms": 45,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  },
+  {
+   "trace_id": "T-2076fa976e12",
+   "session_id": "S-4040381142",
+   "turn_no": 2,
+   "seq": 13,
+   "agent": "reply",
+   "step_no": null,
+   "input_summary": "settlement_delay in hi-IN",
+   "output_summary": "via template: 291 chars",
+   "status": "ok",
+   "latency_ms": 34,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T06:47:27Z"
+  }
+ ]
+}

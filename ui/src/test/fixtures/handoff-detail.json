@@ -1,0 +1,66 @@
+{
+ "id": "HO-00002",
+ "session_id": "S-f91313d96d",
+ "merchant_id": "M002",
+ "ticket_id": "TKT-77201",
+ "trace_id": "T-71cd3be4ebab",
+ "status": "open",
+ "assigned_to": null,
+ "human_decision": null,
+ "created_at": "2026-10-31T06:47:28Z",
+ "resolved_at": null,
+ "brief": {
+  "asked": "Merchant wants the failed settlement of ₹32,500 sent",
+  "verified": [
+   "SET-51002 failed, IFSC_MISMATCH",
+   "bank details updated after failure",
+   "amount 32500 matches ledger",
+   "KYC verified"
+  ],
+  "done": [
+   "ticket TKT-77201 updated"
+  ],
+  "refused": [],
+  "reason_code": "OVER_AUTO_LIMIT",
+  "confidence": 0.75,
+  "decision_needed": "Approve retrigger of ₹32,500 to the merchant's registered account?",
+  "suggested_step": {
+   "step_no": 3,
+   "action_type": "retrigger_payout",
+   "params": {
+    "settlement_id": "SET-51002",
+    "amount": 32500
+   },
+   "amount": 32500,
+   "reversible": true,
+   "rationale": "IFSC_MISMATCH and retriggerable; amount taken from the ledger",
+   "session_id": "S-f91313d96d"
+  },
+  "pending_audit_id": 6,
+  "confirmation_kind": "step_up",
+  "loan": null
+ },
+ "ticket_events": [
+  {
+   "created_at": "2026-10-31T06:47:28Z",
+   "actor": "agent",
+   "actor_id": "action_agent",
+   "event_type": "status_change",
+   "detail": "open -> in_progress"
+  },
+  {
+   "created_at": "2026-10-31T06:47:28Z",
+   "actor": "agent",
+   "actor_id": "action_agent",
+   "event_type": "action_taken",
+   "detail": "IFSC_MISMATCH: payout re-sent after fix"
+  },
+  {
+   "created_at": "2026-10-31T06:47:28Z",
+   "actor": "agent",
+   "actor_id": "handoff_agent",
+   "event_type": "handoff",
+   "detail": "handed to human: OVER_AUTO_LIMIT"
+  }
+ ]
+}

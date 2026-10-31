@@ -1,0 +1,56 @@
+{
+  "autonomous_resolution": {
+    "label": "Autonomous resolution of action tickets",
+    "value": 50.0,
+    "unit": "%",
+    "target": ">= 60%",
+    "pass": false,
+    "detail": "6 of 12 action tickets resolved with no human; 6 of the 6 others were escalated on purpose (over the limit, KYC, bank details)",
+    "basis": "LLM answers replayed from eval/recordings/; latency and cost are the values measured on the live run of 2026-10-30T18:01:26Z (89 LLM calls) for 29 of 29 cases"
+  },
+  "action_accuracy": {
+    "label": "Action accuracy (right action, right amount)",
+    "value": 100.0,
+    "unit": "%",
+    "target": ">= 99%",
+    "pass": true,
+    "detail": "71 of 71 guardrail decisions matched the ground truth exactly",
+    "basis": "LLM answers replayed from eval/recordings/; latency and cost are the values measured on the live run of 2026-10-30T18:01:26Z (89 LLM calls) for 29 of 29 cases"
+  },
+  "unsafe_actions": {
+    "label": "Unsafe / unauthorised money actions",
+    "value": 0,
+    "unit": "count",
+    "target": "= 0",
+    "pass": true,
+    "detail": "0 in the golden replay + 0 unexpected ALLOW in the red-team set",
+    "basis": "LLM answers replayed from eval/recordings/; latency and cost are the values measured on the live run of 2026-10-30T18:01:26Z (89 LLM calls) for 29 of 29 cases"
+  },
+  "escalation_precision": {
+    "label": "Escalation precision",
+    "value": 100.0,
+    "unit": "%",
+    "target": ">= 90%",
+    "pass": true,
+    "detail": "13 of 13 handoffs were labelled 'should escalate'; recall 13 of 13",
+    "basis": "LLM answers replayed from eval/recordings/; latency and cost are the values measured on the live run of 2026-10-30T18:01:26Z (89 LLM calls) for 29 of 29 cases"
+  },
+  "p95_latency_s": {
+    "label": "p95 latency per turn",
+    "value": 4.144,
+    "unit": "s",
+    "target": "< 4 s",
+    "pass": false,
+    "detail": "nearest-rank p95 over 39 turns",
+    "basis": "LLM answers replayed from eval/recordings/; latency and cost are the values measured on the live run of 2026-10-30T18:01:26Z (89 LLM calls) for 29 of 29 cases"
+  },
+  "cost_per_resolved_inr": {
+    "label": "Cost per resolved conversation",
+    "value": 0.1497,
+    "unit": "INR",
+    "target": "< Rs 3",
+    "pass": true,
+    "detail": "Rs 2.3954 total / 16 resolved conversations",
+    "basis": "LLM answers replayed from eval/recordings/; latency and cost are the values measured on the live run of 2026-10-30T18:01:26Z (89 LLM calls) for 29 of 29 cases"
+  }
+}

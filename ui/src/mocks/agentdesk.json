@@ -1,0 +1,168 @@
+{
+  "_note": "Mock source for the agent-desk. `minutes_ago` is mock-only: the client turns it into an ISO created_at so the demo always reads 'just now'. Everything else is in CONTRACTS C1/C5 shape.",
+  "handoffs": [
+    {
+      "id": "HO-10021",
+      "session_id": "SES-M002-01",
+      "merchant_id": "M002",
+      "merchant_name_masked": "Pa****",
+      "ticket_id": "TKT-77201",
+      "trace_id": "TRC-5B77",
+      "status": "open",
+      "minutes_ago": 2,
+      "brief": {
+        "asked": "Merchant wants failed settlement of ₹32,500 sent",
+        "verified": [
+          "SET-51002 failed (IFSC_MISMATCH)",
+          "Bank details updated after the failure",
+          "Amount ₹32,500 matches the ledger"
+        ],
+        "done": [
+          "Ticket TKT-77201 updated (no duplicate raised)"
+        ],
+        "refused": [
+          {
+            "action_type": "retrigger_payout",
+            "verdict": "NEEDS_CONFIRMATION",
+            "reason_code": "OVER_AUTO_LIMIT",
+            "reason": "amount 32500 > auto_limit 25000"
+          }
+        ],
+        "reason_code": "OVER_AUTO_LIMIT",
+        "confidence": 0.92,
+        "decision_needed": "Approve retrigger of ₹32,500 to the merchant's registered account?",
+        "suggested_step": {
+          "step_no": 2,
+          "action_type": "retrigger_payout",
+          "params": {
+            "settlement_id": "SET-51002",
+            "amount": 32500
+          },
+          "amount": 32500,
+          "reversible": true,
+          "rationale": "failed on IFSC_MISMATCH, bank details fixed since; over auto-limit so needs a human"
+        }
+      }
+    },
+    {
+      "id": "HO-10022",
+      "session_id": "SES-M001-01",
+      "merchant_id": "M001",
+      "merchant_name_masked": "Sh****",
+      "ticket_id": null,
+      "trace_id": "TRC-8F31",
+      "status": "open",
+      "minutes_ago": 1,
+      "brief": {
+        "asked": "Merchant accepted a ₹50,000 business loan offer",
+        "verified": [
+          "Eligible per the lender: max ₹50,000",
+          "Key Fact Statement shown before consent",
+          "Consent recorded (CONFIRMED_BY_MERCHANT, audit #9004)"
+        ],
+        "done": [
+          "Offer OFF-74117 accepted",
+          "Settlement issue resolved first (SET-99213 re-triggered)"
+        ],
+        "refused": [],
+        "reason_code": "LOAN_ACCEPTED",
+        "confidence": 1.0,
+        "decision_needed": "Follow up with the lender on OFF-74117 and confirm next steps with the merchant",
+        "suggested_step": null,
+        "loan": {
+          "offer_id": "OFF-74117",
+          "amount": 50000,
+          "lender_name": "Demo NBFC Partner (simulated)",
+          "apr_pct": 18.0,
+          "processing_fee_inr": 500,
+          "tenure_months": 12,
+          "total_repayable_inr": 59500,
+          "grievance_contact": "grievance@demo-lender.example (mock)",
+          "kfs_shown_at": null,
+          "consent_at": null,
+          "consent_audit_id": 9004
+        }
+      }
+    }
+  ],
+  "ticket_events": {
+    "TKT-77201": [
+      {
+        "id": 1,
+        "actor": "system",
+        "actor_id": "seed",
+        "event_type": "created",
+        "detail": "Settlement nahi aaya 2 din se",
+        "minutes_ago": 2880
+      },
+      {
+        "id": 2,
+        "actor": "agent",
+        "actor_id": "action_agent",
+        "event_type": "action_taken",
+        "detail": "Ticket updated: SET-51002 failed (IFSC_MISMATCH), bank details since fixed",
+        "minutes_ago": 2
+      },
+      {
+        "id": 3,
+        "actor": "agent",
+        "actor_id": "handoff_agent",
+        "event_type": "handoff",
+        "detail": "Handed to a human: OVER_AUTO_LIMIT (32500 > 25000) · HO-10021",
+        "minutes_ago": 2
+      }
+    ]
+  },
+  "resolve": {
+    "approve": {
+      "decision": {
+        "verdict": "ALLOW",
+        "reason_code": "APPROVED_BY_HUMAN",
+        "reason": "human approval satisfies the over-limit check; checks 1–7 re-ran and passed",
+        "audit_id": 9007,
+        "rollback_token": "RB-51002-02",
+        "confirmation_kind": "step_up"
+      },
+      "action_result": {
+        "step_no": 2,
+        "action_type": "retrigger_payout",
+        "status": "success",
+        "ref_id": "PAY-51002-R1",
+        "replayed": false,
+        "error": null,
+        "audit_id": 9007,
+        "latency_ms": 212
+      },
+      "events": [
+        {
+          "actor": "human",
+          "event_type": "action_taken",
+          "detail": "Approved retrigger of ₹32,500 · guardrail ALLOW (APPROVED_BY_HUMAN) · payout PAY-51002-R1"
+        },
+        {
+          "actor": "agent",
+          "actor_id": "action_agent",
+          "event_type": "resolved",
+          "detail": "Payout retriggered, settlement SET-51002 → retriggered"
+        }
+      ]
+    },
+    "decline": {
+      "decision": null,
+      "action_result": null,
+      "events": [
+        {
+          "actor": "human",
+          "event_type": "note",
+          "detail": "Declined retrigger of ₹32,500 — no action taken"
+        },
+        {
+          "actor": "agent",
+          "actor_id": "handoff_agent",
+          "event_type": "resolved",
+          "detail": "Handoff closed without execution"
+        }
+      ]
+    }
+  }
+}

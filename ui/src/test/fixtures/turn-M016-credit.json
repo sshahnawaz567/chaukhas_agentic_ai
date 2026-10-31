@@ -1,0 +1,222 @@
+{
+ "session_id": "S-15e657450c",
+ "turn_no": 2,
+ "trace_id": "T-440db5a5782a",
+ "status": "awaiting_confirmation",
+ "lang": "hi-Latn",
+ "intent": "loan_inquiry",
+ "reply": "Aap ₹7,000 tak ki short-term credit line ke liye eligible hain (Demo NBFC Partner (simulated)). 30 din mein chukane par koi byaaj ya fee nahi; uske baad 24.0% saalana byaaj aur ₹250 late fee. Shikayat: grievance@demo-lender.example (mock). Kya main yeh credit line chalu karoon?",
+ "plan": [
+  {
+   "step_no": 1,
+   "action_type": "check_eligibility",
+   "params": {
+    "merchant_id": "M016",
+    "product": "credit_line"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "merchant asked for a credit line (Postpaid-style)",
+   "session_id": "S-15e657450c"
+  },
+  {
+   "step_no": 2,
+   "action_type": "create_offer",
+   "params": {
+    "merchant_id": "M016",
+    "amount": 7000,
+    "product": "credit_line"
+   },
+   "amount": 7000,
+   "reversible": true,
+   "rationale": "eligible: offer the lender's credit line limit (needs consent)",
+   "session_id": "S-15e657450c"
+  }
+ ],
+ "decisions": [
+  {
+   "step_no": 1,
+   "action_type": "check_eligibility",
+   "verdict": "ALLOW",
+   "reason_code": "WITHIN_POLICY",
+   "reason": "check_eligibility is read-only",
+   "audit_id": null
+  },
+  {
+   "step_no": 2,
+   "action_type": "create_offer",
+   "verdict": "NEEDS_CONFIRMATION",
+   "reason_code": "CONSENT_REQUIRED",
+   "reason": "create_offer needs the merchant's consent",
+   "audit_id": 1
+  }
+ ],
+ "actions": [
+  {
+   "step_no": 1,
+   "action_type": "check_eligibility",
+   "status": "success",
+   "ref_id": null,
+   "replayed": false,
+   "error": null,
+   "audit_id": null,
+   "latency_ms": 8
+  }
+ ],
+ "pending_confirmation": {
+  "pending_audit_id": 1,
+  "step": {
+   "step_no": 2,
+   "action_type": "create_offer",
+   "params": {
+    "merchant_id": "M016",
+    "amount": 7000,
+    "product": "credit_line"
+   },
+   "amount": 7000,
+   "reversible": true,
+   "rationale": "eligible: offer the lender's credit line limit (needs consent)",
+   "session_id": "S-15e657450c"
+  },
+  "kind": "consent",
+  "reason_code": "CONSENT_REQUIRED",
+  "prompt": "Aap ₹7,000 tak ki short-term credit line ke liye eligible hain (Demo NBFC Partner (simulated)). 30 din mein chukane par koi byaaj ya fee nahi; uske baad 24.0% saalana byaaj aur ₹250 late fee. Shikayat: grievance@demo-lender.example (mock). Kya main yeh credit line chalu karoon?",
+  "product": "credit_line",
+  "kfs": {
+   "lender_name": "Demo NBFC Partner (simulated)",
+   "apr_pct": 24.0,
+   "processing_fee_inr": 0,
+   "tenure_months": 1,
+   "total_repayable_inr": 7000,
+   "grievance_contact": "grievance@demo-lender.example (mock)",
+   "product": "credit_line",
+   "billing_cycle_days": 30,
+   "interest_free_days": 30,
+   "late_fee_inr": 250
+  }
+ },
+ "handoff": null,
+ "latency_ms": 243,
+ "cost_inr": 0.0,
+ "spans": [
+  {
+   "trace_id": "T-440db5a5782a",
+   "session_id": "S-15e657450c",
+   "turn_no": 2,
+   "seq": 1,
+   "agent": "intent",
+   "step_no": null,
+   "input_summary": "msg (39 chars), pending=False",
+   "output_summary": "loan_inquiry hi-Latn urgency=med conf=0.75 via keyword",
+   "status": "ok",
+   "latency_ms": 26,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  },
+  {
+   "trace_id": "T-440db5a5782a",
+   "session_id": "S-15e657450c",
+   "turn_no": 2,
+   "seq": 2,
+   "agent": "context",
+   "step_no": null,
+   "input_summary": "merchant M016",
+   "output_summary": "no failed/pending settlement",
+   "status": "ok",
+   "latency_ms": 20,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  },
+  {
+   "trace_id": "T-440db5a5782a",
+   "session_id": "S-15e657450c",
+   "turn_no": 2,
+   "seq": 3,
+   "agent": "planner",
+   "step_no": null,
+   "input_summary": "intent loan_inquiry",
+   "output_summary": "check_eligibility",
+   "status": "ok",
+   "latency_ms": 13,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  },
+  {
+   "trace_id": "T-440db5a5782a",
+   "session_id": "S-15e657450c",
+   "turn_no": 2,
+   "seq": 4,
+   "agent": "guardrail",
+   "step_no": 1,
+   "input_summary": "check_eligibility",
+   "output_summary": "ALLOW WITHIN_POLICY: check_eligibility is read-only",
+   "status": "ok",
+   "latency_ms": 13,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  },
+  {
+   "trace_id": "T-440db5a5782a",
+   "session_id": "S-15e657450c",
+   "turn_no": 2,
+   "seq": 5,
+   "agent": "action",
+   "step_no": 1,
+   "input_summary": "check_eligibility",
+   "output_summary": "success",
+   "status": "ok",
+   "latency_ms": 8,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  },
+  {
+   "trace_id": "T-440db5a5782a",
+   "session_id": "S-15e657450c",
+   "turn_no": 2,
+   "seq": 6,
+   "agent": "guardrail",
+   "step_no": 2,
+   "input_summary": "create_offer 7000",
+   "output_summary": "NEEDS_CONFIRMATION CONSENT_REQUIRED: create_offer needs the merchant's consent",
+   "status": "ok",
+   "latency_ms": 29,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  },
+  {
+   "trace_id": "T-440db5a5782a",
+   "session_id": "S-15e657450c",
+   "turn_no": 2,
+   "seq": 7,
+   "agent": "reply",
+   "step_no": null,
+   "input_summary": "loan_inquiry in hi-Latn",
+   "output_summary": "via template: 278 chars",
+   "status": "ok",
+   "latency_ms": 35,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:17:06Z"
+  }
+ ]
+}

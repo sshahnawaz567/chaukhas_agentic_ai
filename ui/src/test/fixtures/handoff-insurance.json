@@ -1,0 +1,31 @@
+{
+ "id": "HO-00001",
+ "session_id": "S-0d846cb609",
+ "merchant_id": "M017",
+ "ticket_id": null,
+ "trace_id": "T-335d9b6c2c66",
+ "status": "open",
+ "assigned_to": null,
+ "human_decision": null,
+ "created_at": "2026-10-31T10:33:39Z",
+ "resolved_at": null,
+ "brief": {
+  "asked": "Merchant said yes to Soundbox / POS Device Protection (illustrative cover Rs 15,000)",
+  "verified": [
+   "Recommended by rules: HAS_DEVICE, DEVICE_TICKET_HISTORY",
+   "Consent recorded (CONFIRMED_BY_MERCHANT, audit #3)"
+  ],
+  "done": [
+   "Interest INS-57455 recorded; no premium charged, no policy issued"
+  ],
+  "refused": [],
+  "reason_code": "INSURANCE_INTEREST",
+  "confidence": 1.0,
+  "decision_needed": "Insurer partner to contact the merchant about INS-57455 and confirm cover and premium",
+  "suggested_step": null,
+  "pending_audit_id": null,
+  "confirmation_kind": null,
+  "loan": null
+ },
+ "ticket_events": []
+}

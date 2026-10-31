@@ -1,0 +1,153 @@
+{
+ "session_id": "S-0d846cb609",
+ "turn_no": 4,
+ "trace_id": "T-335d9b6c2c66",
+ "status": "completed",
+ "lang": "hi-Latn",
+ "intent": "confirm",
+ "reply": "Ho gaya. Maine aapki ruchi note kar li (reference INS-57455). Demo General Insurance (simulated) aapse sampark karega. Koi premium nahi kata aur abhi koi policy issue nahi hui.",
+ "plan": [
+  {
+   "step_no": 3,
+   "action_type": "offer_insurance",
+   "params": {
+    "merchant_id": "M017",
+    "product_id": "DEVICE_PROTECT"
+   },
+   "amount": null,
+   "reversible": true,
+   "rationale": "a product fits this merchant: offer it (needs consent, records interest only)",
+   "session_id": "S-0d846cb609"
+  }
+ ],
+ "decisions": [
+  {
+   "step_no": 3,
+   "action_type": "offer_insurance",
+   "verdict": "ALLOW",
+   "reason_code": "CONFIRMED_BY_MERCHANT",
+   "reason": "offer_insurance confirmed by merchant",
+   "audit_id": 3
+  }
+ ],
+ "actions": [
+  {
+   "step_no": 3,
+   "action_type": "offer_insurance",
+   "status": "success",
+   "ref_id": "INS-57455",
+   "replayed": false,
+   "error": null,
+   "audit_id": 3,
+   "latency_ms": 66
+  }
+ ],
+ "pending_confirmation": null,
+ "handoff": {
+  "asked": "Merchant said yes to Soundbox / POS Device Protection (illustrative cover Rs 15,000)",
+  "verified": [
+   "Recommended by rules: HAS_DEVICE, DEVICE_TICKET_HISTORY",
+   "Consent recorded (CONFIRMED_BY_MERCHANT, audit #3)"
+  ],
+  "done": [
+   "Interest INS-57455 recorded; no premium charged, no policy issued"
+  ],
+  "refused": [],
+  "reason_code": "INSURANCE_INTEREST",
+  "confidence": 1.0,
+  "decision_needed": "Insurer partner to contact the merchant about INS-57455 and confirm cover and premium",
+  "suggested_step": null,
+  "pending_audit_id": null,
+  "confirmation_kind": null,
+  "loan": null
+ },
+ "latency_ms": 326,
+ "cost_inr": 0.0,
+ "spans": [
+  {
+   "trace_id": "T-335d9b6c2c66",
+   "session_id": "S-0d846cb609",
+   "turn_no": 4,
+   "seq": 1,
+   "agent": "context",
+   "step_no": null,
+   "input_summary": "merchant M017",
+   "output_summary": "no failed/pending settlement",
+   "status": "ok",
+   "latency_ms": 12,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:39Z"
+  },
+  {
+   "trace_id": "T-335d9b6c2c66",
+   "session_id": "S-0d846cb609",
+   "turn_no": 4,
+   "seq": 2,
+   "agent": "guardrail",
+   "step_no": 3,
+   "input_summary": "offer_insurance + merchant consent confirmation",
+   "output_summary": "ALLOW CONFIRMED_BY_MERCHANT: offer_insurance confirmed by merchant",
+   "status": "ok",
+   "latency_ms": 55,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:39Z"
+  },
+  {
+   "trace_id": "T-335d9b6c2c66",
+   "session_id": "S-0d846cb609",
+   "turn_no": 4,
+   "seq": 3,
+   "agent": "action",
+   "step_no": 3,
+   "input_summary": "offer_insurance",
+   "output_summary": "success INS-57455",
+   "status": "ok",
+   "latency_ms": 67,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:39Z"
+  },
+  {
+   "trace_id": "T-335d9b6c2c66",
+   "session_id": "S-0d846cb609",
+   "turn_no": 4,
+   "seq": 4,
+   "agent": "reply",
+   "step_no": null,
+   "input_summary": "confirm in hi-Latn",
+   "output_summary": "via template: 176 chars",
+   "status": "ok",
+   "latency_ms": 43,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:39Z"
+  },
+  {
+   "trace_id": "T-335d9b6c2c66",
+   "session_id": "S-0d846cb609",
+   "turn_no": 4,
+   "seq": 5,
+   "agent": "handoff",
+   "step_no": null,
+   "input_summary": "reason INSURANCE_INTEREST",
+   "output_summary": "HO-00001: Insurer partner to contact the merchant about INS-57455 and confirm cover and premium",
+   "status": "ok",
+   "latency_ms": 36,
+   "model": null,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "cost_inr": 0.0,
+   "ts": "2026-10-31T10:33:39Z"
+  }
+ ]
+}
