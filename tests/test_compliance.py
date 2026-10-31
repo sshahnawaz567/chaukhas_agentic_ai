@@ -44,14 +44,19 @@ def test_notice_covers_what_why_rights_human_and_grievance(lang):
 
 def test_english_notice_names_each_required_element():
     n = disclosure.get_disclosure_details("en-IN").notice.lower()
-    for needed in ("name", "bank account", "loan offers", "masked", "erase", "withdraw", "person", "grievances"):
+    for needed in ("name", "bank account", "loan or insurance offers", "masked", "erase", "withdraw", "person", "grievances"):
         assert needed in n, needed
 
 
-def test_languages_without_a_notice_fall_back_to_english_notice():
-    d = disclosure.get_disclosure_details("mr-IN")
-    assert d.notice == disclosure.get_disclosure_details("en-IN").notice
-    assert d.ai_disclosure != disclosure.get_disclosure_details("en-IN").ai_disclosure
+def test_languages_without_a_notice_fall_back_to_english_notice(tmp_path):
+    import yaml
+    cfg = yaml.safe_load(disclosure.CONFIG_PATH.read_text(encoding="utf-8"))
+    del cfg["messages"]["mr-IN"]["notice"]                       # a language that has only its AI line
+    path = tmp_path / "disclosure.yaml"
+    path.write_text(yaml.safe_dump(cfg, allow_unicode=True), encoding="utf-8")
+    d = disclosure.get_disclosure_details("mr-IN", path)
+    assert d.notice == disclosure.get_disclosure_details("en-IN", path).notice
+    assert d.ai_disclosure != disclosure.get_disclosure_details("en-IN", path).ai_disclosure
 
 
 @pytest.mark.parametrize("asked,expected", [
@@ -225,3 +230,35 @@ def test_api_unknown_merchant_and_bad_purpose(client):
     assert client.post("/api/merchants/M999/consents",
                        json={"purpose": "ai_assistance", "action": "granted"}).status_code == 404
     assert client.post("/api/merchants/M001/consents", json={"purpose": "marketing", "action": "granted"}).status_code == 422
+# ------------------------------------------------------------------ Marathi and Gujarati carry the full notice (DPDP s.5)
+
+_SCRIPT = {"mr-IN": ("\u0900", "\u097f"), "gu-IN": ("\u0a80", "\u0aff")}
+
+
+@pytest.mark.parametrize("lang", ["mr-IN", "gu-IN"])
+def test_marathi_and_gujarati_have_their_own_full_notice(lang):
+    d = disclosure.get_disclosure_details(lang)
+    en = disclosure.get_disclosure_details("en-IN")
+    lo, hi = _SCRIPT[lang]
+    letters = [c for c in d.notice if c.isalpha()]
+    own = [c for c in letters if lo <= c <= hi]
+    assert d.lang == lang and d.notice != en.notice
+    assert len(own) / len(letters) > 0.5          # mostly its own script (a few product words stay Latin on purpose)
+    assert "insurance" in d.notice and "loan" in d.notice                # both sales purposes are named
+    assert d.grievance_contact in d.notice and d.notice_url in d.notice and "(demo)" in d.notice
+    assert d.message == d.ai_disclosure + "\n\n" + d.notice
+
+
+def test_every_notice_names_loan_and_insurance_and_labels_the_grievance_contact_as_demo():
+    for lang in disclosure.supported_languages():
+        n = disclosure.get_disclosure_details(lang).notice
+        assert "insurance" in n.lower() and "(demo)" in n, lang
+
+
+def test_machine_written_languages_say_they_are_not_reviewed():
+    assert [lang for lang in disclosure.supported_languages() if not disclosure.get_disclosure_details(lang).reviewed] == ["mr-IN", "gu-IN"]
+
+
+def test_the_api_exposes_the_reviewed_flag(client):
+    assert client.get("/api/disclosure", params={"lang": "mr"}).json()["reviewed"] is False
+    assert client.get("/api/disclosure", params={"lang": "hi"}).json()["reviewed"] is True
