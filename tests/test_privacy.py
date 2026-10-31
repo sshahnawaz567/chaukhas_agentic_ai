@@ -162,3 +162,32 @@ def test_only_action_agent_calls_detokenise():
                 if name == "detokenise":
                     offenders.append(f"{rel}:{node.lineno}")
     assert not offenders, f"detokenise() called outside action.py: {offenders}"
+
+
+# ------------------------------------------------------------------ formats merchants really type (found by the leak test)
+
+@pytest.mark.parametrize("typed", ["98000 00001", "98000-00001", "+91 98000 00001", "+91-9800000001", "919800000001"])
+def test_phone_numbers_with_spaces_or_hyphens_are_masked(typed):
+    out = mask_text(f"mera number {typed} hai")
+    assert out == "mera number XXXXXX0001 hai"
+
+
+@pytest.mark.parametrize("typed,expected", [("abaps1037h", "XXXXX1037h"), ("ABAPS1037H", "XXXXX1037H"), ("AbApS1037h", "XXXXX1037h")])
+def test_pan_is_masked_in_any_letter_case(typed, expected):
+    assert mask_text(f"PAN {typed} hai") == f"PAN {expected} hai"
+
+
+def test_ifsc_is_masked_in_lower_case_too():
+    assert mask_text("ifsc sbin0001237") == "ifsc sbin0******"
+
+
+def test_an_already_masked_pan_is_not_reported_as_pii_again():
+    masked = mask_text("PAN ABAPS1037H")
+    assert detect(masked) == []
+    assert mask_text(masked) == masked          # idempotent
+
+
+@pytest.mark.parametrize("text", ["order 32500 aur 1,00,000", "SET-99213 ka 18400", "TKT-77201 open hai",
+                                   "98 hazaar ka loan", "kal 12 baje call karo", "ID 12345 67890"])
+def test_ordinary_numbers_and_ids_are_not_masked_by_the_wider_patterns(text):
+    assert mask_text(text) == text

@@ -13,14 +13,16 @@ PII_FIELDS: list[str] = ["account_no", "ifsc", "vpa", "pan", "aadhaar", "phone",
 TOKEN_PREFIX = "tok_"
 
 # Free-text patterns. Order matters in mask_text: vpa first (it can contain digits),
-# then ifsc / pan / aadhaar, then phone (exactly 10 digits), then account_no (9-18 digits).
+# then ifsc / pan / aadhaar, then phone (10 digits, separators allowed), then account_no (9-18 digits).
 # Amounts (e.g. 32500, 1,00,000) and ids (SET-99213) are shorter than 9 digits and never match.
 _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("vpa", re.compile(r"(?<![\w.@-])[\w.\-]{2,}@[A-Za-z][A-Za-z0-9]*")),
-    ("ifsc", re.compile(r"(?<![A-Za-z0-9])[A-Z]{4}0[A-Z0-9]{6}(?![A-Za-z0-9])")),
-    ("pan", re.compile(r"(?<![A-Za-z0-9])[A-Z]{5}\d{4}[A-Z](?![A-Za-z0-9])")),
+    # ifsc / pan: merchants type lowercase too. A PAN that is already masked (XXXXX1037H) is not PII any more.
+    ("ifsc", re.compile(r"(?<![A-Za-z0-9])[A-Za-z]{4}0[A-Za-z0-9]{6}(?![A-Za-z0-9])")),
+    ("pan", re.compile(r"(?<![A-Za-z0-9])(?!(?i:x{5}))[A-Za-z]{5}\d{4}[A-Za-z](?![A-Za-z0-9])")),
     ("aadhaar", re.compile(r"(?<!\d)\d{4}[ -]\d{4}[ -]\d{4}(?!\d)")),
-    ("phone", re.compile(r"(?<!\d)(?:\+?91[ -]?)?[6-9]\d{9}(?!\d)")),
+    # phone: 10 digits, optionally +91 and a space or hyphen in the middle (98000 00001, +91 98000-00001)
+    ("phone", re.compile(r"(?<!\d)(?:\+?91[ -]?)?[6-9]\d{4}[ -]?\d{5}(?!\d)")),
     ("account_no", re.compile(r"(?<!\d)\d{9,18}(?!\d)")),
 ]
 
