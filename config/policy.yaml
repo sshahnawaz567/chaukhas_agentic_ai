@@ -30,6 +30,12 @@ consent_required:
   - create_offer
   - any_irreversible
 
+# PROACTIVE sessions (Chaukas reached out first; the merchant asked for nothing): these actions NEVER auto-execute,
+# even under the limit. They need the merchant's explicit yes (check 10). See PROACTIVE_FEATURE_CHANGES.md.
+proactive_consent_required:
+  - retrigger_payout
+  - create_offer
+
 # Read-only actions: pass checks 1-3, are traced, but are NOT written to audit_log.
 read_only_actions:
   - verify_ledger

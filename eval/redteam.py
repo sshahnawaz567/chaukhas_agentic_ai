@@ -70,11 +70,16 @@ def _run_case(case: dict, template_db: Path, workdir: Path, otp: str, oracle: di
 
         elig = case.get("eligibility")
         lender = oracle[merchant_id] if elig == "fixture" else (LenderDecision(**elig) if elig else None)
-        state = make_redteam_state(conn, merchant_id, lender, run_id=case["case_id"])
+        state = make_redteam_state(conn, merchant_id, lender, run_id=case["case_id"],
+                                   trigger_source=case.get("trigger_source", "merchant"))
+        if "spoof_state_trigger" in case:   # attacker/bug lies in the in-memory state; the DB row must win
+            state.__dict__["trigger_source"] = case["spoof_state_trigger"]
 
         audit_ids: list[int | None] = []
         for i, raw in enumerate(case["steps"]):
             step_no = raw.get("step_no", i + 1)
+            if "pre" in raw:    # DB change between steps, e.g. the payout went through (settlement -> retriggered)
+                _apply_setup(conn, merchant_id, raw["pre"])
             step = PlannedStep(step_no=step_no, action_type=raw["action_type"], params=raw["params"],
                                amount=raw.get("amount"), rationale="red-team")
             confirmation = None

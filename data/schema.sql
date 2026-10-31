@@ -110,6 +110,10 @@ CREATE TABLE sessions (
     outcome           TEXT CHECK (outcome IN
                         ('resolved_autonomously','needs_confirmation',
                          'handoff','resolved_by_human','failed')),
+    -- Proactive feature: who started this session. Server-set only (event watcher); the guardrail reads it
+    -- fresh from here, never from request bodies. 'proactive' => money actions always need a yes.
+    trigger_source    TEXT NOT NULL DEFAULT 'merchant' CHECK (trigger_source IN ('merchant','proactive')),
+    trigger_ref       TEXT,                             -- e.g. 'settlement_failed:SET-99213' (dedupe key)
     created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     ended_at          TEXT
 );

@@ -264,7 +264,7 @@ def check(step: PlannedStep, state: ConversationState,
 | 7 | `create_offer`: offer gating 1–4 (system design B4.1), `amount <= lender max_amount`; first of all, the latest `loan_offer` row in `consents` must not be `withdrawn` | BLOCK `CONSENT_WITHDRAWN` / `OFFER_NOT_ELIGIBLE` / `ISSUE_UNRESOLVED` / `OFFER_COOLING_OFF` |
 | 8 | `amount <= auto_limit_inr` | NEEDS_CONFIRMATION `OVER_AUTO_LIMIT` (kind = `step_up`) |
 | 9 | `today_total + amount <= daily_auto_limit_inr` | NEEDS_CONFIRMATION `OVER_DAILY_LIMIT` (kind = `step_up`) |
-| 10 | `create_offer` or `reversible == False` | NEEDS_CONFIRMATION `CONSENT_REQUIRED` (kind = `consent`) |
+| 10 | `create_offer` or `reversible == False`, **or** the session is proactive (`sessions.trigger_source = 'proactive'`, read from the DB) and the action is in `policy.yaml → proactive_consent_required` | NEEDS_CONFIRMATION `CONSENT_REQUIRED` (kind = `consent`) |
 | — | all passed | ALLOW `WITHIN_POLICY` + `rollback_token` |
 
 **Confirmation rules:**

@@ -88,10 +88,13 @@ class RedteamRequest(BaseModel):
     # Optional lender answer, so offer attacks (ineligible / cooling-off) can be tried. If omitted the
     # guardrail sees no eligibility and fails closed for create_offer.
     eligibility: LenderDecision | None = None
+    # "proactive" = check the step as if Chaukas reached out first (money then always needs a yes). Red-team
+    # endpoint only: real sessions get trigger_source from the event watcher, never from a request.
+    trigger_source: Literal["merchant", "proactive"] = "merchant"
 
 
 def make_redteam_state(conn, merchant_id: str, eligibility: LenderDecision | None = None,
-                       run_id: str | None = None) -> ConversationState | None:
+                       run_id: str | None = None, trigger_source: str = "merchant") -> ConversationState | None:
     """The state a red-team step is checked against. None if the merchant does not exist.
     Shared by POST /api/redteam/check and eval/redteam.py, so both attack the guardrail the same way."""
     merchant = query_one(conn, "SELECT preferred_lang, kyc_status, device, gmv_30d, bank_details_updated_at "
@@ -107,6 +110,10 @@ def make_redteam_state(conn, merchant_id: str, eligibility: LenderDecision | Non
             bank_details_updated_at=merchant["bank_details_updated_at"], settlements=[], open_tickets=[],
             has_open_handoff=False, declined_offer_recently=False, eligibility=eligibility)
     run_id = run_id or uuid.uuid4().hex[:8]
+    if trigger_source == "proactive":   # the guardrail reads the trigger from the sessions row, so give it one
+        conn.execute("INSERT OR IGNORE INTO sessions (session_id, merchant_id, channel, mode, trigger_source) "
+                     "VALUES (?, ?, 'chat', 'autonomous', 'proactive')", (f"redteam-{run_id}", merchant_id))
+        conn.commit()
     return ConversationState(
         session_id=f"redteam-{run_id}", turn_no=0, trace_id=f"redteam-{run_id}", merchant_id=merchant_id,
         channel=Channel.CHAT, mode=Mode.AUTONOMOUS, message_masked="red-team check", merchant=context)
@@ -117,7 +124,7 @@ def redteam_check(req: RedteamRequest):
     """Run guardrail.check() on a hand-crafted step. NEVER executes anything: no executions row, no tool call.
     The decision is audited with actor='system'."""
     with closing(connect()) as conn:
-        state = make_redteam_state(conn, req.merchant_id, req.eligibility)
+        state = make_redteam_state(conn, req.merchant_id, req.eligibility, trigger_source=req.trigger_source)
         if state is None:
             return _error(404, "MERCHANT_NOT_FOUND", "no merchant with that id")
         decision = guardrail.check(req.step, state, conn=conn, actor="system")
