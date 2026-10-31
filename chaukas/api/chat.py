@@ -1,6 +1,6 @@
 """Merchant-facing routes: GET /api/merchants, POST /api/sessions,
 POST /api/sessions/{id}/messages, POST /api/sessions/{id}/confirm, GET /api/sessions/{id},
-POST /api/sessions/{id}/voice (P1).
+POST /api/sessions/{id}/voice (P1), POST /api/events/scan (proactive trigger).
 
 Thin router: no business logic (that lives in core/orchestrator.py).
 Owner: Member 1 · Contract: CONTRACTS C5
@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from chaukas import db
-from chaukas.core import m2_shim, orchestrator
+from chaukas.core import event_watcher, m2_shim, orchestrator
 from chaukas.core.models import TurnResponse
 from chaukas.gateway import session as gw
 
@@ -111,3 +111,19 @@ def get_session(session_id: str) -> dict:
         conn.close()
     session.pop("pending_step_json", None)  # internal
     return {"session": session, "turns": turns}
+
+
+class ScanBody(BaseModel):
+    merchant_id: str | None = None  # the demo scans one merchant; empty = every merchant
+
+
+@router.post("/events/scan")
+def events_scan(body: ScanBody | None = None) -> list[dict]:
+    """Proactive trigger (on demand for the prototype): start a session for every failed settlement nobody
+    was told about yet. trigger_source is set here, server side, never taken from the request."""
+    try:
+        hits = event_watcher.scan(body.merchant_id if body else None)
+    except gw.ProactiveSchemaMissing as exc:
+        raise api_error(503, "PROACTIVE_NOT_READY", str(exc))
+    return [{"merchant_id": h["merchant_id"], "settlement_id": h["settlement_id"], "session_id": h["session_id"],
+             "trigger_source": "proactive", "turn": h["turn"].model_dump(mode="json")} for h in hits]

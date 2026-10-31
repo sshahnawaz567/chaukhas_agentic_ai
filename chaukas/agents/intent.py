@@ -9,10 +9,12 @@ import re
 
 from chaukas.agents.schemas import IntentOutput, IntentResult
 from chaukas.core.models import ConversationState, Intent, Track, Urgency
+from chaukas.integrations._common import load_config
 from chaukas.llm.client import LLMResult, LLMUnavailable
 from chaukas.llm.prompt import LLMOutputError, esc, run_validated, to_xml
 
 _DEVANAGARI = re.compile(r"[ऀ-ॿ]")
+_GUJARATI = re.compile(r"[઀-૿]")
 
 # Keyword fallback. Latin Hinglish + Devanagari. Deliberately small and conservative.
 _CONFIRM = re.compile(r"\b(haan|han|haa|ha|yes|yep|ok|okay|sure|theek hai|thik hai|bhej\s*do|bhejo|kar\s*do|ji haan)\b|हाँ|हां|भेज दो|भेजो|ठीक है|कर दो", re.I)
@@ -23,13 +25,25 @@ _LOAN = re.compile(r"\b(loan|udhaar|udhar|credit|karz|karj)\b|लोन|उध�
 _DEVICE = re.compile(r"\b(soundbox|sound box|qr|pos|speaker|device|machine|battery)\b|साउंडबॉक्स|क्यूआर|स्पीकर|मशीन", re.I)
 _SETTLEMENT = re.compile(r"\b(settlement|paisa|paise|payment|payout|nahi aaya|nahin aaya|transfer|bheja)\b|पैसा|पैसे|भुगतान|सेटलमेंट|नहीं आया|नही आया", re.I)
 _URGENT = re.compile(r"\b(jaldi|urgent|turant|abhi|asap|2 din|do din)\b|जल्दी|तुरंत|अभी", re.I)
-_HINGLISH_HINTS = re.compile(r"\b(mera|meri|hai|nahi|kya|bhai|paisa|paise|aaya|bhej|karo|karna|mujhe|hamara|abhi|din)\b", re.I)
+_HINGLISH_HINTS = re.compile(r"\b(mera|meri|hai|nahi|nahin|kya|bhai|paisa|paise|aaya|bhej|bhejo|karo|karna|mujhe|"
+                             r"hamara|abhi|din|haan|haa|theek|thik|milega|chahiye|kab|kyun)\b", re.I)
 
 
 def _keyword_lang(text: str) -> str:
+    """hi-IN = Devanagari Hindi; gu-IN = Gujarati; hi-Latn = Hinglish in Latin letters; anything else English
+    (the supported list is config/languages.yaml `detect`)."""
     if _DEVANAGARI.search(text):
         return "hi-IN"
-    return "hi-IN" if _HINGLISH_HINTS.search(text) else "en-IN"
+    if _GUJARATI.search(text):
+        return "gu-IN"
+    return "hi-Latn" if _HINGLISH_HINTS.search(text) else "en-IN"
+
+
+def injection_signals(text: str) -> list[str]:
+    """Names of the prompt-injection patterns (config/injection.yaml) found in the message. Deterministic:
+    runs before any LLM, so a model that would obey the injection never gets to word the outcome."""
+    patterns = load_config("injection").get("patterns") or {}
+    return [name for name, rx in patterns.items() if re.search(rx, text or "", re.I)]
 
 
 def keyword_classify(text: str, pending: bool) -> IntentResult:
