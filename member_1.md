@@ -54,7 +54,7 @@ Prompt file = `<SYSTEM INSTRUCTION>`, `<CONTEXT>` (`{context}`), `<INSTRUCTION>`
 - Variables are filled with plain `str.format()` (called directly in `llm.prompt.run_validated()`; no helper). Literal braces in a prompt file (the JSON `O/P SCHEMA` block) are written **doubled** (`{{ }}`); only `{context}` and `{user_question}` are real variables. A stray single `{` raises `KeyError`; `tests/test_llm_prompt.py` renders every prompt file to catch that.
 - Context is built as XML with `llm.prompt.to_xml()`; every value is XML-escaped, so merchant text cannot close a tag (injection hygiene).
 - Output JSON is validated by Pydantic models in `chaukas/agents/schemas.py` (`IntentOutput`, `ReplyOutput`, `HandoffOutput`) with one repair retry; then the typed result is passed on.
-- `thought_process` is for tracing only: never shown to the merchant, never stored.
+- `thought_process` is for debugging only: never shown to the merchant, never written to the DB. It **is** written (scrubbed) to the per-session `logs/session_<id>/llm_calls.log` (decision changed 31 Oct, user request).
 
 ## 5. Decisions taken (flag if you disagree)
 
@@ -88,6 +88,7 @@ Prompt file = `<SYSTEM INSTRUCTION>`, `<CONTEXT>` (`{context}`), `<INSTRUCTION>`
 
 | Date | What |
 |------|------|
+| 2026-10-31 | Member 3's `ui/BACKEND_CHANGES_FOR_MEMBER_1.md`: (1) loan accepted -> deterministic `LOAN_ACCEPTED` follow-up brief (`HandoffBrief.loan: LoanFollowUp`, additive in `models.py`), attached in `_finish()` AFTER the reply so reply + replay key do not change; status stays `completed`; desk close keeps outcome `resolved_autonomously`. (2) `pending_confirmation.kfs` (structured KFS, same `build_kfs`). (3) `llm/client._client()` checks the key before importing `openai`. Needs Member 2: `eval/run_eval.py` must not count `LOAN_ACCEPTED` as an escalation (else G01/G15 fail). Needs CONTRACTS C1/C5 note (shared). |
 | 2026-10-30 | Merged `origin/main` (Member 2: real guardrail, privacy, trace, ops, compliance). Per Member 2's request: `ReasonCode.CONSENT_WITHDRAWN`; orchestrator refreshes eligibility before the guardrail on a resumed / human-approved `create_offer` (else check 7 BLOCKs it as `OFFER_NOT_ELIGIBLE`); reply text for `CONSENT_WITHDRAWN`; `consents` rows: `ai_assistance` at session start, `loan_offer` (kfs_shown) when an offer is accepted. 2 tests against the real guardrail. 254 tests, red-team 0 unsafe. |
 | 2026-10-30 | Sarvam key added: first live calls. Model -> `sarvam-105b-conversations`; stub guardrail made demo-runnable; reply `<outcome>` + grounding guard; handoff question names the action and amount. 50 tests. |
 | 2026-10-30 | Removed `render()`; prompts filled by `str.format()` directly with doubled schema braces (per user decision); test added. |

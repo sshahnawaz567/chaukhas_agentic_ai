@@ -14,6 +14,7 @@ from xml.sax.saxutils import escape
 
 from pydantic import BaseModel, ValidationError
 
+from chaukas.core import create_logs
 from chaukas.db import ROOT
 from chaukas.llm.client import LLMResult, LLMUnavailable, complete, extract_json
 
@@ -62,7 +63,14 @@ def run_validated(agent: str, template_file: str, variables: dict[str, str], sch
             prompt + f"\n\nYour previous output was invalid ({last_error}). "
                      "Return ONLY the JSON object that matches the O/P SCHEMA."
         )
-        res = complete(agent, text_prompt, replay_key=replay_key)
+        try:
+            res = complete(agent, text_prompt, replay_key=replay_key)
+        except LLMUnavailable as exc:
+            create_logs.log_llm_call(agent, template_file, attempt + 1, text_prompt, error=f"unavailable: {exc}")
+            raise
+        create_logs.log_llm_call(agent, template_file, attempt + 1, text_prompt, output=res.text, model=res.model,
+                                 source=res.source, latency_ms=res.latency_ms, tokens_in=res.tokens_in,
+                                 tokens_out=res.tokens_out, cost_inr=res.cost_inr)
         if total is None:
             total = res
         else:

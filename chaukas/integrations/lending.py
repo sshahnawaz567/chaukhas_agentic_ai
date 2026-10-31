@@ -103,6 +103,21 @@ def record_declined_offer(merchant_id: str, amount: int, session_id: str, trace_
         conn.close()
 
 
+def get_offer(offer_id: str) -> dict | None:
+    """One offers row with kfs_json parsed (key `kfs`). Read-only, fresh from the DB."""
+    conn = db.connect()
+    try:
+        row = conn.execute("SELECT id, amount, lender_name, kfs_json, kfs_shown_at, consent_at, status "
+                           "FROM offers WHERE id=?", (offer_id,)).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return None
+    offer = dict(row)
+    offer["kfs"] = json.loads(offer.pop("kfs_json") or "{}")
+    return offer
+
+
 def withdraw_offer(rollback_token: str) -> RollbackResult:
     conn = db.connect()
     try:

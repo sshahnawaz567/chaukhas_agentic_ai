@@ -13,7 +13,7 @@ from typing import Any
 from chaukas import db
 from chaukas.agents import action, context, handoff, intent as intent_agent, reply as reply_agent
 from chaukas.compliance import consent
-from chaukas.core import m2_shim, plans
+from chaukas.core import create_logs, m2_shim, plans
 from chaukas.core.models import (
     ActionResult,
     ActionType,
@@ -21,8 +21,10 @@ from chaukas.core.models import (
     Confirmation,
     ConversationState,
     Decision,
+    HandoffBrief,
     HandoffReason,
     Intent,
+    LoanFollowUp,
     MerchantContext,
     Mode,
     PlannedStep,
@@ -59,6 +61,7 @@ class _Turn:
     def __init__(self, state: ConversationState):
         self.state = state
         self.spans: list[dict[str, Any]] = []
+        self.loan_brief: HandoffBrief | None = None  # LOAN_ACCEPTED follow-up, attached in _finish() after the reply
         self.cost = 0.0
         self.t0 = time.perf_counter()
 
@@ -113,19 +116,20 @@ def handle_message(session_id: str, text: str) -> TurnResponse:
     state = _new_state(session, gw.mask_incoming(text))
     turn = _Turn(state)
     pending = gw.load_pending(session)
-    try:
-        _understand(turn, pending is not None)
-        if pending is not None and state.intent in (Intent.CONFIRM, Intent.DENY):
-            _load_context(turn)
-            _resume(turn, pending, approve=state.intent == Intent.CONFIRM, actor="merchant",
-                    actor_id=None, kind=None, otp=None)
-        else:
-            _fresh_flow(turn)
-    except Exception as exc:  # a turn must never crash the API; surface it as FAILED + handoff text
-        log.exception("turn failed")
-        state.status = TurnStatus.FAILED
-        state.errors.append(m2_shim.mask_text(f"{type(exc).__name__}: {exc}")[:200])
-    return _finish(turn)
+    with create_logs.turn_scope(state.session_id, state.turn_no, state.trace_id):
+        try:
+            _understand(turn, pending is not None)
+            if pending is not None and state.intent in (Intent.CONFIRM, Intent.DENY):
+                _load_context(turn)
+                _resume(turn, pending, approve=state.intent == Intent.CONFIRM, actor="merchant",
+                        actor_id=None, kind=None, otp=None)
+            else:
+                _fresh_flow(turn)
+        except Exception as exc:  # a turn must never crash the API; surface it as FAILED + handoff text
+            log.exception("turn failed")
+            state.status = TurnStatus.FAILED
+            state.errors.append(m2_shim.mask_text(f"{type(exc).__name__}: {exc}")[:200])
+        return _finish(turn)
 
 
 def handle_confirm(session_id: str, pending_audit_id: int | None, approve: bool, kind: str | None,
@@ -144,14 +148,15 @@ def handle_confirm(session_id: str, pending_audit_id: int | None, approve: bool,
     state.lang = session.get("lang")
     state.track, state.urgency = Track.SUPPORT, Urgency.LOW
     turn = _Turn(state)
-    try:
-        _load_context(turn)
-        _resume(turn, pending, approve=approve, actor=actor, actor_id=actor_id, kind=kind, otp=otp)
-    except Exception as exc:
-        log.exception("confirm failed")
-        state.status = TurnStatus.FAILED
-        state.errors.append(m2_shim.mask_text(f"{type(exc).__name__}: {exc}")[:200])
-    return _finish(turn)
+    with create_logs.turn_scope(state.session_id, state.turn_no, state.trace_id):
+        try:
+            _load_context(turn)
+            _resume(turn, pending, approve=approve, actor=actor, actor_id=actor_id, kind=kind, otp=otp)
+        except Exception as exc:
+            log.exception("confirm failed")
+            state.status = TurnStatus.FAILED
+            state.errors.append(m2_shim.mask_text(f"{type(exc).__name__}: {exc}")[:200])
+        return _finish(turn)
 
 
 # --------------------------------------------------------------------------
@@ -337,12 +342,39 @@ def _resume(turn: _Turn, pending: tuple[PlannedStep, dict, int | None], *, appro
             s.status = TurnStatus.COMPLETED
             if step.action_type == ActionType.CREATE_OFFER.value:
                 _grant_consent(s, "loan_offer", kfs_shown=True)  # KFS was shown when the offer was parked
+                turn.loan_brief = _loan_brief(s, step, decision)  # attached in _finish(), after the reply
     elif decision.verdict == Verdict.NEEDS_CONFIRMATION:  # e.g. wrong OTP or params changed since
         _park_for_confirmation(turn, step, decision)
     else:
         s.refused.append(RefusedStep(action_type=step.action_type, verdict=decision.verdict,
                                      reason_code=decision.reason_code, reason=decision.reason))
         s.status = TurnStatus.COMPLETED
+
+
+def _loan_brief(s: ConversationState, step: PlannedStep, decision: Decision) -> HandoffBrief | None:
+    """Deterministic follow-up brief for the loan team (no LLM). Every value comes from the offers row and the
+    guardrail decision, never from the merchant's message. Chaukas never moves loan money; the lender does."""
+    done = next((a for a in s.completed if a.step_no == step.step_no and a.status == "success"), None)
+    offer = lending.get_offer(done.ref_id) if done and done.ref_id else None
+    if offer is None:
+        return None
+    kfs = offer["kfs"]
+    return HandoffBrief(
+        asked=m2_shim.mask_text(f"Merchant accepted a ₹{offer['amount']:,} business loan offer"),
+        verified=["Key Fact Statement shown before consent",
+                  f"Consent recorded (CONFIRMED_BY_MERCHANT, audit #{decision.audit_id})"],
+        done=[f"Offer {offer['id']} accepted"],
+        refused=[], reason_code=HandoffReason.LOAN_ACCEPTED.value, confidence=1.0,
+        decision_needed=m2_shim.mask_text(
+            f"Follow up with the lender on {offer['id']} and confirm next steps with the merchant"),
+        suggested_step=None,
+        loan=LoanFollowUp(
+            offer_id=offer["id"], amount=offer["amount"], lender_name=offer["lender_name"],
+            apr_pct=kfs["apr_pct"], processing_fee_inr=kfs["processing_fee_inr"],
+            tenure_months=kfs["tenure_months"], total_repayable_inr=kfs["total_repayable_inr"],
+            grievance_contact=kfs["grievance_contact"], kfs_shown_at=offer["kfs_shown_at"],
+            consent_at=offer["consent_at"], consent_audit_id=decision.audit_id),
+    )
 
 
 def _refresh_eligibility(s: ConversationState, step: PlannedStep) -> None:
@@ -373,20 +405,30 @@ def resolve_by_human(session_id: str, merchant_id: str, step: PlannedStep, pendi
     state.plan = [step]
     step.session_id = session_id
     turn = _Turn(state)
-    confirmation = Confirmation(pending_audit_id=pending_audit_id, actor="human", actor_id=staff_id, kind=kind)
-    _refresh_eligibility(state, step)
-    t = time.perf_counter()
-    decision = m2_shim.guardrail_check(step, state, confirmation)
-    state.decisions[step.step_no] = decision
-    turn.span("guardrail", f"{step.action_type} + human approval by {staff_id}",
-              f"{decision.verdict.value} {decision.reason_code.value}: {decision.reason}", t, step_no=step.step_no)
-    result = None
-    if decision.verdict == Verdict.ALLOW:
-        t = time.perf_counter()
-        result = action.run(step, state, decision)
-        state.completed.append(result)
-        turn.span("action", step.action_type, f"{result.status} {result.ref_id or ''}".strip(), t,
-                  step_no=step.step_no)
+    decision, result, error = None, None, None
+    with create_logs.turn_scope(state.session_id, state.turn_no, state.trace_id):
+        try:
+            confirmation = Confirmation(pending_audit_id=pending_audit_id, actor="human", actor_id=staff_id,
+                                        kind=kind)
+            _refresh_eligibility(state, step)
+            t = time.perf_counter()
+            decision = m2_shim.guardrail_check(step, state, confirmation)
+            state.decisions[step.step_no] = decision
+            turn.span("guardrail", f"{step.action_type} + human approval by {staff_id}",
+                      f"{decision.verdict.value} {decision.reason_code.value}: {decision.reason}", t,
+                      step_no=step.step_no)
+            if decision.verdict == Verdict.ALLOW:
+                t = time.perf_counter()
+                result = action.run(step, state, decision)
+                state.completed.append(result)
+                turn.span("action", step.action_type, f"{result.status} {result.ref_id or ''}".strip(), t,
+                          step_no=step.step_no)
+        except Exception as exc:  # still logged below; the API keeps its existing error behaviour
+            error = f"{type(exc).__name__}: {exc}"
+            raise
+        finally:
+            create_logs.log_human_resolve(session_id, staff_id, step.action_type, step.amount, decision, result,
+                                          error=error)
     return decision, result, state
 
 
@@ -401,6 +443,15 @@ def _finish(turn: _Turn) -> TurnResponse:
     text, llm, source = reply_agent.generate(s)
     s.reply = text
     turn.span("reply", f"{s.intent.value if s.intent else '?'} in {s.lang}", f"via {source}: {len(text)} chars", t, llm=llm)
+
+    if turn.loan_brief is not None:
+        # attached only AFTER the reply: the reply (and its replay key) must not change. Status stays COMPLETED:
+        # the merchant's request is done, this brief is back-office follow-up for the loan team.
+        t = time.perf_counter()
+        s.handoff = turn.loan_brief
+        s.handoff_id = handoff.save(s, s.handoff)
+        turn.span("handoff", f"reason {HandoffReason.LOAN_ACCEPTED.value}",
+                  f"{s.handoff_id}: {s.handoff.decision_needed}", t)
 
     gw.record_turn(s.session_id, s.turn_no, s.trace_id, "merchant", s.message_masked, s.lang,
                    s.intent.value if s.intent else None)
@@ -418,13 +469,20 @@ def _finish(turn: _Turn) -> TurnResponse:
             "kind": (s.pending_meta or {}).get("kind"), "reason_code": (s.pending_meta or {}).get("reason_code"),
             "prompt": text,
         }
-    return TurnResponse(
+        if (s.pending_meta or {}).get("kind") == "consent" and s.pending_step.action_type == ActionType.CREATE_OFFER.value:
+            # structured KFS for the offer card (RBI L1: shown BEFORE Haan/Nahi); same build_kfs() as the reply
+            # text and the offers.kfs_json row, so all three always match
+            p = s.pending_step.params
+            pending_confirmation["kfs"] = lending.build_kfs(p["merchant_id"], p["amount"]).model_dump()
+    response = TurnResponse(
         session_id=s.session_id, turn_no=s.turn_no, trace_id=s.trace_id, status=s.status, lang=s.lang,
         intent=s.intent, reply=text, plan=s.plan,
         decisions=[_decision_row(next(p for p in _all_steps(s) if p.step_no == n), d) for n, d in s.decisions.items()],
         actions=s.completed, pending_confirmation=pending_confirmation, handoff=s.handoff,
         latency_ms=turn.elapsed_ms(), cost_inr=round(turn.cost, 4), spans=turn.spans,
     )
+    create_logs.log_turn(response, s.message_masked, s.intent_confidence)
+    return response
 
 
 def _all_steps(s: ConversationState) -> list[PlannedStep]:

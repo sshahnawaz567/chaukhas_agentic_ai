@@ -46,11 +46,11 @@ def config() -> dict:
 
 
 def _client(provider: dict):
-    from openai import OpenAI  # imported lazily so tests without network never need it
-
     key = os.environ.get(provider["api_key_env"], "").strip()
-    if not key:
+    if not key:  # checked BEFORE the import: no key + no package -> clean fallback, not a crash
         return None
+    from openai import OpenAI  # lazy: only needed for a live call (replay mode never imports it)
+
     headers = {}
     if provider.get("extra_headers_key"):
         headers[provider["extra_headers_key"]] = key
