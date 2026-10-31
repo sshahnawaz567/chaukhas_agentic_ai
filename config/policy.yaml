@@ -18,6 +18,8 @@ allow_list:
   - raise_ticket
   - update_ticket
   - create_offer          # sales, always needs consent
+  - check_insurance       # read-only: which shop insurance fits (additive)
+  - offer_insurance       # sales, always needs consent; records interest, never charges (additive)
 
 # Hard no, in every version. Checked BEFORE the allow_list -> BLOCK NEVER_ALLOWED.
 never_allowed:
@@ -30,6 +32,7 @@ disabled_actions: []
 # "any_irreversible" = any step with reversible == False.
 consent_required:
   - create_offer
+  - offer_insurance
   - any_irreversible
 
 # PROACTIVE sessions (Chaukas reached out first; the merchant asked for nothing): these actions NEVER auto-execute,
@@ -42,6 +45,7 @@ proactive_consent_required:
 read_only_actions:
   - verify_ledger
   - check_eligibility
+  - check_insurance
 
 # Money-moving actions: these count towards the daily limit (executions table).
 money_actions:

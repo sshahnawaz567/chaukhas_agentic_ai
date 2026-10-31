@@ -38,7 +38,7 @@ from chaukas.core.models import (
     Verdict,
 )
 from chaukas.gateway import session as gw
-from chaukas.integrations import lending
+from chaukas.integrations import insurance, lending
 from chaukas.integrations._common import load_config
 from chaukas.llm.client import LLMResult
 
@@ -380,6 +380,15 @@ def _run_allowed(turn: _Turn, step: PlannedStep, decision: Decision, queue: list
             queue.append(offer)
         else:
             s.outcome_tags.append("credit_line_not_eligible" if product == "credit_line" else "loan_not_eligible")
+    if step.action_type == ActionType.CHECK_INSURANCE.value:
+        offer = plans.followup_insurance_step(s, gw.next_step_no(s.session_id))
+        if offer is not None:
+            _stamp(offer, s.session_id)
+            gw.advance_step_no(s.session_id, offer.step_no)
+            s.plan.append(offer)
+            queue.append(offer)
+        else:
+            s.outcome_tags.append("insurance_none")
     return True
 
 
@@ -431,6 +440,10 @@ def _resume(turn: _Turn, pending: tuple[PlannedStep, dict, int | None], *, appro
                                           step.params.get("product", "term_loan"))
             s.outcome_tags.append("offer_declined")
             s.status = TurnStatus.COMPLETED
+        elif kind == "consent" and step.action_type == ActionType.OFFER_INSURANCE.value:
+            insurance.record_declined(step.params["merchant_id"], step.params["product_id"], s.session_id, s.trace_id)
+            s.outcome_tags.append("insurance_declined")
+            s.status = TurnStatus.COMPLETED
         elif kind == "consent":  # e.g. a proactive payout: "abhi nahi" -> nothing runs, nothing is recorded as an offer
             s.outcome_tags.append("payout_declined")
             s.status = TurnStatus.COMPLETED
@@ -463,6 +476,9 @@ def _resume(turn: _Turn, pending: tuple[PlannedStep, dict, int | None], *, appro
             if step.action_type == ActionType.CREATE_OFFER.value:
                 _grant_consent(s, "loan_offer", kfs_shown=True)  # KFS was shown when the offer was parked
                 turn.loan_brief = _loan_brief(s, step, decision)  # attached in _finish(), after the reply
+            if step.action_type == ActionType.OFFER_INSURANCE.value:
+                _grant_consent(s, "insurance_offer")
+                turn.loan_brief = _insurance_brief(s, step, decision)  # same follow-up mechanism as the loan brief
             remaining = [PlannedStep.model_validate(x) for x in meta.get("remaining_steps") or []]
             if remaining:  # proactive: the yes covered THIS step only; the rest goes through the guardrail again
                 s.plan.extend(remaining)
@@ -504,6 +520,24 @@ def _loan_brief(s: ConversationState, step: PlannedStep, decision: Decision) -> 
             consent_at=offer["consent_at"], consent_audit_id=decision.audit_id, product=product,
             interest_free_days=kfs.get("interest_free_days"), late_fee_inr=kfs.get("late_fee_inr")),
     )
+
+
+def _insurance_brief(s: ConversationState, step: PlannedStep, decision: Decision) -> HandoffBrief | None:
+    """Deterministic follow-up brief for the insurer partner (no LLM). Every value comes from the insurance_leads
+    row and the guardrail decision. Chaukas issues no policy and charges no premium: the insurer follows up."""
+    done = next((a for a in s.completed if a.step_no == step.step_no and a.status == "success"), None)
+    lead = insurance.get_lead(done.ref_id) if done and done.ref_id else None
+    if lead is None:
+        return None
+    return HandoffBrief(
+        asked=m2_shim.mask_text(f"Merchant said yes to {lead['product_name']} (illustrative cover Rs {lead['cover_inr']:,})"),
+        verified=[f"Recommended by rules: {', '.join(lead['reasons'])}",
+                  f"Consent recorded (CONFIRMED_BY_MERCHANT, audit #{decision.audit_id})"],
+        done=[f"Interest {lead['id']} recorded; no premium charged, no policy issued"],
+        refused=[], reason_code=HandoffReason.INSURANCE_INTEREST.value, confidence=1.0,
+        decision_needed=m2_shim.mask_text(
+            f"Insurer partner to contact the merchant about {lead['id']} and confirm cover and premium"),
+        suggested_step=None)
 
 
 def _refresh_eligibility(s: ConversationState, step: PlannedStep) -> None:
@@ -589,7 +623,7 @@ def _finish(turn: _Turn) -> TurnResponse:
         t = time.perf_counter()
         s.handoff = turn.loan_brief
         s.handoff_id = handoff.save(s, s.handoff)
-        turn.span("handoff", f"reason {HandoffReason.LOAN_ACCEPTED.value}",
+        turn.span("handoff", f"reason {s.handoff.reason_code}",
                   f"{s.handoff_id}: {s.handoff.decision_needed}", t)
 
     if not turn.is_event:  # an event turn has no merchant message: Chaukas speaks first
@@ -616,6 +650,11 @@ def _finish(turn: _Turn) -> TurnResponse:
             pending_confirmation["product"] = p.get("product", "term_loan")
             pending_confirmation["kfs"] = lending.build_kfs(p["merchant_id"], p["amount"],
                                                             p.get("product", "term_loan")).model_dump()
+        if (s.pending_meta or {}).get("kind") == "consent" and s.pending_step.action_type == ActionType.OFFER_INSURANCE.value:
+            # structured insurance card (what the reply says, as data): same rules function as the guardrail
+            card = insurance.recommend_for(s.pending_step.params["merchant_id"])
+            if card and card["product_id"] == s.pending_step.params["product_id"]:
+                pending_confirmation["insurance"] = card
     response = TurnResponse(
         session_id=s.session_id, turn_no=s.turn_no, trace_id=s.trace_id, status=s.status, lang=s.lang,
         intent=s.intent, reply=text, plan=s.plan,

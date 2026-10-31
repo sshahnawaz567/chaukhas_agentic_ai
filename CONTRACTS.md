@@ -47,6 +47,8 @@ class ActionType(str, Enum):   # == policy.yaml allow_list (+ never_allowed for 
     RAISE_TICKET      = "raise_ticket"
     UPDATE_TICKET     = "update_ticket"
     CREATE_OFFER      = "create_offer"        # sales, always needs consent
+    CHECK_INSURANCE   = "check_insurance"     # read-only: which shop insurance fits (additive, v3.3)
+    OFFER_INSURANCE   = "offer_insurance"     # sales, needs consent; records interest, never charges (additive, v3.3)
 
 class Verdict(str, Enum):      ALLOW = "ALLOW"; BLOCK = "BLOCK"; NEEDS_CONFIRMATION = "NEEDS_CONFIRMATION"
 
@@ -83,6 +85,8 @@ class TurnStatus(str, Enum):   # the state machine — see C1.4
 |--------|------|
 | `settlement_delay` | `verify_ledger` → branch on cause (see `merchant_fixtures.json._meta.cause_to_plan`) → `retrigger_payout` and/or `raise_ticket`/`update_ticket` → (if eligible) `check_eligibility` → `create_offer` |
 | `loan_inquiry` | `check_eligibility` → `create_offer` |
+| `insurance_inquiry` (additive) | `check_insurance` → `offer_insurance` (only when a product fits; needs consent; records interest only) |
+| `device_issue` (additive tail) | `raise_ticket`/`update_ticket` → `check_insurance` → `offer_insurance` (support first, sales after) |
 | `device_issue` | `raise_ticket` (or `update_ticket` if one is open) |
 | `refund_request` | handoff `OUT_OF_SCOPE` (no refund tool, by design) |
 | `human_request` | handoff `HUMAN_REQUESTED` — never argued with, never delayed |
@@ -263,6 +267,7 @@ def check(step: PlannedStep, state: ConversationState,
 | 4 | idempotency key not already executed | BLOCK `DUPLICATE_ACTION` (orchestrator returns the earlier `ActionResult` with `replayed=True`) |
 | 5 | `retrigger_payout`: settlement exists, belongs to merchant, `amount == ledger amount` | BLOCK `LEDGER_MISMATCH` |
 | 6 | `retrigger_payout`: status `failed` AND cause allows retrigger | BLOCK `NOT_RETRIGGERABLE` |
+| 7 | `offer_insurance` (additive): the product must equal `insurance.recommend()` computed fresh from the DB, no earlier lead for it, issue resolved, KYC verified, no open handoff, no recent decline, latest `insurance_offer` consent not withdrawn | BLOCK `OFFER_NOT_ELIGIBLE` / `ISSUE_UNRESOLVED` / `OFFER_COOLING_OFF` / `CONSENT_WITHDRAWN` |
 | 7 | `create_offer`: offer gating 1–4 (system design B4.1), `amount <= lender max_amount`; first of all, the latest `loan_offer` row in `consents` must not be `withdrawn`. **Per product (ADDITIVE):** the cap is the lender answer for `params.product` (`merchant.eligibility` for `term_loan`, `merchant.credit_line` for `credit_line`; missing or mislabelled answer = BLOCK); `policy.yaml disabled_offer_products` is a per-product kill switch (BLOCK `ACTION_DISABLED`); a credit line is BLOCKed within `credit_line_after_loan_days` of an accepted offer | BLOCK `CONSENT_WITHDRAWN` / `OFFER_NOT_ELIGIBLE` / `ISSUE_UNRESOLVED` / `OFFER_COOLING_OFF` / `ACTION_DISABLED` |
 | 8 | `amount <= auto_limit_inr` | NEEDS_CONFIRMATION `OVER_AUTO_LIMIT` (kind = `step_up`) |
 | 9 | `today_total + amount <= daily_auto_limit_inr` | NEEDS_CONFIRMATION `OVER_DAILY_LIMIT` (kind = `step_up`) |

@@ -21,6 +21,7 @@ from chaukas.core.models import (
     PARAMS_BY_ACTION, ActionType, Confirmation, ConversationState, PlannedStep, ReasonCode, Verdict,
 )
 from chaukas.compliance import consent
+from chaukas.integrations import insurance
 from chaukas.db import ROOT, query_all, query_one
 from chaukas.observability.audit import params_masked
 
@@ -227,7 +228,37 @@ def _open_issue(ctx: Ctx) -> str | None:
     return None
 
 
+def _insurance_gating(ctx: Ctx) -> Outcome | None:
+    """check 7 for offer_insurance: the same sales rules as a loan offer (issue first, KYC, no open handoff,
+    cooling-off, consent not withdrawn) plus: the product must be the one the rules recommend for this merchant
+    RIGHT NOW, read fresh from the DB by the same function the agent used. An injected or stale product id is a BLOCK."""
+    mid = ctx.merchant_id
+    if consent.is_withdrawn(ctx.conn, mid, "insurance_offer"):            # DPDP s.6: next turn respects it
+        return _block(ReasonCode.CONSENT_WITHDRAWN, "the merchant withdrew consent for insurance offers")
+    wanted = getattr(ctx.params, "product_id", None)
+    fit = insurance.recommend(ctx.conn, mid)
+    if fit is None or fit["product_id"] != wanted:
+        return _block(ReasonCode.OFFER_NOT_ELIGIBLE, "this insurance is not recommended for this merchant")
+    if insurance.has_open_lead(ctx.conn, mid, wanted):
+        return _block(ReasonCode.OFFER_NOT_ELIGIBLE, "the merchant already asked for this insurance")
+
+    issue = _open_issue(ctx)
+    if issue:
+        return _block(ReasonCode.ISSUE_UNRESOLVED, issue)
+    kyc = query_one(ctx.conn, "SELECT kyc_status FROM merchants WHERE merchant_id = ?", (mid,))["kyc_status"]
+    if kyc != "verified":
+        return _block(ReasonCode.ISSUE_UNRESOLVED, f"kyc_status is {kyc}")
+    if query_one(ctx.conn, "SELECT 1 FROM handoffs WHERE merchant_id = ? AND status IN ('open','claimed')", (mid,)):
+        return _block(ReasonCode.ISSUE_UNRESOLVED, "an open handoff exists for this merchant")
+    days = ctx.policy["offer_cooling_off_days"]
+    if insurance.declined_recently(ctx.conn, mid, ctx.now, days):
+        return _block(ReasonCode.OFFER_COOLING_OFF, f"an insurance offer was declined within the last {days} days")
+    return None
+
+
 def check_offer_gating(ctx: Ctx) -> Outcome | None:                                    # 7
+    if ctx.action == "offer_insurance":
+        return _insurance_gating(ctx)
     if ctx.action != "create_offer":
         return None
     if consent.is_withdrawn(ctx.conn, ctx.merchant_id, "loan_offer"):     # DPDP s.6: next turn respects it

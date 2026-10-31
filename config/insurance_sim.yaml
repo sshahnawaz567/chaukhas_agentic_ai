@@ -1,0 +1,38 @@
+# SIMULATED insurance partner (placeholders, calibration pending). In production a licensed insurer / broker
+# decides and issues policies, and IRDAI rules apply; Chaukas only recommends and records the merchant's interest.
+# Every number here is ILLUSTRATIVE. Owner: Member 2 (rules) / Member 1 (integration).
+insurer_name: "Demo General Insurance (simulated)"
+grievance_contact: "claims@demo-insurer.example (mock)"
+
+# Which product fits first when several do (most specific first).
+priority: [ELECTRONICS_PARTS, DEVICE_PROTECT, SHOP_FIRE]
+
+# Words in a past support ticket that mean "a device problem" (the 'past case' signal for DEVICE_PROTECT).
+device_ticket_keywords: [qr, soundbox, sound box, pos, device, machine, speaker, battery]
+
+products:
+  ELECTRONICS_PARTS:
+    name: "Electronics Parts & Stock Cover"
+    covers: ["short circuit and electrical damage to parts and stock", "fire", "theft of stock"]
+    categories: [electronics]            # only electronics shops
+    min_gmv_30d: 100000
+    cover_multiple_of_gmv: 2.0           # sum insured = 2 x monthly sales, rounded
+    round_to: 50000
+    max_cover_inr: 1000000
+    premium_rate_pct: 0.9                # per year, on the sum insured
+  DEVICE_PROTECT:
+    name: "Soundbox / POS Device Protection"
+    covers: ["accidental damage to the Paytm device", "water damage", "short circuit"]
+    requires_device: true
+    requires_device_ticket: true         # a past device problem is what makes this relevant
+    cover_inr: 15000
+    premium_inr: 499
+  SHOP_FIRE:
+    name: "Shop Fire Cover"
+    covers: ["fire", "lightning", "explosion"]
+    categories: [grocery, food, pharmacy, hardware, auto_spares, retail, services, jewellery, electronics]
+    min_gmv_30d: 50000
+    cover_multiple_of_gmv: 3.0
+    round_to: 50000
+    max_cover_inr: 2000000
+    premium_rate_pct: 0.35
