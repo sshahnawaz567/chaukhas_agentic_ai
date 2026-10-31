@@ -21,15 +21,16 @@ from chaukas.core.models import (
     ReasonCode,
     Verdict,
 )
-from chaukas.integrations import lending, payments, ticketing
+from chaukas.integrations import insurance, lending, payments, ticketing
 
-_READ_ONLY = {ActionType.VERIFY_LEDGER.value, ActionType.CHECK_ELIGIBILITY.value}
+_READ_ONLY = {ActionType.VERIFY_LEDGER.value, ActionType.CHECK_ELIGIBILITY.value, ActionType.CHECK_INSURANCE.value}
 
 _ROLLBACK = {
     ActionType.RETRIGGER_PAYOUT.value: payments.cancel_payout,
     ActionType.RAISE_TICKET.value: ticketing.void_ticket,
     ActionType.UPDATE_TICKET.value: ticketing.void_ticket,
     ActionType.CREATE_OFFER.value: lending.withdraw_offer,
+    ActionType.OFFER_INSURANCE.value: insurance.withdraw_lead,
 }
 
 
@@ -109,6 +110,9 @@ def _run_read_only(step: PlannedStep, state: ConversationState, t0: float) -> Ac
             ledger = payments.verify_ledger(step.params["settlement_id"])
             if not ledger.found:
                 raise LookupError("settlement not found")
+        elif step.action_type == ActionType.CHECK_INSURANCE.value:
+            if state.merchant is not None:       # None = nothing fits this merchant (the plan then offers nothing)
+                state.merchant.insurance = insurance.recommend_for(step.params["merchant_id"])
         else:
             decision = lending.check_eligibility(step.params["merchant_id"])
             if state.merchant is not None:
@@ -141,4 +145,8 @@ def _call_tool(step: PlannedStep, state: ConversationState, decision: Decision, 
         kfs = lending.build_kfs(p["merchant_id"], p["amount"])
         return lending.create_offer(p["merchant_id"], p["amount"], True, kfs, state.session_id, key,
                                     kfs_shown_at=kfs_shown_at, trace_id=state.trace_id).offer_id
+    if step.action_type == ActionType.OFFER_INSURANCE.value:
+        if decision.reason_code != ReasonCode.CONFIRMED_BY_MERCHANT:
+            raise PermissionError("an insurance offer needs the MERCHANT's own consent")  # a human cannot consent for them
+        return insurance.create_lead(p["merchant_id"], p["product_id"], state.session_id, key, trace_id=state.trace_id)
     raise ValueError(f"unsupported action {step.action_type}")

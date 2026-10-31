@@ -12,6 +12,7 @@ Your only job is to understand the merchant's message. You never act, never prom
 Classify the merchant message in <USER QUESTION> into exactly ONE intent:
 - settlement_delay: money / settlement / payout has not arrived, is late, failed or pending ("paisa nahi aaya", "पैसा नहीं आया")
 - loan_inquiry: merchant asks about a loan, credit, or financing
+- insurance_inquiry: merchant asks about insurance / bima for the shop, its stock or its device ("insurance milega kya?")
 - device_issue: soundbox, QR, POS or app device is not working
 - refund_request: merchant wants to refund a CUSTOMER or asks for a refund
 - confirm: a YES to the pending request ("haan", "ok bhej do", "हाँ भेज दो") - ONLY valid when <pending_request> is true
@@ -26,7 +27,7 @@ Also detect: lang - exactly ONE code from the list in the O/P SCHEMA. Decide by 
 - mr-IN: Marathi, in Devanagari or Roman letters ("माझे पैसे अजून आले नाहीत", "maza paisa ajun ala nahi"). Marathi is NOT hi-IN.
 - ANY other language (Tamil, Bengali, Telugu, ...): en-IN. We answer those merchants in English.
 - a short reply like "ok" / "yes" / "haan": use the language of the recent turns in <CONTEXT>
-urgency (low | med | high), track (support for settlement_delay/device_issue/refund_request/human_request/confirm/deny, sales for loan_inquiry),
+urgency (low | med | high), track (support for settlement_delay/device_issue/refund_request/human_request/confirm/deny, sales for loan_inquiry and insurance_inquiry),
 and confidence (0.0 to 1.0).
 </INSTRUCTION>
 

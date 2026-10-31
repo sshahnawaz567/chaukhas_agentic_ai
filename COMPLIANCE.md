@@ -43,6 +43,20 @@
 | L6 | Borrower can exit the loan in a cooling-off / look-up period | Lender-side, after disbursal — **out of scope** (we only make the offer). ⚠ Our "offer cooling-off" (don't re-offer for 7 days after a decline) is a **different thing** — see decision D14 | — | — | 🔵 |
 | L7 | Collect only needed data, with consent | Lender gets cashflow features only; purpose-specific consent `loan_offer` | `consents` table | — | ✅ |
 
+## 2b. Shop insurance (additive, v3.3): same pattern as the loan offer
+
+Chaukas recommends the cover that fits and records the merchant's interest. It never issues a policy, never charges a premium and moves no money. All insurer names, covers and premiums are ILLUSTRATIVE mock values (`config/insurance_sim.yaml`).
+
+| # | Requirement | How we meet it | Where | Test | Status |
+|---|-------------|----------------|-------|------|:---:|
+| I1 | The merchant knows who offers it and that figures are illustrative | The offer names the insurer, says "illustrative", and shows the grievance contact (kept unmasked as a public contact) | `config/insurance_sim.yaml`, `agents/reply.py` templates | `tests/test_insurance.py` | ✅ (partner and figures are mock) |
+| I2 | Explainable recommendation | Deterministic rules over business category, sales, device and PAST support tickets, with reason codes (`CATEGORY_ELECTRONICS`, `DEVICE_TICKET_HISTORY`, ...). The guardrail calls the same function, so offer and permission cannot disagree. No LLM | `integrations/insurance.py`, engine check 7 | rules for all 20 merchants, fairness test | ✅ |
+| I3 | Consent per purpose, withdrawal as easy as giving it | Consent purpose `insurance_offer`; the offer needs the merchant's own yes (check 10); a withdrawn consent BLOCKs with `CONSENT_WITHDRAWN`, final | `compliance/consent.py`, `policy/engine.py` | `tests/test_insurance.py`, red-team RT-N1, RT-N5 | ✅ |
+| I4 | No mis-selling | Support first (open issue, pending KYC, open handoff all block), one product per conversation, 7-day cooling-off after a no, no second lead for the same product, only the recommended product can be offered | engine check 7, `insurance_leads` | red-team RT-N2..N9, golden I01-I05 | ✅ |
+| I5 | Insurance distribution is regulated (IRDAI): a licensed insurer or broker must issue and advise | Prototype = recommendation + interest record only; the licensed partner follows up. **Verify the exact distribution rules before any claim on slides** | roadmap | none | 🔵 |
+
+Safe to say: "Chaukas suggests the cover that fits the shop and never buys it for the merchant: it asks first, records interest, and the licensed insurer takes it from there." Never say "IRDAI-compliant" or "certified".
+
 ## 3. RBI payment data storage
 
 | ID | Requirement | Chaukas control | Where | Status |

@@ -23,6 +23,7 @@ class Intent(str, Enum):
     CONFIRM = "confirm"                     # reply to a pending step: "haan bhejo" / OTP
     DENY = "deny"                           # reply to a pending step: "nahi"
     HUMAN_REQUEST = "human_request"         # "insaan se baat karao" / grievance -> ALWAYS handoff
+    INSURANCE_INQUIRY = "insurance_inquiry"  # sales: "insurance milega kya?" (ADDITIVE)
     UNKNOWN = "unknown"                     # low confidence / anything else -> handoff
 
 
@@ -55,6 +56,8 @@ class ActionType(str, Enum):  # == policy.yaml allow_list (+ never_allowed for r
     RAISE_TICKET = "raise_ticket"
     UPDATE_TICKET = "update_ticket"
     CREATE_OFFER = "create_offer"            # sales, always needs consent
+    CHECK_INSURANCE = "check_insurance"      # read-only: which shop insurance fits this merchant (ADDITIVE)
+    OFFER_INSURANCE = "offer_insurance"      # sales, always needs consent; records interest, never charges (ADDITIVE)
 
 
 class Verdict(str, Enum):
@@ -94,6 +97,7 @@ class HandoffReason(str, Enum):  # handoffs.reason_code = a ReasonCode OR one of
     HUMAN_REQUESTED = "HUMAN_REQUESTED"  # merchant asked for a human
     LOAN_ACCEPTED = "LOAN_ACCEPTED"  # ADDITIVE: merchant accepted an offer -> back-office follow-up, not an approval
     SUSPECTED_INJECTION = "SUSPECTED_INJECTION"  # ADDITIVE: message carries instructions aimed at the AI -> fraud review
+    INSURANCE_INTEREST = "INSURANCE_INTEREST"  # ADDITIVE: merchant said yes to an insurance offer -> insurer follow-up
 
 
 class TurnStatus(str, Enum):  # the state machine — see C1.4
@@ -142,6 +146,15 @@ class CreateOfferParams(BaseModel):
     amount: PositiveInt
 
 
+class CheckInsuranceParams(BaseModel):  # ADDITIVE
+    merchant_id: str
+
+
+class OfferInsuranceParams(BaseModel):  # ADDITIVE: no amount: nothing is charged or sent
+    merchant_id: str
+    product_id: str
+
+
 PARAMS_BY_ACTION: dict[ActionType, type[BaseModel]] = {
     ActionType.VERIFY_LEDGER: VerifyLedgerParams,
     ActionType.CHECK_ELIGIBILITY: CheckEligibilityParams,
@@ -149,6 +162,8 @@ PARAMS_BY_ACTION: dict[ActionType, type[BaseModel]] = {
     ActionType.RAISE_TICKET: RaiseTicketParams,
     ActionType.UPDATE_TICKET: UpdateTicketParams,
     ActionType.CREATE_OFFER: CreateOfferParams,
+    ActionType.CHECK_INSURANCE: CheckInsuranceParams,
+    ActionType.OFFER_INSURANCE: OfferInsuranceParams,
 }
 
 
@@ -267,6 +282,7 @@ class MerchantContext(BaseModel):  # what Context Agent puts in state — tokens
     has_open_handoff: bool
     declined_offer_recently: bool  # within offer_cooling_off_days
     eligibility: LenderDecision | None = None  # filled by check_eligibility step
+    insurance: dict | None = None  # ADDITIVE: filled by check_insurance (the recommendation, or None = nothing fits)
 
 
 class TurnRecord(BaseModel):  # history entry (mirrors `turns` table)
